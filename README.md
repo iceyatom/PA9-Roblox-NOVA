@@ -1,5 +1,9 @@
 # NOVA
-A private, two-seat platform duel for Roblox desktop. Map 1 is the only arena.
+A Roblox platform duel with automatic two-player lobbies. Each server can host multiple independent Map 1 duels.
+
+Players automatically join the oldest lobby waiting for an opponent. A third player starts another lobby, a fourth joins them, and so on up to the Roblox server player limit. Each lobby owns its countdown, movement, health, shots, results and rematch votes. The HUD shows the assigned lobby number. Completed duels keep their seats for rematch decisions. After a combat disconnect, the survivor sees Victory and can choose Return to lobby to find another waiting opponent. Empty lobbies are removed. Waiting players from separate lobbies pair automatically when a seat opens.
+
+Clients send their assigned lobby ID and round with each gameplay intention. The server checks both against the sender's actual membership. Snapshots and Studio tuning events reach only the members of that lobby. Players use the existing Leave button to exit the experience after a result.
 
 ## Architecture decision
 NOVA draws native ScreenGui rectangles on a fixed 16:9 stage. A server-owned fixed-step simulation operates in tile units with separate collision masks for bodies and projectiles. This preserves the reference's flat silhouettes, avoids perspective and 3D physics ownership differences, and lets the same collision code run in isolated tests. Roblox characters are disabled. The client sends input edges and displays authoritative snapshots.
@@ -17,14 +21,18 @@ Press **F4** in a Studio client. **Show masks** displays tile and player bounds,
 
 ## Open and play
 
-Open `build/NOVA.rbxlx` in Studio. For a fresh checkout, run `python tools/build.py` at the repository root to generate that file using Python 3 and its standard library. In Studio, select **Server & Clients**, choose **2 clients**, and start the session. Solo Play intentionally opens a one-player lobby. Use keyboard and mouse or a connected gamepad. Tilt the left stick sideways to move at variable speed. Press Xbox A or PlayStation Cross (×) to jump. Pull RT/R2 once per shot.
+Open `build/NOVA.rbxlx` in Studio. For a fresh checkout, run `python tools/build.py` at the repository root to generate that file using Python 3 and its standard library. In Studio, select **Server & Clients**, choose **2 clients**, and start the session. Solo Play intentionally opens a one-player lobby. Use keyboard and mouse or a connected gamepad. Tilt the left stick sideways past its dead zone to move at full speed. Releasing or reversing horizontal input stops or reverses movement on the next simulation tick, including in midair. Press Xbox A or PlayStation Cross (×) to jump. Pull RT/R2 once per shot.
+
+Player positions display directly from server updates at 60 Hz. Jumps immediately apply their configured upward impulse and then follow gravity. Network travel time still affects when an input reaches the authoritative simulation.
+
+Hold Space or Xbox A / PlayStation Cross (×) to jump again automatically whenever the player lands on a solid surface. Release to finish the current arc and stop jumping. A short tap performs one jump. Opening the Roblox menu, losing focus or disconnecting the controller clears held input.
 
 ## Source-to-Studio mapping
 
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
 | `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog and Map1 |
-| `src/server` | `ServerScriptService.NOVA` | Server, Match, Movement, Combat and StudioTest |
+| `src/server` | `ServerScriptService.NOVA` | Server, Lobbies, Match, Movement, Combat and StudioTest |
 | `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, Widgets, Arena, Input and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |

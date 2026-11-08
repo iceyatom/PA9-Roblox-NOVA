@@ -48,9 +48,19 @@ function Match:intent(seat,round,kind,a,b)
     if self.phase ~= "Playing" then return false end
     local body = self.bodies[seat]
     if kind == "fire" then return Combat.fire(self,seat,a) end
-    if kind == "jump" then body.jump = true; return true end
+    if kind == "jump" then
+        if a==nil then
+            body.jump=true
+        elseif typeof(a)=="boolean" then
+            body.jumpHeld=a
+            if a then body.jump=true end
+        else
+            return false
+        end
+        return true
+    end
     if kind == "move" and typeof(a) == "number" and a >= -1 and a <= 1 and (b == nil or typeof(b) == "boolean") then
-        body.axis = a
+        body.axis = math.sign(a)
         return true
     end
     return false

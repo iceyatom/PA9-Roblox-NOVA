@@ -3,6 +3,60 @@ return function(t)
     local Movement=require(game.ServerScriptService.NOVA.Movement)
     local Map=require(game.ReplicatedStorage.NOVA.Map1)
     local cfg=require(game.ReplicatedStorage.NOVA.Config)
+    t.test("held jump repeats on landing and release stops the next jump",function()
+        local s=F.duel()
+        local b=s.bodies[1]
+        assert(s:intent(1,s.round,"jump",true))
+        local takeoffs=0
+        for _=1,240 do
+            local grounded=b.grounded
+            s:step(cfg.Step)
+            if grounded and b.vy<0 then takeoffs+=1 end
+        end
+        assert(takeoffs>=2,"Held jump did not repeat")
+        assert(s:intent(1,s.round,"jump",false))
+        F.advance(s,180)
+        F.near(b.y,11.5)
+        F.near(b.vy,0)
+        assert(b.grounded and not b.jumpHeld)
+        assert(not s:intent(1,s.round,"jump","held"))
+    end)
+    t.test("a quick press and release still jumps once",function()
+        local s=F.duel()
+        local b=s.bodies[1]
+        s:intent(1,s.round,"jump",true)
+        s:intent(1,s.round,"jump",false)
+        s:step(cfg.Step)
+        assert(b.vy<0 and not b.jumpHeld)
+        F.advance(s,180)
+        assert(b.grounded)
+        F.near(b.y,11.5)
+    end)
+    t.test("full speed, stop and reversal apply on the next ground or air step",function()
+        local s=F.duel()
+        local b=s.bodies[1]
+        local start=b.x
+        s:intent(1,s.round,"move",0.25)
+        s:step(cfg.Step)
+        F.near(b.x-start,cfg.Speed*cfg.Step)
+        start=b.x
+        s:intent(1,s.round,"move",0)
+        s:step(cfg.Step)
+        F.near(b.x,start)
+        s:intent(1,s.round,"jump")
+        s:intent(1,s.round,"move",-0.25)
+        s:step(cfg.Step)
+        F.near(b.x-start,-cfg.Speed*cfg.Step)
+        F.near(b.vy,-cfg.Jump+cfg.Gravity*cfg.Step)
+        start=b.x
+        s:intent(1,s.round,"move",1)
+        s:step(cfg.Step)
+        F.near(b.x-start,cfg.Speed*cfg.Step)
+        start=b.x
+        s:intent(1,s.round,"move",0)
+        s:step(cfg.Step)
+        F.near(b.x,start)
+    end)
     t.test("map symmetry, masks and spawns",function()
         local a=Map.arena
         assert(a.width==38 and a.height==29 and #a.pads==2)

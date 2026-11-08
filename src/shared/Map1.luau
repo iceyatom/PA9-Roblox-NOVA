@@ -3,8 +3,8 @@ local Map = {}
 
 -- A complete logical cell per character. Origins and spawns use zero-based tile units.
 Map.rows = {
-    "Y....................................Y",
-    "M....................................M",
+    "P....................................P",
+    "P....................................P",
     "P...P........DDD......DDD........P...P",
     "P...PPP.....L...D....D...L.....PPP...P",
     "P...P..P....L...D....D...L....P..P...P",

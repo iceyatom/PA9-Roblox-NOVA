@@ -4,10 +4,6 @@ local Hud={}
 Hud.__index=Hud
 local bold=Enum.Font.GothamBold
 local heavy=Enum.Font.GothamBlack
-local function centered(label)
-    label.TextXAlignment=Enum.TextXAlignment.Center
-    return label
-end
 
 function Hud.new(playerGui)
     local self=setmetatable({},Hud)
@@ -64,23 +60,6 @@ function Hud.new(playerGui)
         W.text(stage,"Tile",rx+24,y,184,25,row[1],19,C.white,bold)
         W.text(stage,"Mask",rx+24,y+25,184,21,row[2],15,C.muted)
     end
-    local footer=W.box(stage,"ControlBar",283,757,874,40)
-    local controls={{"A  D","Move",0,69},{"SPACE","Jump",258,84},{"LMB","Fire at rival",579,67}}
-    local keys={}
-    for i,k in controls do
-        local cap=W.box(footer,"Keycap",k[3],0,k[4],32,C.panel)
-        W.stroke(cap,C.line)
-        keys[i]=centered(W.text(cap,"Key",0,0,k[4],32,k[1],16,C.white))
-        W.text(footer,"Action",k[3]+k[4]+13,0,160,32,k[2],17,C.muted,bold)
-    end
-    local inputs=game:GetService("UserInputService")
-    local padKeys={"LS ↔","A / ×","RT"}
-    local function updateHints()
-        local pad=inputs.PreferredInput==Enum.PreferredInput.Gamepad
-        for i,label in keys do label.Text=pad and padKeys[i] or controls[i][1] end
-    end
-    inputs:GetPropertyChangedSignal("PreferredInput"):Connect(updateHints)
-    updateHints()
     self.notice=W.box(stage,"MatchNotice",520,389,400,111,C.panel,8)
     W.stroke(self.notice,C.line)
     W.box(self.notice,"Signal",0,0,4,111,C.lime)
@@ -97,7 +76,8 @@ end
 function Hud:update(snap,seat)
     self.snap=snap
     local phase=snap.phase
-    self.phaseLabel.Text=({Waiting="LOBBY   /   1 OF 2",Countdown="DUEL   /   COUNTDOWN",Playing="DUEL   /   LIVE",Results="DUEL   /   FINAL"})[phase]
+    local status=({Waiting="1 OF 2",Countdown="COUNTDOWN",Playing="LIVE",Results="FINAL"})[phase]
+    self.phaseLabel.Text=("LOBBY %02d / %s"):format(snap.lobby,status)
     for i,p in snap.players do
         local side=self.seats[i]
         side.who.Text=("PLAYER 0%d%s"):format(i,i==seat and "   /   YOU" or "")

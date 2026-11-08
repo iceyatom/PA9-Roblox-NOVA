@@ -84,8 +84,16 @@ end
 
 function Arena:update(snap,time)
     local unit=self.unit
-    local changed=self.round~=snap.round
+    local changed=self.round~=snap.round or self.lobby~=snap.lobby
+    self.lobby=snap.lobby
     self.round=snap.round
+    if changed then
+        for id,shot in self.shots do
+            shot.frame:Destroy()
+            shot.trace:Destroy()
+            self.shots[id]=nil
+        end
+    end
     self.received=time
     for i,p in snap.players do
         local actor=self.actors[i]
@@ -95,7 +103,6 @@ function Arena:update(snap,time)
         actor.hp=p.hp
         actor.bar.Size=UDim2.fromScale(p.hp/snap.maxHP,1)
         actor.target=Vector2.new(p.x,p.y)
-        actor.start=(not changed and actor.draw) or actor.target
     end
     local seen={}
     for _,b in snap.shots do
@@ -134,8 +141,7 @@ function Arena:draw(time)
     if not self.received then return end
     local alpha=math.clamp((time-self.received)*cfg.SnapshotRate,0,1)
     for _,actor in self.actors do
-        actor.draw=actor.start:Lerp(actor.target,alpha)
-        actor.body.Position=UDim2.fromOffset(actor.draw.X*self.unit,actor.draw.Y*self.unit)
+        actor.body.Position=UDim2.fromOffset(actor.target.X*self.unit,actor.target.Y*self.unit)
         actor.body.BackgroundColor3=time<actor.flash and C.white or actor.color
         actor.box.Visible=self.diagnostics.Visible
     end

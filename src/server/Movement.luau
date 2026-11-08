@@ -2,7 +2,7 @@ local Movement = {}
 local EPS = 1e-7
 
 function Movement.body(center, cfg)
-    return {x=center.X, y=center.Y, vy=0, axis=0, jump=false,
+    return {x=center.X, y=center.Y, vy=0, axis=0, jump=false, jumpHeld=false,
         grounded=false, pad=false, hp=cfg.Health, lastShot=0}
 end
 
@@ -37,7 +37,7 @@ local function moveAxis(body, other, map, cfg, axis, delta)
 end
 
 function Movement.step(b, other, map, cfg, dt)
-    if b.jump and b.grounded then b.vy = -cfg.Jump; b.grounded = false end
+    if (b.jump or b.jumpHeld) and b.grounded then b.vy = -cfg.Jump; b.grounded = false end
     b.jump = false
     moveAxis(b,other,map,cfg,"x",b.axis*cfg.Speed*dt)
     b.vy = math.min(cfg.MaxFall,b.vy + cfg.Gravity*dt)

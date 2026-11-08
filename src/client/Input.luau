@@ -5,22 +5,29 @@ local Input={}
 
 function Input.gamepad(move,jump,fire)
     local held={}
+    local function jumping()
+        return held[Enum.KeyCode.Space]==true or held[Enum.KeyCode.ButtonA]==true
+    end
     local function reset()
+        local wasJumping=jumping()
         table.clear(held)
+        if wasJumping then jump(false) end
     end
     local function handle(state,key,position)
         local released=state==Enum.UserInputState.End or state==Enum.UserInputState.Cancel
         if key==Enum.KeyCode.ButtonR2 or key==Enum.KeyCode.ButtonA or key==Enum.KeyCode.Space then
+            local wasJumping=jumping()
             if released then held[key]=nil
             elseif state==Enum.UserInputState.Begin and not held[key] then
                 held[key]=true
-                if key==Enum.KeyCode.ButtonR2 then fire() else jump() end
+                if key==Enum.KeyCode.ButtonR2 then fire() end
             end
+            local isJumping=jumping()
+            if isJumping~=wasJumping then jump(isJumping) end
         elseif key==Enum.KeyCode.Thumbstick1 then
             local x=released and 0 or position.X
-            -- Remove center drift, then quantize to limit movement traffic.
-            local magnitude=math.clamp((math.abs(x)-0.18)/0.82,0,1)
-            move(math.sign(x)*math.round(magnitude*32)/32)
+            -- Outside the dead zone, movement starts immediately at full speed.
+            move(math.abs(x)>0.18 and math.sign(x) or 0)
         end
     end
     return handle,reset
@@ -41,7 +48,7 @@ function Input.connect(send,active)
     local handle,reset=Input.gamepad(function(x)
         stickX=x
         movement()
-    end,function() send("jump") end,function() send("fire") end)
+    end,function(held) send("jump",held) end,function() send("fire") end)
     local function clear()
         table.clear(down)
         reset()

@@ -1,5 +1,21 @@
 # NOVA v1 acceptance record
 
+## Held jump update
+
+All **50 simulation checks passed**. The new checks cover repeated jumps while held, stopping after release, short taps, and rejection of invalid held-state values. Client input checks cover Space and controller A/Cross together, releasing one while the other stays held, cancellation, clearing held input and distinct trigger presses.
+
+The four-client acceptance run also passed. A real Studio client held Space across multiple landings and then released it. The player jumped repeatedly and settled after release. The same run completed both duels, a rematch, Leave and disconnect recovery while the second lobby stayed isolated.
+
+## Movement response update
+
+The simulation suite passed **48 of 48** checks. The new regression verifies full-speed movement on the first input step, immediate stop and reversal on ground and in air, and the full initial jump impulse. Client checks verified that partial stick deflection outside the dead zone produces full speed, release produces zero movement, and player positions render at the newest snapshot without positional blending. Server snapshots now run at 60 Hz.
+
+## Multiple lobby update
+
+The current simulation suite passed **47 of 47** checks. Added cases cover seven players pairing into independent duels, an odd player waiting, duplicate ready requests, rejection of requests carrying another lobby ID, independent rematch rounds, automatic pairing of waiting survivors and removal of empty lobbies.
+
+The extended live Studio test passed with four clients in two simultaneous lobbies and a fifth replacement client joining later. Both lobbies exchanged movement and shots. The second lobby retained its health, round and Playing phase while the first lobby completed two duels, rematched, used Leave, accepted a replacement, and handled an active disconnect. Each pair received only its own roster and projectile state. The connected place reported a 60-player server limit, permitting up to 30 simultaneous duels. This is functional testing with four concurrent clients, not a 60-client load test.
+
 Tested November 7, 2026 in Roblox Studio through MCP on the development PC. The automated suite returned **43 passed, 0 failed**. The extended StudioTestService run returned **passed = true**. The real local clients used generated keyboard and mouse events and the same input, rendering, UI buttons and RemoteEvents as normal desktop players.
 
 | Case | Observed result |

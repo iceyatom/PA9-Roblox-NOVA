@@ -37,7 +37,6 @@ function Diagnostics.attach(hud,arena,remote)
         else record("Duel lane loaded") end
     end)
     panel.Visible=false
-    W.text(hud.stage,"DebugHint",1195,757,215,32,"F4  Studio tools",15,C.muted)
     game:GetService("UserInputService").InputBegan:Connect(function(key,processed)
         if not processed and key.KeyCode==Enum.KeyCode.F4 then panel.Visible=not panel.Visible end
     end)
