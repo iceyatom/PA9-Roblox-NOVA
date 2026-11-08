@@ -27,11 +27,32 @@ Player positions display directly from server updates at 60 Hz. Jumps immediatel
 
 Hold Space or Xbox A / PlayStation Cross (×) to jump again automatically whenever the player lands on a solid surface. Release to finish the current arc and stop jumping. A short tap performs one jump. Opening the Roblox menu, losing focus or disconnecting the controller clears held input.
 
+## Level editor
+
+`plugin/NOVALevelEditor.lua` is a Studio plugin for painting duel maps. Install it by copying the file into Studio's local plugins folder, then restart Studio:
+
+```bash
+cp plugin/NOVALevelEditor.lua "$LOCALAPPDATA/Roblox/Plugins/"
+```
+
+Open it with **Plugins → NOVA → Level Editor**. Pick a map in the sidebar or click **New map**. Select a tile, then left-drag on the grid to paint and right-drag to erase. **Mirror** paints both halves and places the second spawn opposite the first. **Check map** runs the same compiler the game uses. **Save** writes a ModuleScript to `ReplicatedStorage.NOVA.Maps`. **Set active map** makes the server play that map; press Play to try it. Without an active map the game plays Split Circuit.
+
+Maps saved in Studio are part of the place, not this repository. To copy one into `src/shared/maps/`, start the local bridge at the repository root and keep it open:
+
+```bash
+python tools/map_bridge.py
+```
+
+Then open the map in the editor, Save it, and click **Export to repo**. The first export asks you to allow the plugin to reach `127.0.0.1`; choose Allow. The bridge listens only on this PC, accepts only map data modules, and writes `src/shared/maps/<MapName>.luau`. Run `python tools/build.py` afterwards to include the map in the generated place.
+
+**Delete map** removes the open map from Studio and deletes `src/shared/maps/<MapName>.luau`. Click it twice within five seconds to confirm. The bridge must be running; the repo file is deleted first, so a failed request leaves both copies in place. Studio's Undo restores the Studio copy only; restore a committed repo copy with `git checkout -- src/shared/maps/<MapName>.luau`. If the map was active, the game returns to Split Circuit. Split Circuit cannot be deleted.
+
 ## Source-to-Studio mapping
 
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
 | `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog and Map1 |
+| `src/shared/maps` | `ReplicatedStorage.NOVA.Maps` | Map data modules (Split Circuit) |
 | `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat and StudioTest |
 | `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, Widgets, Arena, Input and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |

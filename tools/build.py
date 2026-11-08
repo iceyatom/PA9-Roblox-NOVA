@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 MAPPING = {
     "src/shared": "ReplicatedStorage/NOVA",
+    "src/shared/maps": "ReplicatedStorage/NOVA/Maps",
     "src/server": "ServerScriptService/NOVA",
     "src/client": "StarterPlayer/StarterPlayerScripts/NOVA",
     "tests/unit": "ServerStorage/NOVAUnitTest",

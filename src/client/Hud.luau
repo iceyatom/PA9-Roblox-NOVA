@@ -26,8 +26,8 @@ function Hud.new(playerGui)
     resize()
     local stage=W.box(origin,"Stage",-720,-405,1440,810,C.ink)
     self.stage=stage
-    W.text(stage,"ArenaNumber",283,16,175,22,"MAP   /   01",15,C.lime)
-    W.text(stage,"ArenaTitle",283,34,420,34,"Split Circuit",31,C.white,heavy)
+    self.mapCode=W.text(stage,"ArenaNumber",283,16,175,22,"MAP   /   01",15,C.lime)
+    self.mapTitle=W.text(stage,"ArenaTitle",283,34,420,34,"Split Circuit",31,C.white,heavy)
     self.phaseLabel=W.text(stage,"Phase",865,32,292,30,"CONNECTING",17,C.muted)
     self.phaseLabel.TextXAlignment=Enum.TextXAlignment.Right
     -- Left rail: identity and player seats.

@@ -7,6 +7,8 @@ local input=shared:WaitForChild("Input")
 local state=shared:WaitForChild("State")
 local hud=require(script.Parent.Hud).new(player:WaitForChild("PlayerGui"))
 local arena=require(script.Parent.Arena).new(hud.stage)
+hud.mapCode.Text=("MAP   /   %s"):format(arena.map.code)
+hud.mapTitle.Text=arena.map.title
 local lobbyCard=require(script.Parent.LobbyHud).new(player.PlayerGui)
 local snapshot,seat,sequence
 local function fire(kind,a,b)

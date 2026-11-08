@@ -1,5 +1,5 @@
 local shared=game.ReplicatedStorage.NOVA
-local map=require(shared.Map1).arena
+local map=require(shared.Map1).active()
 local cfg=require(shared.Config)
 local catalog=require(shared.TileCatalog)
 local W=require(script.Parent.Widgets)
@@ -8,7 +8,7 @@ local Arena={}
 Arena.__index=Arena
 
 function Arena.new(stage)
-    local self=setmetatable({},Arena)
+    local self=setmetatable({map=map},Arena)
     local unit=math.min(cfg.TilePixels,890/map.width,667/map.height)
     self.unit=unit
     local width,height=unit*map.width,unit*map.height

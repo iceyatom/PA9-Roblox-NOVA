@@ -1,39 +1,12 @@
 local Catalog = require(script.Parent.TileCatalog)
 local Map = {}
 
--- A complete logical cell per character. Origins and spawns use zero-based tile units.
-Map.rows = {
-    "P....................................P",
-    "P....................................P",
-    "P...P........DDD......DDD........P...P",
-    "P...PPP.....L...D....D...L.....PPP...P",
-    "P...P..P....L...D....D...L....P..P...P",
-    "PP..P..P....L...D....D...L....P..P..PP",
-    "P...P...P...L...D....D...L...P...P...P",
-    "P...P...P...L...D....D...L...P...P...P",
-    "P..PP...P....DDD......DDD....P...PP..P",
-    "P...P............................P...P",
-    "P...P.....D................D.....P...P",
-    "PP..P.....DD..............DD.....P..PP",
-    "P...P.......DDDDDDDDDDDDDD.......P...P",
-    "P...P............................P...P",
-    "P..PP............................PP..P",
-    "P...P............................P...P",
-    "P...P............................P...P",
-    "PP..P............................P..PP",
-    "P...P............................P...P",
-    "P...P............................P...P",
-    "P..PP.........PPPPPPPPPP.........PP..P",
-    "P...P.......PP..........PP.......P...P",
-    "P...P............................P...P",
-    "PP..P.....P................P.....P..PP",
-    "P.........P......PPPP......P.........P",
-    "P.........P.....P....P.....P.........P",
-    ".PP.......PLLLLP......PLLLLP.......PP.",
-    "...P....G.........PP.........G....P...",
-    "...PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP...",
-}
-Map.spawns = {Vector2.new(6.5,27.5), Vector2.new(31.5,27.5)}
+-- Map data lives in the Maps folder. Split Circuit stays the default and the test reference.
+local Maps = script.Parent:WaitForChild("Maps")
+local DEFAULT = "SplitCircuit"
+local data = require(Maps:WaitForChild(DEFAULT))
+Map.rows = data.Rows
+Map.spawns = data.Spawns
 
 function Map.compile(rows, spawns, mirrored)
     assert(type(rows) == "table" and #rows > 0 and type(rows[1]) == "string" and #rows[1] > 0, "Empty map")
@@ -77,4 +50,25 @@ function Map.compile(rows, spawns, mirrored)
     return map
 end
 Map.arena = Map.compile(Map.rows, Map.spawns, true)
+Map.arena.title, Map.arena.code, Map.arena.id = data.Name, data.Code, DEFAULT
+
+-- Compile one map module from the Maps folder.
+function Map.load(id)
+    local module = Maps:FindFirstChild(id)
+    assert(module and module:IsA("ModuleScript"), "No map named "..tostring(id))
+    local source = require(module)
+    local arena = Map.compile(source.Rows, source.Spawns, source.Mirrored)
+    arena.title, arena.code, arena.id = source.Name or id, source.Code or "--", id
+    return arena
+end
+
+-- The map chosen with "Set active" in the level editor, or Split Circuit.
+function Map.active()
+    local id = script.Parent:GetAttribute("ActiveMap")
+    if not id or id == DEFAULT then return Map.arena end
+    local ok, arena = pcall(Map.load, id)
+    if ok then return arena end
+    warn("[NOVA] Active map "..id.." is invalid, using Split Circuit: "..tostring(arena))
+    return Map.arena
+end
 return Map

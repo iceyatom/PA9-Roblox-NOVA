@@ -2,9 +2,13 @@ local Players = game:GetService("Players")
 local Run = game:GetService("RunService")
 local shared = game.ReplicatedStorage:WaitForChild("NOVA")
 local Config = require(shared.Config)
-local lobbies = require(script.Parent.Lobbies).new(require(shared.Map1).arena,Config)
+local map = require(shared.Map1).active()
+local lobbies = require(script.Parent.Lobbies).new(map,Config)
 local LobbyWorld = require(script.Parent.LobbyWorld)
 local world = LobbyWorld.ensure()
+local signKicker = world:FindFirstChild("Kicker",true)
+if signKicker then signKicker.Text = ("MAP %s  /  %s"):format(map.code,map.title:upper()) end
+if Run:IsStudio() then print(("[NOVA] Active map: %s (%s)"):format(map.title,map.id)) end
 -- Characters exist only in the 3D lobby. Queued and dueling players use the 2D stage.
 Players.CharacterAutoLoads = false
 
