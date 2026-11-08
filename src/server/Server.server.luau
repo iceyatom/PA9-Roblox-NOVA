@@ -7,7 +7,7 @@ local map = Maps.active()
 local progression=require(script.Parent.ProgressionService).new()
 local lobbies = require(script.Parent.Lobbies).new(map,Config,Maps.choose,function(sim)
     for i,p in sim.seats do
-        sim.rewards[i]=progression:award(p,sim.winner==i)
+        sim.rewards[i],sim.xpRecaps[i]=progression:award(p,sim.winner==i)
     end
 end)
 local LobbyWorld = require(script.Parent.LobbyWorld)
@@ -49,7 +49,7 @@ local function broadcast(room)
     for i=1,2 do
         local p,b = sim.seats[i],sim.bodies[i]
         snap.players[i] = {uid=p and p.UserId,name=p and p.DisplayName,x=b.x,y=b.y,hp=b.hp,vote=sim.votes[i] == true,
-            progression=p and progression:view(p),xpAward=sim.rewards[i]}
+            progression=p and progression:view(p),xpAward=sim.rewards[i],xpRecap=sim.xpRecaps[i]}
     end
     for i,b in sim.bullets do snap.shots[i]={b.id,b.x,b.y,b.seat,b.vx,b.vy} end
     for _,p in sim.seats do

@@ -97,3 +97,11 @@ Manual checks in Studio (two clients):
 3. Run `require(game.ServerStorage.NOVAUnitTest.RunUnitTest)("Progression")` and `require(game.ServerStorage.NOVAUnitTest.RunUnitTest)("MatchRewards")` in the Studio server Command Bar for rank, save, and reward boundary coverage.
 4. At level 55, check the two-click lobby prestige flow, cancellation by entering a challenge, ten resets, and Prestige Master entry at level 55. Test keyboard, touch, and controller selection, and check the lobby card on a narrow viewport.
 5. In a private published test server, earn XP, leave, and rejoin to verify the saved rank and XP. Confirm delayed saves/loads are disclosed, temporary failures recover, and overlapping sessions cannot overwrite each other. Studio intentionally does not access these profiles.
+
+## Animated XP recap — November 8, 2026
+
+- Official Luau CLI: **81 logic cases passed**, including seven new itemized-reward/animation-plan cases. All **55 Luau scripts compiled**. Rebuilt `build/NOVA.rbxlx`.
+- Synced the eight changed/new runtime and test scripts to the local NOVA place. In the actual Studio server, all seven XPRewards cases and four MatchRewards cases passed.
+- A Studio-only preview sent receipts through the real State snapshot handler. Visually verified the item rows, counting total, progression bar, rank, level gains, and result buttons. A level-1 victory ended at Level 3, 75/150 XP, with a half-full bar and +300 XP total. Confirmed the buttons are below the progress text and remain available.
+- Re-sent the same result with a rematch vote: the completed animation did not replay and the rematch button updated normally. A new-round preview reaching Prestige 5 level 55 stopped with a full bar and the prestige-available message.
+- Previews did not change the player's profile. Restored the lobby, confirmed Level 1 / 0 XP, and left Play running. No publishing was performed. A complete two-player duel with the new animation remains a manual gameplay check; the Studio checks used isolated result snapshots.

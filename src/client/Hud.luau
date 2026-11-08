@@ -72,6 +72,10 @@ function Hud.new(playerGui)
     self.kicker=W.text(self.notice,"Status",23,12,355,22,"DUEL LOBBY",15,C.purple)
     self.title=W.text(self.notice,"Title",22,35,362,38,"Waiting for a rival",29,C.white,heavy)
     self.note=W.text(self.notice,"Detail",23,77,360,23,"The duel starts with two players.",16,C.muted)
+    self.xpRecap=require(script.Parent.XPRecap).new(self.notice)
+    gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+        if not gui.Enabled then self.xpRecap:hide() end
+    end)
     self.rematch=W.button(self.notice,"Rematch",23,109,209,37,"Rematch",true)
     self.leave=W.button(self.notice,"Leave",244,109,130,37,"Leave",false)
     self.rematch.Visible=false
@@ -96,10 +100,30 @@ function Hud:update(snap,seat)
     end
     self.notice.Visible=phase~="Playing" and phase~="Selecting"
     self.notice.Size=UDim2.fromOffset(400,(phase=="Results" or phase=="Waiting") and 160 or 111)
+    self.notice.Position=UDim2.fromOffset(520,389)
+    self.note.Size=UDim2.fromOffset(360,23)
+    local receipt=phase=="Results" and snap.players[seat].xpRecap
+    if receipt and receipt.total<=0 then receipt=nil end
+    if receipt then
+        local height=108+self.xpRecap:start(tostring(snap.lobby)..":"..snap.round,receipt)+65
+        self.notice.Size=UDim2.fromOffset(500,height)
+        self.notice.Position=UDim2.fromOffset(470,405-height/2)
+        self.note.Size=UDim2.fromOffset(454,23)
+    else
+        self.xpRecap:hide()
+    end
     self.rematch.Visible=phase=="Results"
     self.leave.Visible=phase=="Results" or phase=="Waiting"
     self.leave.Position=UDim2.fromOffset(phase=="Waiting" and 23 or 244,109)
     self.leave.Size=UDim2.fromOffset(phase=="Waiting" and 160 or 130,37)
+    self.rematch.Size=UDim2.fromOffset(receipt and 280 or 209,37)
+    if receipt then
+        local y=self.notice.Size.Y.Offset-51
+        self.rematch.Position=UDim2.fromOffset(23,y)
+        self.leave.Position=UDim2.fromOffset(347,y)
+    else
+        self.rematch.Position=UDim2.fromOffset(23,109)
+    end
     self.leave.Text=phase=="Waiting" and "Leave queue" or "Lobby"
     if phase=="Waiting" then
         self.kicker.Text,self.title.Text,self.note.Text="IN QUEUE","Waiting for a rival","The duel starts with two players."
@@ -111,12 +135,13 @@ function Hud:update(snap,seat)
         self.title.Text=snap.winner==0 and "Draw" or snap.winner==seat and "Victory" or "Defeat"
         self.note.Text=snap.reason=="Disconnect" and "Your rival disconnected." or snap.winner==0 and "Both players landed the final hit." or "Ten hits. Duel complete."
         local reward=snap.players[seat].xpAward
-        if reward and reward>0 then self.note.Text=("+%d XP / %s"):format(reward,snap.reason=="Disconnect" and "Rival disconnected" or snap.winner==seat and "Victory bonus" or "Duel completed") end
+        if reward and reward>0 and not receipt then self.note.Text=("+%d XP / %s"):format(reward,snap.reason=="Disconnect" and "Rival disconnected" or snap.winner==seat and "Victory bonus" or "Duel completed") end
         local rival=snap.players[3-seat]
         self.rematch.Text=not rival.uid and "Find new rival" or snap.players[seat].vote and "Waiting for rival…" or rival.vote and "Accept rematch" or "Rematch"
     end
 end
 function Hud:tick()
+    self.xpRecap:tick()
     if self.snap and self.snap.phase=="Countdown" then
         self.title.Text="Duel in "..math.clamp(math.ceil(self.snap.ends-workspace:GetServerTimeNow()),1,3)
     end

@@ -2,6 +2,7 @@ local Players=game:GetService("Players")
 local Run=game:GetService("RunService")
 local shared=game.ReplicatedStorage.NOVA
 local P=require(shared.Progression)
+local Rewards=require(shared.XPRewards)
 local Store=require(script.Parent.ProgressionStore)
 local Service={}
 Service.__index=Service
@@ -119,12 +120,11 @@ end
 function Service:award(player,won)
     if not self:ready(player) then return 0 end
     local r=self.records[player]
-    local amount=won and P.WinXP or P.PlayXP
-    P.award(r.data,amount)
+    local receipt=Rewards.apply(r.data,Rewards.items(won))
     r.version+=1
     player:SetAttribute("ProgressionStatus",self.storage and "Saving progression…" or "Studio preview / session progression")
     self:publish(player)
-    return amount
+    return receipt.total,receipt
 end
 
 function Service:view(player)

@@ -12,10 +12,10 @@ return function(t)
     t.test("a real rematch can issue its own reward",function()
         local sim=F.duel()
         local calls=0
-        sim.finished=function(s) calls+=1; s.rewards[1]=300 end
+        sim.finished=function(s) calls+=1; s.rewards[1]=300; s.xpRecaps[1]={total=300} end
         sim:finish(1,"Elimination")
         sim:intent(1,sim.round,"rematch"); sim:intent(2,sim.round,"rematch")
-        assert(not next(sim.rewards))
+        assert(not next(sim.rewards) and not next(sim.xpRecaps))
         sim:step(sim.cfg.Countdown)
         sim:finish(1,"Elimination")
         assert(calls==2 and sim.rewards[1]==300)

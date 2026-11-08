@@ -1,0 +1,60 @@
+return function(t)
+    local P=require(game.ReplicatedStorage.NOVA.Progression)
+    local Rewards=require(game.ReplicatedStorage.NOVA.XPRewards)
+    t.test("itemized wins preserve the existing reward total",function()
+        local d=P.new()
+        local receipt=Rewards.apply(d,Rewards.items(true))
+        assert(#receipt.items==2 and receipt.items[1].amount==100 and receipt.items[2].amount==200)
+        assert(receipt.total==P.WinXP and d.totalXP==P.WinXP)
+        assert(receipt.before.level==1 and receipt.before.xp==0 and receipt.after.level==3 and receipt.after.xp==75)
+        d.level=4
+        assert(receipt.before.level==1 and receipt.after.level==3,"Receipt must be independent of profile changes")
+    end)
+    t.test("losses and draws have only the completion reward",function()
+        local receipt=Rewards.apply(P.new(),Rewards.items(false))
+        assert(#receipt.items==1 and receipt.total==P.PlayXP and receipt.after.level==2 and receipt.after.xp==0)
+    end)
+    t.test("bar segments visit every threshold without skipping levels",function()
+        local d=P.new(); d.xp=90
+        local segments=Rewards.segments(d,200)
+        assert(#segments==3)
+        assert(segments[1].level==1 and segments[1].fromXP==90 and segments[1].toXP==100 and segments[1].levelUp)
+        assert(segments[2].level==2 and segments[2].fromXP==0 and segments[2].toXP==125 and segments[2].levelUp)
+        assert(segments[3].level==3 and segments[3].fromXP==0 and segments[3].toXP==65 and not segments[3].levelUp)
+        assert(d.level==1 and d.xp==90,"Planning the animation cannot change a profile")
+    end)
+    t.test("exact threshold has one fill and one level-up",function()
+        local segments=Rewards.segments(P.new(),100)
+        assert(#segments==1 and segments[1].levelUp and segments[1].toXP==segments[1].cost)
+    end)
+    t.test("prestige cap never animates a phantom level 56",function()
+        local d=P.new(); d.level=54; d.xp=P.cost(54)-20
+        local receipt=Rewards.apply(d,Rewards.items(true))
+        local segments=Rewards.segments(receipt.before,receipt.total)
+        assert(#segments==1 and segments[1].level==54 and segments[1].levelUp)
+        assert(receipt.after.level==55 and receipt.after.xp==0)
+        segments=Rewards.segments(receipt.after,200)
+        assert(#segments==1 and segments[1].capped and not segments[1].levelUp)
+    end)
+    t.test("master cap never animates a phantom level 1001",function()
+        local d={level=999,prestige=10,master=true,xp=P.cost(999)-10,totalXP=0}
+        local receipt=Rewards.apply(d,Rewards.items(true))
+        local segments=Rewards.segments(receipt.before,receipt.total)
+        assert(#segments==1 and segments[1].level==999 and receipt.after.level==1000 and receipt.after.xp==0)
+        assert(Rewards.segments(d,100)[1].capped)
+    end)
+    t.test("per-item animation ends at the authoritative final XP",function()
+        for _,before in {P.new(),{level=54,prestige=5,master=false,xp=1400,totalXP=1234},
+            {level=71,prestige=10,master=true,xp=1400,totalXP=4567}} do
+            local data=table.clone(before)
+            local receipt=Rewards.apply(data,Rewards.items(true))
+            local animated=table.clone(before)
+            for _,item in receipt.items do
+                local segments=Rewards.segments(animated,item.amount)
+                for _,s in segments do assert(s.toXP<=s.cost and s.level<=P.cap(animated)) end
+                P.award(animated,item.amount)
+            end
+            assert(animated.level==receipt.after.level and animated.xp==receipt.after.xp and animated.totalXP==receipt.after.totalXP)
+        end
+    end)
+end

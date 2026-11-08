@@ -24,6 +24,7 @@ function Match:reset(phase)
     self.bodies = {Movement.body(self.map.spawns[1],self.cfg),Movement.body(self.map.spawns[2],self.cfg)}
     self.phase,self.votes,self.bullets,self.serial,self.winner,self.reason = phase,{}, {},0,nil,nil
     self.rewards={}
+    self.xpRecaps={}
     self.count = phase == "Countdown" and self.cfg.Countdown or 0
     if phase == "Countdown" then self.round += 1 end
 end

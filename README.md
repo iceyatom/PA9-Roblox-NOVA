@@ -36,6 +36,10 @@ Players start at level 1, reach level 55, and choose **Prestige** in the top-lef
 
 A completed duel gives its winner **300 total XP** and its loser **100 XP**. Draws give both players 100 XP. A combat disconnect gives the survivor 300 XP; the departing player receives none. Queueing, map selection, countdowns, abandoned duels, and High Score Practice do not award XP. Each round finishes and awards rewards once, including rematches. The match result shows the earned XP.
 
+Results animate an itemized XP recap: **Duel completed +100 XP**, plus **Victory bonus +200 XP** for a win. Each row pops in and counts up, followed by its contribution filling the progression bar. Every crossed threshold gets a level-up pulse before the bar continues toward the next level. The recap finishes at the server's exact final level and XP, with a total and levels gained. At level 55 or Master 1,000 it shows the cap instead of a nonexistent next level. Rematch votes do not replay the recap; a new round gets a fresh recap. Rematch and Lobby stay available during the animation.
+
+`XPRewards` creates server receipts with the pre-award rank, item list, total, and final rank. `XPRecap` renders them without awarding XP or changing saved progression. Future XP-granting activities can use the same receipt format. Practice continues to grant no XP.
+
 `src/shared/Progression.luau` owns the tunable rewards and XP curve: the step from level 1 to 2 costs 100 XP, then each step costs 25 more. Master levels keep the level-55 cost of 1,450 XP per level. Excess XP is discarded at level 55 until prestige is chosen, and at the final cap. Lifetime XP survives prestige.
 
 The lobby card shows rank, current XP, the next level, and save status. Nameplates above lobby characters show their display name and rank; the Roblox player list also shows Level and Prestige. Both duel seats show an avatar headshot and full rank from matchmaking through the result screen. Thumbnail loading happens independently of gameplay and is cached per user.
@@ -87,10 +91,10 @@ Then open the map in the editor, Save it, and click **Export to repo**. The firs
 
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
-| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings and Progression |
+| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression and XPRewards |
 | `src/shared/maps` | `ReplicatedStorage.NOVA.Maps` | Map data modules for all five arenas |
 | `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences, ProgressionService, ProgressionStore and StudioTest |
-| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu and Diagnostics |
+| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, XPRecap, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |
 
