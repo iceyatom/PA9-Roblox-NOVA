@@ -60,7 +60,7 @@ end)
 
 if Run:IsStudio() then
     local controls = remote("StudioControls")
-    local ranges = {Speed={2,22},Jump={8,42},Gravity={14,85},FastFall={10,100},Launch={15,55},BulletSpeed={5,65}}
+    local ranges = {Speed={2,22},Jump={8,42},Gravity={14,85},Launch={15,55},BulletSpeed={5,65}}
     controls.OnServerEvent:Connect(function(p,action,key,value)
         if not seatOf[p] then return end
         if action == "set" and ranges[key] and type(value)=="number" and value==value then
@@ -69,7 +69,7 @@ if Run:IsStudio() then
         elseif action == "lane" and sim.phase == "Playing" then
             table.clear(sim.bullets)
             for i,b in sim.bodies do
-                b.x,b.y,b.vy,b.axis,b.fast,b.jump,b.pad,b.grounded = i==1 and 15 or 23,11.5,0,0,false,false,false,true
+                b.x,b.y,b.vy,b.axis,b.jump,b.pad,b.grounded = i==1 and 15 or 23,11.5,0,0,false,false,true
             end
             controls:FireAllClients("lane")
             broadcast()

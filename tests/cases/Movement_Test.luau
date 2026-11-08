@@ -28,13 +28,13 @@ return function(t)
             end)
         end
     end
-    t.test("ground jump, no double jump, airborne fast-fall",function()
+    t.test("ground jump, no double jump, gravity-only descent",function()
         local s=F.duel(); local b=s.bodies[1]
         s:intent(1,s.round,"jump"); s:step(cfg.Step); assert(b.vy<0)
         local initial=b.vy
         s:intent(1,s.round,"jump"); s:step(cfg.Step); F.near(b.vy-initial,cfg.Gravity*cfg.Step)
         initial=b.vy; s:intent(1,s.round,"move",0,true); s:step(cfg.Step)
-        F.near(b.vy-initial,(cfg.Gravity+cfg.FastFall)*cfg.Step)
+        F.near(b.vy-initial,cfg.Gravity*cfg.Step)
         F.advance(s,180); F.near(b.y,11.5); F.near(b.vy,0)
     end)
     t.test("green pads require exit before recontact",function()

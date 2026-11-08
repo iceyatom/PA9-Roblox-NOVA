@@ -13,7 +13,7 @@ function Diagnostics.attach(hud,arena,remote)
     end)
     local lane=W.button(panel,"Lane",226,53,203,35,"Set duel lane",false)
     lane.Activated:Connect(function() remote:FireServer("lane") end)
-    local keys={"Speed","Jump","Gravity","FastFall","Launch","BulletSpeed"}
+    local keys={"Speed","Jump","Gravity","Launch","BulletSpeed"}
     local index=1
     local values=table.clone(Defaults)
     local key=W.button(panel,"Parameter",16,105,245,35,"",false)

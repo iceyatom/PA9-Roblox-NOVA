@@ -65,13 +65,22 @@ function Hud.new(playerGui)
         W.text(stage,"Mask",rx+24,y+25,184,21,row[2],15,C.muted)
     end
     local footer=W.box(stage,"ControlBar",283,757,874,40)
-    local controls={{"A  D","Move",0,69},{"W","Jump",188,41},{"S","Fast-fall",352,41},{"LMB","Fire at rival",579,67}}
-    for _,k in controls do
+    local controls={{"A  D","Move",0,69},{"SPACE","Jump",258,84},{"LMB","Fire at rival",579,67}}
+    local keys={}
+    for i,k in controls do
         local cap=W.box(footer,"Keycap",k[3],0,k[4],32,C.panel)
         W.stroke(cap,C.line)
-        centered(W.text(cap,"Key",0,0,k[4],32,k[1],16,C.white))
+        keys[i]=centered(W.text(cap,"Key",0,0,k[4],32,k[1],16,C.white))
         W.text(footer,"Action",k[3]+k[4]+13,0,160,32,k[2],17,C.muted,bold)
     end
+    local inputs=game:GetService("UserInputService")
+    local padKeys={"LS ↔","A / ×","RT"}
+    local function updateHints()
+        local pad=inputs.PreferredInput==Enum.PreferredInput.Gamepad
+        for i,label in keys do label.Text=pad and padKeys[i] or controls[i][1] end
+    end
+    inputs:GetPropertyChangedSignal("PreferredInput"):Connect(updateHints)
+    updateHints()
     self.notice=W.box(stage,"MatchNotice",520,389,400,111,C.panel,8)
     W.stroke(self.notice,C.line)
     W.box(self.notice,"Signal",0,0,4,111,C.lime)

@@ -49,8 +49,8 @@ function Match:intent(seat,round,kind,a,b)
     local body = self.bodies[seat]
     if kind == "fire" then return Combat.fire(self,seat,a) end
     if kind == "jump" then body.jump = true; return true end
-    if kind == "move" and (a == -1 or a == 0 or a == 1) and typeof(b) == "boolean" then
-        body.axis,body.fast = a,b
+    if kind == "move" and typeof(a) == "number" and a >= -1 and a <= 1 and (b == nil or typeof(b) == "boolean") then
+        body.axis = a
         return true
     end
     return false
