@@ -1,7 +1,7 @@
 -- Serialized names keep preferences portable between keyboard and controller devices.
 local Bindings={}
 Bindings.defaults={pc={left="A",right="D",jump="Space",fire="MouseButton1"},console={move="Thumbstick1",jump="ButtonA",fire="ButtonR2"}}
-local reserved={Unknown=true,Escape=true,F2=true,F4=true,F9=true,F10=true,F11=true,F12=true,BackSlash=true,Return=true,KeypadEnter=true}
+local reserved={Unknown=true,Escape=true,F4=true,F9=true,F10=true,F11=true,F12=true,BackSlash=true,Return=true,KeypadEnter=true}
 local buttons={ButtonA=true,ButtonB=true,ButtonX=true,ButtonY=true,ButtonL1=true,ButtonR1=true,ButtonL2=true,ButtonR2=true,ButtonL3=true,ButtonR3=true,DPadLeft=true,DPadRight=true,DPadUp=true,DPadDown=true}
 local mouse={MouseButton1=true,MouseButton2=true,MouseButton3=true}
 local moves={Thumbstick1=true,Thumbstick2=true,DPad=true}

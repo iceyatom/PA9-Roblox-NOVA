@@ -10,12 +10,12 @@ local function label(name) return names[name] or name:gsub("(%l)(%u)","%1 %2") e
 local function isGamepad(kind) return kind.Name:sub(1,7)=="Gamepad" end
 
 function Menu.new(playerGui,settings,clear)
-    local self=setmetatable({settings=settings,clear=clear,device="pc",buttons={}},Menu)
+    local self=setmetatable({settings=settings,clear=clear,device="pc",buttons={},available=true},Menu)
     local gui=Instance.new("ScreenGui")
     gui.Name="NOVASettings"; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true; gui.DisplayOrder=30
     gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.Parent=playerGui
     self.gui=gui
-    -- View opens this menu; selection is assigned explicitly inside NOVA screens.
+    -- View opens this menu in the main lobby; selection is assigned explicitly.
     Gui.AutoSelectGuiEnabled=false
     local root=W.box(gui,"Root",0,0,0,0)
     root.Size=UDim2.fromScale(1,1)
@@ -24,7 +24,7 @@ function Menu.new(playerGui,settings,clear)
     local function resize() scale.Scale=math.max(.01,math.min(root.AbsoluteSize.X/1440,root.AbsoluteSize.Y/810)) end
     root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize); resize()
     local stage=W.box(origin,"Stage",-720,-405,1440,810)
-    self.launcher=W.button(stage,"OpenSettings",1235,96,170,40,"Settings / F2",false)
+    self.launcher=W.button(stage,"OpenSettings",1235,96,170,40,"Settings",false)
     local overlay=W.box(stage,"Overlay",0,0,1440,810,C.ink,10)
     overlay.BackgroundTransparency=.16; overlay.Active=true; overlay.Visible=false
     self.overlay=overlay
@@ -62,26 +62,23 @@ function Menu.new(playerGui,settings,clear)
     self.status.TextWrapped=true
     self.status.TextTruncate=Enum.TextTruncate.None
     self.reset=W.button(panel,"ResetDefaults",28,466,180,36,"Reset defaults",false)
-    W.text(panel,"Footer",230,471,570,27,"Changes apply immediately. F2 / View closes settings.",14,C.muted)
+    W.text(panel,"Footer",230,471,570,27,"Changes apply immediately. Done saves your controls.",14,C.muted)
     self.launcher.Activated:Connect(function() self:setOpen(not settings.opened) end)
     self.done.Activated:Connect(function() if self:canActivate() then self:setOpen(false) end end)
     self.reset.Activated:Connect(function() if self:canActivate() then settings:reset() end end)
     settings.changed.Event:Connect(function() self:refresh() end)
     CAS:BindActionAtPriority("NOVA_SettingsShortcut",function(_,state)
-        if UIS:GetFocusedTextBox() or Gui.MenuIsOpen then return Enum.ContextActionResult.Pass end
+        if not self.available or UIS:GetFocusedTextBox() or Gui.MenuIsOpen then return Enum.ContextActionResult.Pass end
         if state==Enum.UserInputState.Begin then
             if self.capture then self:endCapture() else self:setOpen(not settings.opened) end
         end
         return Enum.ContextActionResult.Sink
-    end,false,Enum.ContextActionPriority.High.Value+30,Enum.KeyCode.F2,Enum.KeyCode.ButtonSelect)
+    end,false,Enum.ContextActionPriority.High.Value+30,Enum.KeyCode.ButtonSelect)
     CAS:BindActionAtPriority("NOVA_SettingsBack",function(_,state)
         if not settings.opened or self.capture then return Enum.ContextActionResult.Pass end
         if state==Enum.UserInputState.Begin then self:setOpen(false) end
         return Enum.ContextActionResult.Sink
     end,false,Enum.ContextActionPriority.High.Value+25,Enum.KeyCode.ButtonB)
-    UIS.LastInputTypeChanged:Connect(function(kind)
-        self.launcher.Text=isGamepad(kind) and "Settings / View" or "Settings / F2"
-    end)
     -- Capture processed inputs too: clicks over the menu belong to its UI.
     local function captureInput(key)
         if self.captureInput then self.captureInput(key.UserInputState,key) end
@@ -132,13 +129,21 @@ function Menu:refresh()
     end
 end
 
+function Menu:setAvailable(available)
+    self.available=available
+    if not available then self:setOpen(false) end
+    self.gui.Enabled=available
+    self.launcher.Visible=available and not self.settings.opened
+end
+
 function Menu:setOpen(open)
+    if open and not self.available then return end
     if self.settings.opened==open then return end
     self.clear()
     if self.capture then self:endCapture() end
     self.settings.opened=open
     self.overlay.Visible=open
-    self.launcher.Visible=not open
+    self.launcher.Visible=self.available and not open
     self.message=nil
     local player=game.Players.LocalPlayer
     if not self.controls then
@@ -186,7 +191,7 @@ function Menu:startCapture(action,button)
     self:buttonsActive(false)
     Gui.GuiNavigationEnabled=false
     Gui.SelectedObject=nil
-    self.message=action=="move" and "Tilt either stick, or press the D-pad. F2 / View cancels." or self.device=="pc" and "Press a key or mouse button. F2 / View cancels." or "Press a controller button. F2 / View cancels."
+    self.message=action=="move" and "Tilt either stick, or press the D-pad. Esc closes; View cancels." or self.device=="pc" and "Press a key or mouse button. Esc closes settings." or "Press a controller button. View cancels."
     self:refresh()
     button.Text="Listening..."
     self.captureInput=function(state,key)

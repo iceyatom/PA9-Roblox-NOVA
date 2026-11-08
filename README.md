@@ -13,11 +13,21 @@ The first screenshot (214811) contains 38 columns and 29 rows starting at image 
 
 ## Map rotation
 
+The selection reel plays the supplied `CSGO Case Click.mp3` whenever a card center crosses the selection pins. Its imported Roblox audio is `rbxassetid://92334355914521` (NOVA Map Cycle Click); the ID and playback volume are in `src/client/MapRoller.luau`. Audio is preloaded on each client, overlapping clicks keep their sample tails, and playback stops when the reel closes. Click spacing follows the reel's slowdown and no skipped clicks are replayed in a burst after a delayed frame.
+
 The rotation includes Split Circuit (01), Crossfire (02), Skyline (03), Hourglass (04), and Nexus (05). The four new layouts trace screenshots 214830, 214842, 214905, and 214925 on a 40 × 30 grid. Crossfire and Nexus retain the small asymmetries in their references. Purple tiles block players and shots; dark blue tiles block players; light blue tiles block shots; green tiles are launch triggers.
 
-When two queued players pair, the server chooses a map and both clients see a horizontal reel cycle through map previews, slow down, and land on that map. After a four-second reveal, the three-second countdown begins. Movement and firing unlock together. Both rematch votes start a new shuffle, excluding the previous map when another map is available. Each lobby selects independently. Valid maps saved by the editor enter the rotation on the next Play session. Invalid maps are skipped with a Studio warning.
+When two queued players pair, the server chooses a map and both clients see a horizontal reel cycle through map previews, slow down, and land on that map. The selection lasts eight seconds, with the original fast-to-slow easing stretched evenly across twice its previous duration. After the reveal, the three-second countdown begins. Movement and firing unlock together. Both rematch votes start a new shuffle, excluding the previous map when another map is available. Each lobby selects independently. Valid maps saved by the editor enter the rotation on the next Play session. Invalid maps are skipped with a Studio warning.
 
-## Match rules
+## High Score Practice
+
+The mint beacon to the right of the main queue enters a private 2D firing lane. The player and auto-aimed target stay stationary. After an animated 3–2–1 / GO countdown, press your configured Fire binding (or the on-screen Fire button) once per shot for 30 seconds. Holding a binding does not repeat shots. The server counts accepted shots during the time window; movement, client score submissions, stale run IDs and duplicate shot IDs cannot change a score. A 50-shots-per-second ceiling bounds abusive remote traffic above normal human tapping speed.
+
+Results show the run total and personal best, with Try again and Back to lobby buttons. The Lobby button can also abandon an unfinished attempt; abandoned attempts do not submit scores. Each player has an independent practice session and cannot queue for a duel at the same time.
+
+The wall beside the beacon shows the global top 10, one best completed score per player, in descending order. Published servers use `NOVA_HighScorePractice_v1`, an OrderedDataStore, with atomic maximum updates so lower scores or concurrent servers cannot overwrite a personal best. Rankings refresh every 60 seconds and local completions appear immediately. Temporary save failures retry and are disclosed on the results screen and board. Studio uses session-only scores and never changes the live leaderboard. Cross-server persistence must be checked in a published server; enabling Studio API access is unnecessary for practice previews.
+
+## Duel rules
 A/D move, Space jumps from a surface, and gravity brings the player down. Each left mouse press launches one shot at the opponent's authoritative center when the request arrives. Direction is frozen for the flight. The server accepts increasing integer shot IDs for the current round only. Impacts in the same simulation step are applied together; simultaneous lethal impacts draw. Both players must vote for a rematch. Lobby returns the player to the 3D lobby. A combat disconnect gives the remaining player a win, and they may choose to wait for a new opponent. New arrivals cannot enter an active duel.
 
 ## Developer controls
@@ -35,9 +45,9 @@ Hold Space or Xbox A / PlayStation Cross (×) to jump again automatically whenev
 
 ## Control settings
 
-Click **Settings** in the top-right corner in the lobby or a duel, press **F2** on PC, or press **View / Touchpad** on a controller. The menu has separate **Keyboard + mouse** and **Console controller** tabs for Move, Jump, and Fire. Click a binding and press its replacement. PC movement has separate left and right keys. Console movement accepts the left stick, right stick, or D-pad. Jump and Fire accept keyboard/mouse inputs on PC and controller buttons on console.
+Click **Settings** in the top-right corner of the main lobby, or press **View / Touchpad** on a controller while in the lobby. Settings are hidden and unavailable in the 2D duel and practice screens, including queues and results. F2 has no settings shortcut. The menu has separate **Keyboard + mouse** and **Console controller** tabs for Move, Jump, and Fire. Click a binding and press its replacement. PC movement has separate left and right keys. Console movement accepts the left stick, right stick, or D-pad. Jump and Fire accept keyboard/mouse inputs on PC and controller buttons on console.
 
-Bindings apply immediately. Duplicate assignments are rejected, and F2 / View remain available to open the menu or cancel a binding. Controller navigation, Done, and Reset defaults work from either tab. Opening settings releases held movement and jump; the duel continues while the menu is open. Done closes the menu and saves both sets of bindings. Defaults are A/D, Space, left mouse, left stick, A/Cross, and RT/R2.
+Bindings apply immediately. Duplicate assignments are rejected. Escape closes settings; View cancels a binding on a controller. Controller navigation, Done, and Reset defaults work from either tab. Opening settings releases held movement and jump. Entering a challenge closes the menu. Done closes the menu and saves both sets of bindings. Defaults are A/D, Space, left mouse, left stick, A/Cross, and RT/R2.
 
 Published servers load and save preferences per player in `NOVA_ControlPreferences_v1`. Studio uses session preferences without reading or writing live player data. If profile storage is unavailable, bindings still work for the current session and the menu reports that status. Bindings survive rematches and character respawns.
 
@@ -67,8 +77,8 @@ Then open the map in the editor, Save it, and click **Export to repo**. The firs
 | --- | --- | --- |
 | `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1 and ControlBindings |
 | `src/shared/maps` | `ReplicatedStorage.NOVA.Maps` | Map data modules for all five arenas |
-| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, ControlPreferences and StudioTest |
-| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, Widgets, Arena, Input, ControlSettings, SettingsMenu and Diagnostics |
+| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences and StudioTest |
+| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, Widgets, Arena, Input, ControlSettings, SettingsMenu and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |
 

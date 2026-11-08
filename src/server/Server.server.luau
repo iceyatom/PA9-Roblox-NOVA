@@ -7,6 +7,9 @@ local map = Maps.active()
 local lobbies = require(script.Parent.Lobbies).new(map,Config,Maps.choose)
 local LobbyWorld = require(script.Parent.LobbyWorld)
 local world = LobbyWorld.ensure()
+local practiceWorld=require(script.Parent.PracticeWorld).ensure(world)
+local practice=require(script.Parent.Practice).new()
+local leaderboard=require(script.Parent.PracticeLeaderboard).new(practiceWorld.Leaderboard)
 local signKicker = world:FindFirstChild("Kicker",true)
 if signKicker then signKicker.Text = ("%d MAPS  /  RANDOM ROTATION"):format(#Maps.pool()) end
 if Run:IsStudio() then print(("[NOVA] Map rotation: %d maps"):format(#Maps.pool())) end
@@ -21,6 +24,18 @@ local function remote(name)
 end
 local state = remote("State")
 local input = remote("Input")
+local practiceState=remote("PracticeState")
+local practiceInput=remote("PracticeInput")
+local function sendPractice(p,s)
+    if p.Parent~=Players then return end
+    practiceState:FireClient(p,{id=s.id,phase=s.phase,starts=s.starts,ends=s.ends,score=s.score,
+        best=leaderboard.best[p.UserId],saveStatus=s.saveStatus})
+end
+leaderboard.updated=function(uid,status)
+    for p,s in practice.sessions do
+        if p.UserId==uid and s.phase=="Results" then s.saveStatus=status; sendPractice(p,s) end
+    end
+end
 local function broadcast(room)
     local sim=room.sim
     local snap = {lobby=room.id,phase=sim.phase,round=sim.round,mapId=sim.map.id,tick=sim.stepNumber,ends=workspace:GetServerTimeNow()+sim.count,
@@ -48,7 +63,7 @@ local function flush()
 end
 
 local function spawnInLobby(p)
-    if p.Parent==Players and not lobbies.membership[p] then p:LoadCharacter() end
+    if p.Parent==Players and not lobbies.membership[p] and not practice.sessions[p] then p:LoadCharacter() end
 end
 local function track(p)
     p.CharacterAdded:Connect(function(character)
@@ -63,7 +78,7 @@ Players.PlayerAdded:Connect(track)
 for _,p in Players:GetPlayers() do task.spawn(track,p) end
 
 local function enterQueue(p)
-    if lobbies.membership[p] then return end
+    if lobbies.membership[p] or practice.sessions[p] then return end
     lobbies:join(p)
     local character=p.Character
     p.Character=nil
@@ -77,6 +92,28 @@ local function returnToLobby(p)
     spawnInLobby(p)
 end
 
+local function enterPractice(p)
+    if lobbies.membership[p] or practice.sessions[p] then return end
+    local s=practice:start(p,workspace:GetServerTimeNow())
+    local character=p.Character
+    p.Character=nil
+    if character then character:Destroy() end
+    sendPractice(p,s)
+end
+practiceInput.OnServerEvent:Connect(function(p,kind,id,sequence)
+    local s=practice.sessions[p]
+    if not s or s.id~=id or p.Parent~=Players then return end
+    if kind=="fire" then
+        if practice:fire(p,id,sequence,workspace:GetServerTimeNow()) then sendPractice(p,s) end
+    elseif kind=="leave" then
+        practice:remove(p)
+        practiceState:FireClient(p,{phase="Lobby"})
+        spawnInLobby(p)
+    elseif kind=="retry" and s.phase=="Results" then
+        sendPractice(p,practice:start(p,workspace:GetServerTimeNow()))
+    end
+end)
+
 -- Queue anyone standing on the pad and keep the sign's counts current.
 local status=world:FindFirstChild("Status",true)
 local scanElapsed=0
@@ -85,7 +122,10 @@ Run.Heartbeat:Connect(function(dt)
     if scanElapsed<0.1 then return end
     scanElapsed=0
     for _,p in Players:GetPlayers() do
-        if not lobbies.membership[p] and LobbyWorld.onPad(world,p.Character) then enterQueue(p) end
+        if not lobbies.membership[p] and not practice.sessions[p] then
+            if LobbyWorld.onPad(practiceWorld,p.Character,"PracticePad",9) then enterPractice(p)
+            elseif LobbyWorld.onPad(world,p.Character) then enterQueue(p) end
+        end
     end
     if status then
         local queued,live=0,0
@@ -98,6 +138,7 @@ Run.Heartbeat:Connect(function(dt)
 end)
 
 Players.PlayerRemoving:Connect(function(p)
+    practice:remove(p)
     lobbies:remove(p)
     flush()
 end)
@@ -143,6 +184,10 @@ end
 
 local accumulator,sendElapsed=0,0
 Run.Heartbeat:Connect(function(dt)
+    practice:step(workspace:GetServerTimeNow(),sendPractice,function(p,s)
+        s.saveStatus=leaderboard:submit(p,s.score)
+        sendPractice(p,s)
+    end)
     accumulator += math.min(dt,0.25)
     sendElapsed += dt
     while accumulator >= Config.Step do
