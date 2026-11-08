@@ -66,6 +66,56 @@ local function handle(cmd,arg)
         shared.StudioControls:FireServer("lane")
         task.wait(.2)
         return latest.players[1].y
+    elseif cmd=="settings" then
+        local panel=player.PlayerGui.NOVASettings.Root.Origin.Stage.Overlay.Panel
+        local seat=stage.Seat1.Text:find("YOU",1,true) and 1 or 2
+        local function press(key)
+            virtual:SendKey(true,Enum.KeyCode[key],false); task.wait(.04)
+            virtual:SendKey(false,Enum.KeyCode[key],false); task.wait(.25)
+        end
+        -- Opening settings must release the movement that was already held.
+        virtual:SendKey(true,Enum.KeyCode.D,false); task.wait(.1)
+        press("F2"); assert(panel.Parent.Visible)
+        virtual:SendKey(false,Enum.KeyCode.D,false); task.wait(.15)
+        local stopped=latest.players[seat].x
+        task.wait(.2); assert(math.abs(latest.players[seat].x-stopped)<.001,"Movement continued inside settings")
+        for action,key in {left="J",right="L",jump="I",fire="K"} do
+            click(center(panel[action]))
+            local deadline=os.clock()+2
+            repeat task.wait(.03) until panel[action].Text=="Listening..." or os.clock()>deadline
+            assert(panel[action].Text=="Listening...","Capture did not open for "..action..": "..panel.Status.Text)
+            press(key)
+            deadline=os.clock()+2
+            repeat task.wait(.03) until panel[action].Text:find(key,1,true) or os.clock()>deadline
+            assert(panel[action].Text:find(key,1,true),"Rebinding failed for "..action..": "..panel[action].Text)
+        end
+        assert(panel.left.Text:find("J") and panel.right.Text:find("L") and panel.jump.Text=="I" and panel.fire.Text=="K")
+        click(center(panel.fire))
+        local deadline=os.clock()+2
+        repeat task.wait(.03) until panel.fire.Text=="Listening..." or os.clock()>deadline
+        assert(panel.fire.Text=="Listening...","Conflict capture did not open: "..panel.Status.Text)
+        press("I")
+        deadline=os.clock()+2
+        repeat task.wait(.03) until panel.Status.Text:find("Already used") or os.clock()>deadline
+        assert(panel.Status.Text:find("Already used"),"Duplicate assignment was accepted: "..panel.Status.Text)
+        press("F2"); assert(panel.Parent.Visible,"Cancel should leave settings open")
+        click(center(panel.Done)); task.wait(.2)
+        assert(not panel.Parent.Visible)
+        local saved=shared.ControlPreferences:InvokeServer("get").bindings
+        assert(saved.pc.jump=="I" and saved.pc.fire=="K" and saved.console.jump=="ButtonA")
+        shared.StudioControls:FireServer("lane"); task.wait(.2)
+        local y=latest.players[seat].y
+        press("Space"); assert(math.abs(latest.players[seat].y-y)<.001,"Previous jump binding is still active")
+        virtual:SendKey(true,Enum.KeyCode.I,false); task.wait(.12)
+        assert(latest.players[seat].y<y,"New jump binding did not reach the server")
+        virtual:SendKey(false,Enum.KeyCode.I,false)
+        press("F2")
+        click(center(panel.ResetDefaults)); task.wait(.1)
+        click(center(panel.Done)); task.wait(.2)
+        saved=shared.ControlPreferences:InvokeServer("get").bindings
+        assert(saved.pc.jump=="Space" and saved.pc.fire=="MouseButton1" and saved.pc.left=="A")
+        shared.StudioControls:FireServer("lane"); task.wait(.2)
+        return true
     elseif cmd=="fire" then
         for i=1,arg do click(center(stage.Map1)) end
     elseif cmd=="hold" then

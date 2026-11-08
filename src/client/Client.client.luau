@@ -17,7 +17,14 @@ local function fire(kind,a,b)
     if kind=="fire" then sequence+=1; a=sequence end
     input:FireServer(kind,snapshot.lobby,snapshot.round,a,b)
 end
-local clear=require(script.Parent.Input).connect(fire,function() return snapshot and snapshot.phase=="Playing" end)
+local settings=require(script.Parent.ControlSettings).new()
+local clear=require(script.Parent.Input).connect(fire,function() return snapshot and snapshot.phase=="Playing" and not settings.opened end,settings)
+local settingsMenu=require(script.Parent.SettingsMenu).new(player.PlayerGui,settings,clear)
+settingsMenu.selectionOnClose=function()
+    if not snapshot then return nil end
+    return snapshot.phase=="Results" and hud.rematch or snapshot.phase=="Waiting" and hud.leave or nil
+end
+task.spawn(function() settings:load() end)
 hud.rematch.Activated:Connect(function() fire("rematch") end)
 hud.leave.Activated:Connect(function() fire("leave") end)
 local record
@@ -76,6 +83,10 @@ state.OnClientEvent:Connect(function(nextState)
         end
     end
     hud:update(snapshot,seat)
+    if not settings.opened and (newDuel or previous.phase~=snapshot.phase)
+        and game:GetService("UserInputService"):GetLastInputType().Name:sub(1,7)=="Gamepad" then
+        game:GetService("GuiService").SelectedObject=settingsMenu.selectionOnClose()
+    end
     arena:update(snapshot,os.clock())
 end)
 Run.RenderStepped:Connect(function() arena:draw(os.clock()); hud:tick(); roller:tick() end)

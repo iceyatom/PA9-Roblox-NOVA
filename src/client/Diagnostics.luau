@@ -4,7 +4,7 @@ local Defaults=require(game.ReplicatedStorage.NOVA.Config)
 local Diagnostics={}
 function Diagnostics.attach(hud,arena,remote)
     local panel=W.box(hud.stage,"StudioPanel",981,82,448,285,C.panel,10)
-    W.stroke(panel,C.lime)
+    W.stroke(panel,C.purple)
     W.text(panel,"Heading",16,9,410,33,"Studio diagnostics",24,C.white,Enum.Font.GothamBold)
     local mask=W.button(panel,"Masks",16,53,200,35,"Show masks",false)
     mask.Activated:Connect(function()

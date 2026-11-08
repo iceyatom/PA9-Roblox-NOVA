@@ -13,10 +13,10 @@ function LobbyHud.new(playerGui)
     card.Position=UDim2.new(0.5,0,1,-24)
     card.BackgroundTransparency=0.08
     W.stroke(card,C.line)
-    W.box(card,"Signal",0,0,4,86,C.lime)
-    W.text(card,"Kicker",20,10,320,20,"NOVA   /   LOBBY",14,C.lime)
-    W.text(card,"Title",20,30,320,30,"Step onto the lime pad",24,C.white,Enum.Font.GothamBlack)
-    W.text(card,"Detail",20,60,320,18,"Queue for a 1v1 duel on Map 01",14,C.muted)
+    W.box(card,"Signal",0,0,4,86,C.purple)
+    W.text(card,"Kicker",20,10,320,20,"NOVA   /   LOBBY",14,C.purple)
+    W.text(card,"Title",20,30,320,30,"Step onto the purple pad",24,C.white,Enum.Font.GothamBlack)
+    W.text(card,"Detail",20,60,320,18,"Queue for a 1v1 duel / random map",14,C.muted)
     return gui
 end
 return LobbyHud

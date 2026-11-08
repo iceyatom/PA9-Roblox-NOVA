@@ -61,8 +61,8 @@ function Arena.new(stage,selectedMap)
         end
     end
     for i,spawn in map.spawns do
-        rect(self.diagnostics,"Spawn"..i,spawn.X-0.4,spawn.Y-0.05,0.8,0.1,C.lime)
-        rect(self.diagnostics,"Spawn"..i,spawn.X-0.05,spawn.Y-0.4,0.1,0.8,C.lime)
+        rect(self.diagnostics,"Spawn"..i,spawn.X-0.4,spawn.Y-0.05,0.8,0.1,C.purple)
+        rect(self.diagnostics,"Spawn"..i,spawn.X-0.05,spawn.Y-0.4,0.1,0.8,C.purple)
     end
     self.actors={}
     self.shots={}
@@ -75,7 +75,7 @@ function Arena.new(stage,selectedMap)
         local track=W.box(body,"Health",0,-7,unit*cfg.BodyWidth,3,C.line,5)
         local bar=W.box(track,"Fill",0,0,0,3,C.mint,6)
         local box=rect(body,"BodyMask",0,0,cfg.BodyWidth,cfg.BodyHeight)
-        W.stroke(box,C.lime,2)
+        W.stroke(box,C.purple,2)
         box.Visible=false
         self.actors[i]={body=body,label=label,bar=bar,box=box,color=color,hp=cfg.Health,flash=0}
         body.Visible=false
@@ -128,7 +128,7 @@ function Arena:update(snap,time)
             W.round(glow)
             local core=W.box(glow,"Core",diameter*0.8,diameter*0.8,diameter,diameter,C.white,5)
             W.round(core)
-            local trace=W.box(self.field,"Sweep",0,0,1,1,C.lime,6)
+            local trace=W.box(self.field,"Sweep",0,0,1,1,C.purple,6)
             trace.AnchorPoint=Vector2.new(0.5,0.5)
             shot={frame=glow,trace=trace}
             self.shots[id]=shot

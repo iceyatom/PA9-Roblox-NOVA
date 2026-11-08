@@ -26,16 +26,14 @@ function Hud.new(playerGui)
     resize()
     local stage=W.box(origin,"Stage",-720,-405,1440,810,C.ink)
     self.stage=stage
-    self.mapCode=W.text(stage,"ArenaNumber",283,16,175,22,"MAP   /   01",15,C.lime)
+    self.mapCode=W.text(stage,"ArenaNumber",283,16,175,22,"MAP   /   01",15,C.purple)
     self.mapTitle=W.text(stage,"ArenaTitle",283,34,420,34,"Split Circuit",31,C.white,heavy)
     self.phaseLabel=W.text(stage,"Phase",865,32,292,30,"CONNECTING",17,C.muted)
     self.phaseLabel.TextXAlignment=Enum.TextXAlignment.Right
     -- Left rail: identity and player seats.
     local x=35
-    W.box(stage,"LogoStem",x,128,7,26,C.lime).Rotation=30
-    W.box(stage,"LogoStem",x+13,117,7,37,C.lime).Rotation=30
     W.text(stage,"Wordmark",x,161,230,63,"NOVA",59,C.white,heavy)
-    W.text(stage,"Mode",x+3,225,225,25,"PLATFORM DUEL",16,C.lime)
+    W.text(stage,"Mode",x+3,225,225,25,"1v1",16,C.purple)
     W.box(stage,"RailRule",x,278,210,1,C.line)
     self.seats={}
     for i=1,2 do
@@ -63,8 +61,8 @@ function Hud.new(playerGui)
     end
     self.notice=W.box(stage,"MatchNotice",520,389,400,111,C.panel,8)
     W.stroke(self.notice,C.line)
-    W.box(self.notice,"Signal",0,0,4,111,C.lime)
-    self.kicker=W.text(self.notice,"Status",23,12,355,22,"DUEL LOBBY",15,C.lime)
+    W.box(self.notice,"Signal",0,0,4,111,C.purple)
+    self.kicker=W.text(self.notice,"Status",23,12,355,22,"DUEL LOBBY",15,C.purple)
     self.title=W.text(self.notice,"Title",22,35,362,38,"Waiting for a rival",29,C.white,heavy)
     self.note=W.text(self.notice,"Detail",23,77,360,23,"The duel starts with two players.",16,C.muted)
     self.rematch=W.button(self.notice,"Rematch",23,109,209,37,"Rematch",true)

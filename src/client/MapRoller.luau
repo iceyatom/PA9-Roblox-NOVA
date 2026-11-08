@@ -16,7 +16,7 @@ local function card(parent,arena,index)
     for _,r in arena.rects do
         W.box(preview,"Tile",ox+r.x*unit,oy+r.y*unit,(r.x2-r.x)*unit,(r.y2-r.y)*unit,colors[r.id])
     end
-    W.text(frame,"Code",14,199,230,17,"MAP / "..arena.code,12,C.lime)
+    W.text(frame,"Code",14,199,230,17,"MAP / "..arena.code,12,C.purple)
     W.text(frame,"Title",14,222,230,26,arena.title,22,C.white,Enum.Font.GothamBold)
     return frame
 end
@@ -32,8 +32,8 @@ function Roller.new(stage)
     local window=W.box(overlay,"ReelWindow",12,58,870,258)
     window.ClipsDescendants=true
     self.window=window
-    W.box(overlay,"SelectionTop",445,48,4,10,C.lime,4)
-    W.box(overlay,"SelectionBottom",445,316,4,10,C.lime,4)
+    W.box(overlay,"SelectionTop",445,48,4,10,C.purple,4)
+    W.box(overlay,"SelectionBottom",445,316,4,10,C.purple,4)
     self.detail=W.text(overlay,"Detail",24,333,846,22,"The next arena is on its way.",14,C.muted)
     self.detail.TextXAlignment=Enum.TextXAlignment.Center
     overlay.Visible=false
@@ -55,8 +55,15 @@ function Roller:update(snap)
     if self.strip then self.strip:Destroy() end
     self.strip=W.box(self.window,"Strip",0,0,(landing+2)*pitch,256)
     local pool=Maps.pool()
+    local selectedIndex
+    for i,arena in pool do
+        if arena.id==self.selected.id then selectedIndex=i; break end
+    end
+    assert(selectedIndex,"Selected map is missing from the rotation")
+    -- Align the whole cycle with the winning slot instead of replacing one card.
+    -- Every map appears once per cycle, including the cards around the winner.
     for i=1,landing+2 do
-        local arena=i==landing and self.selected or pool[(i+snap.round+snap.lobby-2)%#pool+1]
+        local arena=pool[(i-landing+selectedIndex-1)%#pool+1]
         local frame=card(self.strip,arena,i)
         if i==landing then self.winner=frame end
     end
@@ -73,6 +80,6 @@ function Roller:tick()
     local landed=progress>=1
     self.heading.Text=landed and "ARENA SELECTED" or "SHUFFLING MAPS"
     self.detail.Text=landed and (self.selected.title.."  /  Get ready") or "The next arena is on its way."
-    self.winner.BackgroundColor3=landed and W.rgb("243325") or C.panel
+    self.winner.BackgroundColor3=landed and W.rgb("2a1b43") or C.panel
 end
 return Roller

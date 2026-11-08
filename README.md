@@ -1,7 +1,7 @@
 # NOVA
-A Roblox platform duel with automatic two-player lobbies. Each server can host multiple independent duels across five maps.
+A Roblox 1v1 game with automatic two-player lobbies. Each server can host multiple independent duels across five maps.
 
-Players spawn as normal Roblox characters in a dark 3D lobby (`Workspace.NOVALobby`). Walking onto the lime queue pad removes the character and enters matchmaking. Queued players join the oldest lobby waiting for an opponent. A third player starts another lobby, a fourth joins them, and so on up to the Roblox server player limit. Each lobby owns its map selection, countdown, movement, health, shots, results and rematch votes. The HUD shows the assigned lobby number. Completed duels keep their seats for rematch decisions. After a combat disconnect, the survivor sees Victory and can choose Find new rival to wait for another opponent. Empty lobbies are removed. Waiting players from separate lobbies pair automatically when a seat opens.
+Players spawn as normal Roblox characters in a dark 3D lobby (`Workspace.NOVALobby`). Walking onto the purple queue pad removes the character and enters matchmaking. Queued players join the oldest lobby waiting for an opponent. A third player starts another lobby, a fourth joins them, and so on up to the Roblox server player limit. Each lobby owns its map selection, countdown, movement, health, shots, results and rematch votes. The HUD shows the assigned lobby number. Completed duels keep their seats for rematch decisions. After a combat disconnect, the survivor sees Victory and can choose Find new rival to wait for another opponent. Empty lobbies are removed. Waiting players from separate lobbies pair automatically when a seat opens.
 
 Clients send their assigned lobby ID and round with each gameplay intention. The server checks both against the sender's actual membership. Snapshots and Studio tuning events reach only the members of that lobby. Leave queue (while waiting) and Lobby (after a result) respawn the player in the 3D lobby.
 
@@ -33,6 +33,14 @@ Player positions display directly from server updates at 60 Hz. Jumps immediatel
 
 Hold Space or Xbox A / PlayStation Cross (×) to jump again automatically whenever the player lands on a solid surface. Release to finish the current arc and stop jumping. A short tap performs one jump. Opening the Roblox menu, losing focus or disconnecting the controller clears held input.
 
+## Control settings
+
+Click **Settings** in the top-right corner in the lobby or a duel, press **F2** on PC, or press **View / Touchpad** on a controller. The menu has separate **Keyboard + mouse** and **Console controller** tabs for Move, Jump, and Fire. Click a binding and press its replacement. PC movement has separate left and right keys. Console movement accepts the left stick, right stick, or D-pad. Jump and Fire accept keyboard/mouse inputs on PC and controller buttons on console.
+
+Bindings apply immediately. Duplicate assignments are rejected, and F2 / View remain available to open the menu or cancel a binding. Controller navigation, Done, and Reset defaults work from either tab. Opening settings releases held movement and jump; the duel continues while the menu is open. Done closes the menu and saves both sets of bindings. Defaults are A/D, Space, left mouse, left stick, A/Cross, and RT/R2.
+
+Published servers load and save preferences per player in `NOVA_ControlPreferences_v1`. Studio uses session preferences without reading or writing live player data. If profile storage is unavailable, bindings still work for the current session and the menu reports that status. Bindings survive rematches and character respawns.
+
 ## Level editor
 
 `plugin/NOVALevelEditor.lua` is a Studio plugin for painting duel maps. Install it by copying the file into Studio's local plugins folder, then restart Studio:
@@ -57,10 +65,10 @@ Then open the map in the editor, Save it, and click **Export to repo**. The firs
 
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
-| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog and Map1 |
+| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1 and ControlBindings |
 | `src/shared/maps` | `ReplicatedStorage.NOVA.Maps` | Map data modules for all five arenas |
-| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat and StudioTest |
-| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, Widgets, Arena, Input and Diagnostics |
+| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, ControlPreferences and StudioTest |
+| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, Widgets, Arena, Input, ControlSettings, SettingsMenu and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |
 

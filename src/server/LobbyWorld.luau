@@ -5,7 +5,7 @@ local LobbyWorld={}
 
 local rgb=Color3.fromHex
 local C={ink=rgb("080b13"),floor=rgb("1a2130"),panel=rgb("232b3d"),wall=rgb("1e2536"),line=rgb("303747"),muted=rgb("9ca8bc"),
-    white=rgb("edf2ff"),lime=rgb("b9f770"),purple=rgb("793dff"),blue=rgb("527eff"),red=rgb("ff5859"),padCore=rgb("162210")}
+    white=rgb("edf2ff"),purple=rgb("793dff"),blue=rgb("527eff"),red=rgb("ff5859"),padCore=rgb("21133d")}
 LobbyWorld.colors=C
 LobbyWorld.PadRadius=11
 
@@ -123,8 +123,8 @@ local function build()
     local deckZ=44
     part(lobby,"SpawnDeck",Vector3.new(26,1,18),CFrame.new(0,0.5,deckZ),C.panel,Enum.Material.Metal)
     for _,s in {-1,1} do
-        neon(lobby,"DeckEdge",Vector3.new(26.2,0.2,0.3),CFrame.new(0,1.02,deckZ+s*9),C.lime)
-        neon(lobby,"DeckEdge",Vector3.new(0.3,0.2,18.2),CFrame.new(s*13,1.02,deckZ),C.lime)
+        neon(lobby,"DeckEdge",Vector3.new(26.2,0.2,0.3),CFrame.new(0,1.02,deckZ+s*9),C.purple)
+        neon(lobby,"DeckEdge",Vector3.new(0.3,0.2,18.2),CFrame.new(s*13,1.02,deckZ),C.purple)
     end
     local spawn=Instance.new("SpawnLocation")
     spawn.Name="LobbySpawn"
@@ -138,20 +138,20 @@ local function build()
     spawn.Duration=0
     spawn.Parent=lobby
     neon(lobby,"SpawnRing",Vector3.new(10.4,0.1,10.4),CFrame.new(0,1.05,deckZ),C.line)
-    -- Lime chevrons lead from the deck to the queue pad.
+    -- Purple chevrons lead from the deck to the queue pad.
     for i=0,4 do
         local z=deckZ-14-i*5.5
         for _,s in {-1,1} do
-            neon(lobby,"Chevron",Vector3.new(3.2,0.08,0.5),CFrame.new(s*1.05,0.1,z)*CFrame.Angles(0,s*math.rad(-40),0),C.lime).Transparency=0.45+i*0.08
+            neon(lobby,"Chevron",Vector3.new(3.2,0.08,0.5),CFrame.new(s*1.05,0.1,z)*CFrame.Angles(0,s*math.rad(-40),0),C.purple).Transparency=0.45+i*0.08
         end
     end
     -- Queue pad.
     local padZ=-22
     disc(lobby,"PadBase",28,1,0.5,padZ,C.panel,Enum.Material.Metal)
-    disc(lobby,"PadRing",LobbyWorld.PadRadius*2+1.2,1.08,0.54,padZ,C.lime,Enum.Material.Neon).CanCollide=false
+    disc(lobby,"PadRing",LobbyWorld.PadRadius*2+1.2,1.08,0.54,padZ,C.purple,Enum.Material.Neon).CanCollide=false
     local pad=disc(lobby,"QueuePad",LobbyWorld.PadRadius*2,1.16,0.58,padZ,C.padCore,Enum.Material.SmoothPlastic)
-    disc(lobby,"PadCore",6,1.2,0.6,padZ,C.lime,Enum.Material.Neon).CanCollide=false
-    light(pad,C.lime,26,2.2)
+    disc(lobby,"PadCore",6,1.2,0.6,padZ,C.purple,Enum.Material.Neon).CanCollide=false
+    light(pad,C.purple,26,2.2)
     -- Rival pylons: blue for player one, red for player two.
     for i,x in {-17,17} do
         local col=i==1 and C.blue or C.red
@@ -184,11 +184,11 @@ local function build()
     local accent=Instance.new("Frame")
     accent.Name="Signal"
     accent.Size=UDim2.new(0,6,1,0)
-    accent.BackgroundColor3=C.lime
+    accent.BackgroundColor3=C.purple
     accent.BorderSizePixel=0
     accent.Parent=card
-    label(card,"Kicker","MAP 01  /  SPLIT CIRCUIT",0.08,0.18,28,C.lime,Enum.Font.Code)
-    label(card,"Title","1V1 DUEL",0.26,0.38,80,C.white,Enum.Font.GothamBlack)
+    label(card,"Kicker","MAP 01  /  SPLIT CIRCUIT",0.08,0.18,28,C.purple,Enum.Font.Code)
+    label(card,"Title","1v1",0.26,0.38,80,C.white,Enum.Font.GothamBlack)
     label(card,"Status","STEP ON THE PAD TO QUEUE",0.68,0.2,30,C.muted)
     -- Back-wall wordmark.
     local plate=part(lobby,"Wordmark",Vector3.new(48,10,0.4),CFrame.new(0,8,-half+1.25),C.ink)
@@ -201,8 +201,8 @@ local function build()
     surface.PixelsPerStud=40
     surface.Parent=plate
     label(surface,"Wordmark","NOVA",0.04,0.66,400,C.white,Enum.Font.GothamBlack)
-    label(surface,"Mode","PLATFORM DUEL",0.72,0.22,110,C.lime,Enum.Font.Code)
-    neon(lobby,"WordmarkRule",Vector3.new(40,0.25,0.2),CFrame.new(0,2.6,-half+1.05),C.lime)
+    label(surface,"Mode","1v1",0.72,0.22,110,C.purple,Enum.Font.Code)
+    neon(lobby,"WordmarkRule",Vector3.new(40,0.25,0.2),CFrame.new(0,2.6,-half+1.05),C.purple)
     return lobby
 end
 

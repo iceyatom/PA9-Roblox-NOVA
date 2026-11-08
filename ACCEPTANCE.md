@@ -1,5 +1,13 @@
 # NOVA v1 acceptance record
 
+## Rebindable controls update
+
+All **57 simulation checks passed**. Preference checks cover serialized keyboard/mouse and controller bindings, device independence, duplicate inputs, D-pad movement conflicts, reserved menu controls and malformed data.
+
+The multiplayer acceptance run returned **passed = true** with four concurrent players and a fifth replacement player. Inside a live duel, settings released held movement, rebound all PC controls, rejected a duplicate, delivered the replacement jump key to the authoritative server, saved the preferences for the session and restored defaults. The rest of the movement, shooting, rematch and disconnect checks passed.
+
+Client checks also passed for shared keyboard/controller jump holds, distinct trigger presses, reconfigured sticks and D-pad, controller binding capture, explicit menu selection paths, mouse binding release, and preventing a settings-button click from firing a shot. Both settings tabs were visually checked in Studio. Controller checks injected controller input into the same handlers; a physical console and production profile storage were not tested. Studio deliberately uses session-only preferences.
+
 ## Map rotation update — November 8, 2026
 
 All **54 simulation checks passed**. The four reference maps compile at 40 × 30 tiles with the traced spawns and collision masks. Rotation tests cover skipping the previous map, locking input during selection, countdown timing, mutual rematch votes, stale round rejection, cancellation on departure, and independent lobbies.

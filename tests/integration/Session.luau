@@ -37,7 +37,7 @@ return function()
         id+=1; local n=id
         results[n]={owner=p}
         channel:FireClient(p,n,cmd,arg)
-        local ans=untilTrue(function() return results[n].answer end,7,cmd.." from "..p.Name)
+        local ans=untilTrue(function() return results[n].answer end,cmd=="settings" and 20 or 7,cmd.." from "..p.Name)
         results[n]=nil
         assert(ans[1],tostring(ans[2])); return ans[2]
     end
@@ -94,6 +94,9 @@ return function()
         request(p1,"keys","Space"); assert(read(p1).p[1].y<laneY,"Blue Space jump")
         request(p2,"keys","Space"); assert(read(p2).p[2].y<laneY,"Red Space jump")
         note("Two clients drove movement through keyboard events")
+        request(p1,"lane"); task.wait(.2)
+        request(p1,"settings")
+        note("Settings released held movement; all PC controls rebound, conflicts were rejected, new jump reached the server, preferences saved and defaults restored")
         laneY=request(p1,"lane"); task.wait(.2)
         local held=request(p1,"holdJump")
         assert(held.takeoffs>=2,"Held Space must jump again on landing")

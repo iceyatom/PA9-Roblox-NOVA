@@ -11,7 +11,7 @@ local BRIDGE="http://127.0.0.1:34872"
 
 local rgb=Color3.fromHex
 local C={ink=rgb("080b13"),panel=rgb("111621"),raised=rgb("1a2030"),line=rgb("303747"),muted=rgb("9ca8bc"),
-    white=rgb("edf2ff"),lime=rgb("b9f770"),blue=rgb("527eff"),red=rgb("ff5859"),field=rgb("080911")}
+    white=rgb("edf2ff"),purple=rgb("793dff"),blue=rgb("527eff"),red=rgb("ff5859"),field=rgb("080911")}
 local TILES={
     {id=".",name="Empty",info="Open space",color=C.field},
     {id="P",name="Solid wall",info="Blocks players and shots",color=rgb("793dff")},
@@ -85,7 +85,7 @@ local function label(parent,name,pos,size,value,ts,color,font)
 end
 local function button(parent,name,pos,size,value,primary)
     local b=make("TextButton",{Name=name,Position=pos,Size=size,BorderSizePixel=0,AutoButtonColor=true,
-        BackgroundColor3=primary and C.lime or C.raised,TextColor3=primary and C.ink or C.white,
+        BackgroundColor3=primary and C.purple or C.raised,TextColor3=C.white,
         Font=Enum.Font.GothamBold,TextSize=13,Text=value},parent)
     make("UICorner",{CornerRadius=UDim.new(0,4)},b)
     if not primary then stroke(b) end
@@ -123,7 +123,7 @@ local function heading(value,color)
     l.LayoutOrder=nextOrder()
     return l
 end
-heading("NOVA   /   LEVEL EDITOR",C.lime).TextSize=13
+heading("NOVA   /   LEVEL EDITOR",C.purple).TextSize=13
 heading("MAPS")
 local mapList=make("Frame",{Name="MapList",Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=nextOrder()},side)
 make("UIListLayout",{Padding=UDim.new(0,4),SortOrder=Enum.SortOrder.LayoutOrder},mapList)
@@ -178,7 +178,7 @@ local holder=make("Frame",{Name="CanvasHolder",Position=UDim2.fromOffset(16,92),
 local canvas=make("Frame",{Name="Canvas",AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),
     BackgroundColor3=C.line,BorderSizePixel=0,Active=true},holder)
 local axis=make("Frame",{Name="MirrorAxis",AnchorPoint=Vector2.new(0.5,0),Position=UDim2.fromScale(0.5,0),
-    Size=UDim2.new(0,2,1,0),BackgroundColor3=C.lime,BackgroundTransparency=0.4,BorderSizePixel=0,ZIndex=4},canvas)
+    Size=UDim2.new(0,2,1,0),BackgroundColor3=C.purple,BackgroundTransparency=0.4,BorderSizePixel=0,ZIndex=4},canvas)
 local markers={}
 for i=1,2 do
     markers[i]=make("TextLabel",{Name="Spawn"..i,AnchorPoint=Vector2.new(0.5,0.5),BackgroundColor3=i==1 and C.blue or C.red,
@@ -236,9 +236,9 @@ local function refreshFields()
     nameBox.Text,codeBox.Text=S.name,S.code
     widthBox.Text,heightBox.Text=tostring(S.width),tostring(S.height)
     mirrorButton.Text=S.mirrored and "Mirror: on" or "Mirror: off"
-    mirrorButton.TextColor3=S.mirrored and C.lime or C.muted
+    mirrorButton.TextColor3=S.mirrored and C.purple or C.muted
     for id,t in toolButtons do
-        t.outline.Color=id==S.tool and C.lime or C.line
+        t.outline.Color=id==S.tool and C.purple or C.line
         t.outline.Thickness=id==S.tool and 2 or 1
     end
 end
@@ -378,7 +378,7 @@ refreshMaps=function()
             b.LayoutOrder=i
             b.TextXAlignment=Enum.TextXAlignment.Left
             b.Text="   "..module.Name..(module.Name==active and "   ·  ACTIVE" or "")
-            b.TextColor3=module.Name==S.id and C.lime or C.white
+            b.TextColor3=module.Name==S.id and C.purple or C.white
             b.Activated:Connect(function() openMap(module) end)
         end
     end
@@ -398,7 +398,7 @@ local function check()
         status(tostring(err):gsub("^.-:%d+: ",""),C.red)
         return false
     end
-    status(("Map is valid  /  %d × %d"):format(S.width,S.height),C.lime)
+    status(("Map is valid  /  %d × %d"):format(S.width,S.height),C.purple)
     return true
 end
 local function num(v) return (("%.2f"):format(v):gsub("%.?0+$","")) end
@@ -438,7 +438,7 @@ local function save()
     if recording then ChangeHistory:FinishRecording(recording,ok and Enum.FinishRecordingOperation.Commit or Enum.FinishRecordingOperation.Cancel) end
     if not ok then status("Save failed: "..tostring(err),C.red); return end
     S.id,S.dirty,S.discardArmed=id,false,nil
-    status(("Saved %s to ReplicatedStorage.NOVA.Maps.%s"):format(S.name,id),C.lime)
+    status(("Saved %s to ReplicatedStorage.NOVA.Maps.%s"):format(S.name,id),C.purple)
     refreshMaps()
 end
 
@@ -531,7 +531,7 @@ activeButton.Activated:Connect(function()
     local recording=ChangeHistory:TryBeginRecording("NOVA set active map")
     nova:SetAttribute("ActiveMap",S.id)
     if recording then ChangeHistory:FinishRecording(recording,Enum.FinishRecordingOperation.Commit) end
-    status(S.name.." is now the active map. Press Play to try it.",C.lime)
+    status(S.name.." is now the active map. Press Play to try it.",C.purple)
     refreshMaps()
 end)
 newButton.Activated:Connect(newMap)
@@ -570,7 +570,7 @@ deleteButton.Activated:Connect(function()
     local name=S.name
     S.dirty=false
     openMap(maps.SplitCircuit)
-    status(("Deleted %s%s"):format(name,result.path and " and "..result.path or " (it was never exported)"),C.lime)
+    status(("Deleted %s%s"):format(name,result.path and " and "..result.path or " (it was never exported)"),C.purple)
 end)
 exportButton.Activated:Connect(function()
     if S.dirty or not S.id then status("Save the map before exporting it.",C.red); return end
@@ -579,7 +579,7 @@ exportButton.Activated:Connect(function()
     if not module then status("Saved map module not found.",C.red); return end
     status("Exporting...",C.muted)
     local ok,result=bridge("/maps",{id=S.id,source=module.Source})
-    if ok then status("Exported to "..result.path,C.lime) else status("Export failed: "..result,C.red) end
+    if ok then status("Exported to "..result.path,C.purple) else status("Export failed: "..result,C.red) end
 end)
 
 toggle.Click:Connect(function() widget.Enabled=not widget.Enabled end)

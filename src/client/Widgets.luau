@@ -1,7 +1,7 @@
 local W = {}
 W.rgb = Color3.fromHex
 W.colors = {ink=W.rgb("080b13"), panel=W.rgb("111621"), line=W.rgb("303747"), muted=W.rgb("9ca8bc"),
-    white=W.rgb("edf2ff"), lime=W.rgb("b9f770"), purple=W.rgb("793dff"),blue=W.rgb("527eff"),red=W.rgb("ff5859"),
+    white=W.rgb("edf2ff"), purple=W.rgb("793dff"),blue=W.rgb("527eff"),red=W.rgb("ff5859"),
     dark=W.rgb("3228c7"), light=W.rgb("248bff"), mint=W.rgb("50e4ac")}
 function W.box(parent,name,x,y,w,h,color,z)
     local f=Instance.new("Frame")
@@ -37,8 +37,8 @@ function W.button(parent,name,x,y,w,h,value,primary)
     b.Position=UDim2.fromOffset(x,y)
     b.Size=UDim2.fromOffset(w,h)
     b.BorderSizePixel=0
-    b.BackgroundColor3=primary and W.colors.lime or W.colors.line
-    b.TextColor3=primary and W.colors.ink or W.colors.white
+    b.BackgroundColor3=primary and W.colors.purple or W.colors.line
+    b.TextColor3=W.colors.white
     b.Font=Enum.Font.GothamBold
     b.TextSize=16
     b.Text=value
