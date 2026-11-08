@@ -80,3 +80,20 @@ On this machine, 90 samples of one fixed step with 120 simultaneous shots yielde
 ## Implementation notes
 
 The server samples both authoritative centers on receipt of a fire request. Internet latency can change what the shooter sees relative to the sampled positions. The first iteration uses interpolated snapshots without client prediction or rewind. All four active tile behaviors are editable. The two colored corner markers remain decorative pending owner review.
+
+## Leveling system — local verification, November 8, 2026
+
+- Official Luau 0.746: all 52 source/test scripts compiled successfully.
+- `python tools/check_logic.py --luau <luau.exe>`: **74 passed, 0 failed**, including 17 new progression, persistence, and reward cases. Coverage includes all ten prestige resets, Master entry and level 1,000, XP overflow, invalid profiles, profile session conflicts, expired leases, save retries, rematch rewards, draws, and disconnect outcomes.
+- `python tools/build.py`: regenerated `build/NOVA.rbxlx` with the new modules and tests.
+- No Roblox Studio instance was connected during this change. Engine/UI verification and published-server persistence remain pending. Local fake-store checks do not establish live DataStore behavior.
+
+Subsequent Studio verification: the open NOVA place (102464433517469) was missing all new progression modules. Synced the 13 changed/new scripts and tests into its Edit data model, then started Play. The client reported `ProgressionReady=true`, Level 1, and an enabled `NOVAProgression` panel. A screenshot confirmed the XP card and the character's Level 1 nameplate. All 13 progression/storage cases and 4 match reward cases passed in the actual Studio server. Published-server saving and a two-client portrait/XP playtest remain pending. The local place was updated without publishing.
+
+Manual checks in Studio (two clients):
+
+1. Confirm both players start at Level 1, can see each other's lobby nameplates, and see their own XP card. Queue together and check headshots and ranks on both duel seats, including during map selection.
+2. Complete a duel: the winner should receive 300 XP and the loser 100 XP exactly once. Rematch and verify another award. Disconnect during combat and confirm only the survivor receives 300 XP. Leave before combat and confirm no XP.
+3. Run `require(game.ServerStorage.NOVAUnitTest.RunUnitTest)("Progression")` and `require(game.ServerStorage.NOVAUnitTest.RunUnitTest)("MatchRewards")` in the Studio server Command Bar for rank, save, and reward boundary coverage.
+4. At level 55, check the two-click lobby prestige flow, cancellation by entering a challenge, ten resets, and Prestige Master entry at level 55. Test keyboard, touch, and controller selection, and check the lobby card on a narrow viewport.
+5. In a private published test server, earn XP, leave, and rejoin to verify the saved rank and XP. Confirm delayed saves/loads are disclosed, temporary failures recover, and overlapping sessions cannot overwrite each other. Studio intentionally does not access these profiles.

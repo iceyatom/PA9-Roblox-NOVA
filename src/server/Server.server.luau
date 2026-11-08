@@ -4,11 +4,17 @@ local shared = game.ReplicatedStorage:WaitForChild("NOVA")
 local Config = require(shared.Config)
 local Maps = require(shared.Map1)
 local map = Maps.active()
-local lobbies = require(script.Parent.Lobbies).new(map,Config,Maps.choose)
+local progression=require(script.Parent.ProgressionService).new()
+local lobbies = require(script.Parent.Lobbies).new(map,Config,Maps.choose,function(sim)
+    for i,p in sim.seats do
+        sim.rewards[i]=progression:award(p,sim.winner==i)
+    end
+end)
 local LobbyWorld = require(script.Parent.LobbyWorld)
 local world = LobbyWorld.ensure()
 local practiceWorld=require(script.Parent.PracticeWorld).ensure(world)
 local practice=require(script.Parent.Practice).new()
+progression.canPrestige=function(p) return not lobbies.membership[p] and not practice.sessions[p] end
 local leaderboard=require(script.Parent.PracticeLeaderboard).new(practiceWorld.Leaderboard)
 local signKicker = world:FindFirstChild("Kicker",true)
 if signKicker then signKicker.Text = ("%d MAPS  /  RANDOM ROTATION"):format(#Maps.pool()) end
@@ -42,7 +48,8 @@ local function broadcast(room)
         winner=sim.winner,reason=sim.reason,players={},shots={},maxHP=sim.cfg.Health}
     for i=1,2 do
         local p,b = sim.seats[i],sim.bodies[i]
-        snap.players[i] = {uid=p and p.UserId,name=p and p.DisplayName,x=b.x,y=b.y,hp=b.hp,vote=sim.votes[i] == true}
+        snap.players[i] = {uid=p and p.UserId,name=p and p.DisplayName,x=b.x,y=b.y,hp=b.hp,vote=sim.votes[i] == true,
+            progression=p and progression:view(p),xpAward=sim.rewards[i]}
     end
     for i,b in sim.bullets do snap.shots[i]={b.id,b.x,b.y,b.seat,b.vx,b.vy} end
     for _,p in sim.seats do
@@ -66,6 +73,7 @@ local function spawnInLobby(p)
     if p.Parent==Players and not lobbies.membership[p] and not practice.sessions[p] then p:LoadCharacter() end
 end
 local function track(p)
+    task.spawn(function() progression:load(p) end)
     p.CharacterAdded:Connect(function(character)
         character:WaitForChild("Humanoid").Died:Connect(function()
             task.wait(3)
@@ -78,7 +86,7 @@ Players.PlayerAdded:Connect(track)
 for _,p in Players:GetPlayers() do task.spawn(track,p) end
 
 local function enterQueue(p)
-    if lobbies.membership[p] or practice.sessions[p] then return end
+    if lobbies.membership[p] or practice.sessions[p] or not progression:ready(p) then return end
     lobbies:join(p)
     local character=p.Character
     p.Character=nil
@@ -93,7 +101,7 @@ local function returnToLobby(p)
 end
 
 local function enterPractice(p)
-    if lobbies.membership[p] or practice.sessions[p] then return end
+    if lobbies.membership[p] or practice.sessions[p] or not progression:ready(p) then return end
     local s=practice:start(p,workspace:GetServerTimeNow())
     local character=p.Character
     p.Character=nil
@@ -141,6 +149,7 @@ Players.PlayerRemoving:Connect(function(p)
     practice:remove(p)
     lobbies:remove(p)
     flush()
+    progression:remove(p)
 end)
 input.OnServerEvent:Connect(function(p,kind,lobbyId,round,a,b)
     if p.Parent~=Players then return end

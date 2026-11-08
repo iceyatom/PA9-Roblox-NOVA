@@ -1,5 +1,7 @@
 local W=require(script.Parent.Widgets)
 local C=W.colors
+local P=require(game.ReplicatedStorage.NOVA.Progression)
+local Portrait=require(script.Parent.Portrait)
 local Hud={}
 Hud.__index=Hud
 local bold=Enum.Font.GothamBold
@@ -41,11 +43,16 @@ function Hud.new(playerGui)
         local col=i==1 and C.blue or C.red
         W.box(stage,"SeatColor",x,y+4,5,17,col)
         local who=W.text(stage,"Seat"..i,x+16,y,195,26,"PLAYER 0"..i,16,C.muted)
-        local name=W.text(stage,"Callsign"..i,x,y+32,207,37,"Open seat",25,C.white,bold)
-        local hp=W.text(stage,"Vitals"..i,x,y+72,207,22,"AWAITING PLAYER",14,C.muted)
+        local avatar=Instance.new("ImageLabel")
+        avatar.Name="Portrait"..i; avatar.Position=UDim2.fromOffset(x,y+32); avatar.Size=UDim2.fromOffset(36,36)
+        avatar.BackgroundColor3=C.panel; avatar.BorderSizePixel=0; avatar.ZIndex=3; avatar.Parent=stage
+        W.round(avatar)
+        local name=W.text(stage,"Callsign"..i,x+45,y+30,162,32,"Open seat",21,C.white,bold)
+        local rank=W.text(stage,"Rank"..i,x,y+66,207,18,"",12,C.muted)
+        local hp=W.text(stage,"Vitals"..i,x,y+85,207,18,"AWAITING PLAYER",12,C.muted)
         local cells={}
         for j=1,10 do cells[j]=W.box(stage,"HP",x+(j-1)*20.7,y+103,17,5,C.line) end
-        self.seats[i]={who=who,name=name,hp=hp,cells=cells,color=col}
+        self.seats[i]={who=who,name=name,rank=rank,avatar=avatar,hp=hp,cells=cells,color=col}
     end
     -- Right rail: persistent legend for the four collision behaviors.
     local rx=1195
@@ -81,6 +88,9 @@ function Hud:update(snap,seat)
         local side=self.seats[i]
         side.who.Text=("PLAYER 0%d%s"):format(i,i==seat and "   /   YOU" or "")
         side.name.Text=p.name or "Open seat"
+        side.rank.Text=p.uid and P.label(p.progression) or ""
+        side.rank.TextColor3=p.progression and p.progression.master and C.mint or C.muted
+        Portrait.set(side.avatar,p.uid)
         side.hp.Text=p.uid and ("%02d / %02d HP"):format(p.hp,snap.maxHP) or "AWAITING PLAYER"
         for j,cell in side.cells do cell.BackgroundColor3=p.uid and j/10 <= p.hp/snap.maxHP and side.color or C.line end
     end
@@ -100,6 +110,8 @@ function Hud:update(snap,seat)
         self.kicker.Text="ROUND COMPLETE"
         self.title.Text=snap.winner==0 and "Draw" or snap.winner==seat and "Victory" or "Defeat"
         self.note.Text=snap.reason=="Disconnect" and "Your rival disconnected." or snap.winner==0 and "Both players landed the final hit." or "Ten hits. Duel complete."
+        local reward=snap.players[seat].xpAward
+        if reward and reward>0 then self.note.Text=("+%d XP / %s"):format(reward,snap.reason=="Disconnect" and "Rival disconnected" or snap.winner==seat and "Victory bonus" or "Duel completed") end
         local rival=snap.players[3-seat]
         self.rematch.Text=not rival.uid and "Find new rival" or snap.players[seat].vote and "Waiting for rival…" or rival.vote and "Accept rematch" or "Rematch"
     end

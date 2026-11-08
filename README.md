@@ -30,6 +30,18 @@ The wall beside the beacon shows the global top 10, one best completed score per
 ## Duel rules
 A/D move, Space jumps from a surface, and gravity brings the player down. Each left mouse press launches one shot at the opponent's authoritative center when the request arrives. Direction is frozen for the flight. The server accepts increasing integer shot IDs for the current round only. Impacts in the same simulation step are applied together; simultaneous lethal impacts draw. Both players must vote for a rematch. Lobby returns the player to the 3D lobby. A combat disconnect gives the remaining player a win, and they may choose to wait for a new opponent. New arrivals cannot enter an active duel.
 
+## Levels and prestige
+
+Players start at level 1, reach level 55, and choose **Prestige** in the top-left lobby card. The first click explains the reset; **Confirm prestige** performs it. Each of the ten prestiges resets level to 1 and current XP to zero. After reaching Prestige 10 level 55, **Become Prestige Master** keeps level 55 and unlocks levels 56–1,000. Prestige Master level 1,000 is the final cap. Prestige is available only in the 3D lobby, outside matchmaking and practice.
+
+A completed duel gives its winner **300 total XP** and its loser **100 XP**. Draws give both players 100 XP. A combat disconnect gives the survivor 300 XP; the departing player receives none. Queueing, map selection, countdowns, abandoned duels, and High Score Practice do not award XP. Each round finishes and awards rewards once, including rematches. The match result shows the earned XP.
+
+`src/shared/Progression.luau` owns the tunable rewards and XP curve: the step from level 1 to 2 costs 100 XP, then each step costs 25 more. Master levels keep the level-55 cost of 1,450 XP per level. Excess XP is discarded at level 55 until prestige is chosen, and at the final cap. Lifetime XP survives prestige.
+
+The lobby card shows rank, current XP, the next level, and save status. Nameplates above lobby characters show their display name and rank; the Roblox player list also shows Level and Prestige. Both duel seats show an avatar headshot and full rank from matchmaking through the result screen. Thumbnail loading happens independently of gameplay and is cached per user.
+
+Published servers store profiles in `NOVA_Progression_v1` using atomic updates, a per-server session token, and a 180-second lease renewed every 30 seconds. Failed loads never replace a saved profile with defaults; the card reports the failure, retries, and challenges wait until the profile is available. Failed saves retry, retain pending progression in memory, and report the delayed save. Profiles save on prestige, periodically, on departure, and during shutdown. An expired lease stops progression changes until renewal succeeds. Studio uses session-only progression without reading or changing live profiles.
+
 ## Developer controls
 Studio-only diagnostics and automated tests are gated by RunService:IsStudio(). Balance defaults are in ReplicatedStorage/NOVA/Config. The map and tile catalog are adjacent modules. Production has no configuration remote.
 
@@ -75,10 +87,10 @@ Then open the map in the editor, Save it, and click **Export to repo**. The firs
 
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
-| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1 and ControlBindings |
+| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings and Progression |
 | `src/shared/maps` | `ReplicatedStorage.NOVA.Maps` | Map data modules for all five arenas |
-| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences and StudioTest |
-| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, Widgets, Arena, Input, ControlSettings, SettingsMenu and Diagnostics |
+| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences, ProgressionService, ProgressionStore and StudioTest |
+| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |
 
@@ -92,6 +104,8 @@ LobbyWorld builds `Workspace.NOVALobby` and the night lighting at server start u
 4. Run the checks below. For a new online experience use Studio **File → Publish**, select the personal creator and keep the new experience private. For subsequent updates, confirm the intended place and use Publish on that connected place. Only players with access to the private experience can join online. [Roblox publishing guide](https://create.roblox.com/docs/production/publishing/publish-games-and-places)
 
 ## Run the acceptance checks
+
+For local logic checks without Studio, install the official [Luau CLI](https://github.com/luau-lang/luau/releases) and run `python tools/check_logic.py --luau <path-to-luau>`. This runs the progression, profile storage, match rewards, match, lobby, movement, combat, practice, and map rotation cases with a minimal module/Vector2 environment. It does not emulate Roblox UI, networking, or real DataStores.
 
 In a running Studio **server** data model, execute each line separately.
 

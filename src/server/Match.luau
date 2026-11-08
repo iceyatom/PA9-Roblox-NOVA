@@ -23,6 +23,7 @@ end
 function Match:reset(phase)
     self.bodies = {Movement.body(self.map.spawns[1],self.cfg),Movement.body(self.map.spawns[2],self.cfg)}
     self.phase,self.votes,self.bullets,self.serial,self.winner,self.reason = phase,{}, {},0,nil,nil
+    self.rewards={}
     self.count = phase == "Countdown" and self.cfg.Countdown or 0
     if phase == "Countdown" then self.round += 1 end
 end
@@ -39,6 +40,7 @@ end
 function Match:finish(winner,reason)
     if self.phase ~= "Playing" then return end
     self.phase,self.winner,self.reason,self.bullets,self.votes = "Results",winner,reason,{},{}
+    if self.finished then self.finished(self) end
 end
 
 -- Find a flat, unobstructed shooting lane for Studio diagnostics.
