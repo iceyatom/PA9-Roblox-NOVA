@@ -16,7 +16,7 @@ local input = remote("Input")
 local seatOf = {}
 local lastPhase
 local function broadcast()
-    local snap = {phase=sim.phase,round=sim.round,ends=workspace:GetServerTimeNow()+sim.count,
+    local snap = {phase=sim.phase,round=sim.round,tick=sim.stepNumber,ends=workspace:GetServerTimeNow()+sim.count,
         winner=sim.winner,reason=sim.reason,players={},shots={},maxHP=sim.cfg.Health}
     for i=1,2 do
         local p,b = sim.seats[i],sim.bodies[i]

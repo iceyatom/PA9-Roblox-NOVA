@@ -40,6 +40,13 @@ function Arena.new(stage)
                 if not wall(x+1,y) then rect(field,"Edge",x+1-edge,y,edge,1,C.purple,3) end
                 if not wall(x,y-1) then rect(field,"Edge",x,y,1,edge,C.purple,3) end
                 if not wall(x,y+1) then rect(field,"Edge",x,y+1-edge,1,edge,C.purple,3) end
+                for _,dx in {-1,1} do
+                    for _,dy in {-1,1} do
+                        if wall(x+dx,y) and wall(x,y+dy) and not wall(x+dx,y+dy) then
+                            rect(field,"Corner",x+(dx==1 and 1-edge or 0),y+(dy==1 and 1-edge or 0),edge,edge,C.purple,3)
+                        end
+                    end
+                end
             end
         end
     end

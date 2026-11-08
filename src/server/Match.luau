@@ -1,4 +1,3 @@
-local Shared = game.ReplicatedStorage.NOVA
 local Movement = require(script.Parent.Movement)
 local Combat = require(script.Parent.Combat)
 local Match = {}

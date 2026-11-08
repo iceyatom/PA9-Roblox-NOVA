@@ -10,11 +10,22 @@ local notice=stage:WaitForChild("MatchNotice")
 local virtual=assert(game:GetService("UserInputService"):CreateVirtualInput(),"Virtual input unavailable")
 local latest
 local seen={}
+local trail={}
 shared.State.OnClientEvent:Connect(function(s)
     latest=s; seen[s.phase]=true
+    if s.round==1 then
+        for _,shot in s.shots do
+            if shot[1]==1 then trail[tostring(s.tick)]=Vector2.new(shot[2],shot[3]) end
+        end
+    end
 end)
 local mouse=Enum.UserInputType.MouseButton1
 local function click(pos,hold)
+    -- GuiObject.AbsolutePosition uses the inset-relative coordinate space.
+    -- VirtualInput expects the physical viewport coordinate.
+    pos+=game:GetService("GuiService"):GetGuiInset()
+    virtual:SendMousePosition(pos)
+    task.wait(.05)
     virtual:SendMouseButton(pos,mouse,true); task.wait(hold or .025)
     virtual:SendMouseButton(pos,mouse,false); task.wait(.025)
 end
@@ -25,7 +36,7 @@ local function handle(cmd,arg)
         return {seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
             hp=stage.Vitals2.Text,seen=seen,round=latest and latest.round or 0,
             p=latest and latest.players or {},vote=notice.Rematch.Text,
-            visible=notice.Visible,bar=stage.Map1.Player2.Health.Fill.Size.X.Scale}
+            visible=notice.Visible,bar=stage.Map1.Player2.Health.Fill.Size.X.Scale,trail=trail}
     elseif cmd=="keys" then
         virtual:SendKey(true,Enum.KeyCode[arg],false)
         task.wait(.19)
@@ -37,9 +48,15 @@ local function handle(cmd,arg)
     elseif cmd=="hold" then
         click(center(stage.Map1),.55)
     elseif cmd=="vote" then
-        click(center(notice.Rematch))
+        local pos=center(notice.Rematch)
+        local under={}
+        for _,widget in player.PlayerGui:GetGuiObjectsAtPosition(pos.X,pos.Y) do table.insert(under,widget.Name) end
+        click(pos,.1)
+        return ("at %s over %s"):format(tostring(pos),table.concat(under,","))
     elseif cmd=="disconnect" then
         task.defer(function() game:GetService("StudioTestService"):LeaveTest() end)
+    elseif cmd=="leave" then
+        click(center(notice.Leave),.1)
     elseif cmd=="forged" then
         local round=latest.round
         for _,k in {"hit","health","winner","position"} do shared.Input:FireServer(k,round,999) end
