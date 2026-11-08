@@ -1,5 +1,8 @@
 local W=require(script.Parent.Widgets)
 local C=W.colors
+local P=require(game.ReplicatedStorage.NOVA.Progression)
+local Portrait=require(script.Parent.Portrait)
+local RankIcon=require(script.Parent.RankIcon)
 local Hud={}
 Hud.__index=Hud
 local bold=Enum.Font.GothamBold
@@ -41,11 +44,17 @@ function Hud.new(playerGui)
         local col=i==1 and C.blue or C.red
         W.box(stage,"SeatColor",x,y+4,5,17,col)
         local who=W.text(stage,"Seat"..i,x+16,y,195,26,"PLAYER 0"..i,16,C.muted)
-        local name=W.text(stage,"Callsign"..i,x,y+32,207,37,"Open seat",25,C.white,bold)
-        local hp=W.text(stage,"Vitals"..i,x,y+72,207,22,"AWAITING PLAYER",14,C.muted)
+        local avatar=Instance.new("ImageLabel")
+        avatar.Name="Portrait"..i; avatar.Position=UDim2.fromOffset(x,y+32); avatar.Size=UDim2.fromOffset(36,36)
+        avatar.BackgroundColor3=C.panel; avatar.BorderSizePixel=0; avatar.ZIndex=3; avatar.Parent=stage
+        W.round(avatar)
+        local name=W.text(stage,"Callsign"..i,x+45,y+30,162,32,"Open seat",21,C.white,bold)
+        local rankIcon=RankIcon.new(stage,"RankIcon"..i,x,y+66,30)
+        local rank=W.text(stage,"Rank"..i,x+38,y+68,169,18,"",11,C.muted)
+        local hp=W.text(stage,"Vitals"..i,x,y+94,207,18,"AWAITING PLAYER",12,C.muted)
         local cells={}
-        for j=1,10 do cells[j]=W.box(stage,"HP",x+(j-1)*20.7,y+103,17,5,C.line) end
-        self.seats[i]={who=who,name=name,hp=hp,cells=cells,color=col}
+        for j=1,10 do cells[j]=W.box(stage,"HP",x+(j-1)*20.7,y+115,17,5,C.line) end
+        self.seats[i]={who=who,name=name,rank=rank,rankIcon=rankIcon,avatar=avatar,hp=hp,cells=cells,color=col}
     end
     -- Right rail: persistent legend for the four collision behaviors.
     local rx=1195
@@ -65,6 +74,10 @@ function Hud.new(playerGui)
     self.kicker=W.text(self.notice,"Status",23,12,355,22,"DUEL LOBBY",15,C.purple)
     self.title=W.text(self.notice,"Title",22,35,362,38,"Waiting for a rival",29,C.white,heavy)
     self.note=W.text(self.notice,"Detail",23,77,360,23,"The duel starts with two players.",16,C.muted)
+    self.xpRecap=require(script.Parent.XPRecap).new(self.notice)
+    gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+        if not gui.Enabled then self.xpRecap:hide() end
+    end)
     self.rematch=W.button(self.notice,"Rematch",23,109,209,37,"Rematch",true)
     self.leave=W.button(self.notice,"Leave",244,109,130,37,"Leave",false)
     self.rematch.Visible=false
@@ -81,15 +94,39 @@ function Hud:update(snap,seat)
         local side=self.seats[i]
         side.who.Text=("PLAYER 0%d%s"):format(i,i==seat and "   /   YOU" or "")
         side.name.Text=p.name or "Open seat"
+        side.rank.Text=p.uid and P.label(p.progression) or ""
+        RankIcon.set(side.rankIcon,p.uid and p.progression or nil)
+        side.rank.TextColor3=p.progression and p.progression.master and C.mint or C.muted
+        Portrait.set(side.avatar,p.uid)
         side.hp.Text=p.uid and ("%02d / %02d HP"):format(p.hp,snap.maxHP) or "AWAITING PLAYER"
         for j,cell in side.cells do cell.BackgroundColor3=p.uid and j/10 <= p.hp/snap.maxHP and side.color or C.line end
     end
     self.notice.Visible=phase~="Playing" and phase~="Selecting"
     self.notice.Size=UDim2.fromOffset(400,(phase=="Results" or phase=="Waiting") and 160 or 111)
+    self.notice.Position=UDim2.fromOffset(520,389)
+    self.note.Size=UDim2.fromOffset(360,23)
+    local receipt=phase=="Results" and snap.players[seat].xpRecap
+    if receipt and receipt.total<=0 then receipt=nil end
+    if receipt then
+        local height=108+self.xpRecap:start(tostring(snap.lobby)..":"..snap.round,receipt)+65
+        self.notice.Size=UDim2.fromOffset(500,height)
+        self.notice.Position=UDim2.fromOffset(470,405-height/2)
+        self.note.Size=UDim2.fromOffset(454,23)
+    else
+        self.xpRecap:hide()
+    end
     self.rematch.Visible=phase=="Results"
     self.leave.Visible=phase=="Results" or phase=="Waiting"
     self.leave.Position=UDim2.fromOffset(phase=="Waiting" and 23 or 244,109)
     self.leave.Size=UDim2.fromOffset(phase=="Waiting" and 160 or 130,37)
+    self.rematch.Size=UDim2.fromOffset(receipt and 280 or 209,37)
+    if receipt then
+        local y=self.notice.Size.Y.Offset-51
+        self.rematch.Position=UDim2.fromOffset(23,y)
+        self.leave.Position=UDim2.fromOffset(347,y)
+    else
+        self.rematch.Position=UDim2.fromOffset(23,109)
+    end
     self.leave.Text=phase=="Waiting" and "Leave queue" or "Lobby"
     if phase=="Waiting" then
         self.kicker.Text,self.title.Text,self.note.Text="IN QUEUE","Waiting for a rival","The duel starts with two players."
@@ -100,11 +137,14 @@ function Hud:update(snap,seat)
         self.kicker.Text="ROUND COMPLETE"
         self.title.Text=snap.winner==0 and "Draw" or snap.winner==seat and "Victory" or "Defeat"
         self.note.Text=snap.reason=="Disconnect" and "Your rival disconnected." or snap.winner==0 and "Both players landed the final hit." or "Ten hits. Duel complete."
+        local reward=snap.players[seat].xpAward
+        if reward and reward>0 and not receipt then self.note.Text=("+%d XP / %s"):format(reward,snap.reason=="Disconnect" and "Rival disconnected" or snap.winner==seat and "Victory bonus" or "Duel completed") end
         local rival=snap.players[3-seat]
         self.rematch.Text=not rival.uid and "Find new rival" or snap.players[seat].vote and "Waiting for rival…" or rival.vote and "Accept rematch" or "Rematch"
     end
 end
 function Hud:tick()
+    self.xpRecap:tick()
     if self.snap and self.snap.phase=="Countdown" then
         self.title.Text="Duel in "..math.clamp(math.ceil(self.snap.ends-workspace:GetServerTimeNow()),1,3)
     end

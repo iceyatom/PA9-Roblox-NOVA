@@ -32,6 +32,8 @@ local clear=require(script.Parent.Input).connect(fire,function()
     return not settings.opened and ((practiceSnapshot and practiceSnapshot.phase=="Playing") or (snapshot and snapshot.phase=="Playing"))
 end,settings)
 local settingsMenu=require(script.Parent.SettingsMenu).new(player.PlayerGui,settings,clear)
+local progressionHud,progressionMenu=require(script.Parent.ProgressionHud).new(player.PlayerGui,clear,function() settingsMenu:setOpen(false) end)
+settingsMenu.beforeOpen=function() progressionMenu:setOpen(false) end
 settingsMenu.selectionOnClose=function()
     if practiceSnapshot then return practiceSnapshot.phase=="Results" and practice.retry or practice.leave end
     if not snapshot then return nil end
@@ -50,6 +52,7 @@ local function setMode(duel)
     settingsMenu:setAvailable(not duel)
     hud.gui.Enabled=duel
     lobbyCard.Enabled=not duel
+    progressionHud.Enabled=not duel
     local camera=workspace.CurrentCamera
     if camera then
         camera.CameraType=duel and Enum.CameraType.Scriptable or Enum.CameraType.Custom

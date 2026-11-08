@@ -1,0 +1,138 @@
+{
+  "transform": "ITU-R 601 luminance, unchanged alpha and dimensions",
+  "icons": [
+    {
+      "key": "prestige-01",
+      "source": "../source/prestige-01.png",
+      "file": "prestige-01-gray.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "assetId": "115304088406261",
+      "moderation": "Approved",
+      "operationId": "2210c96e-fbd3-42e6-8c5c-9af64f646ae8"
+    },
+    {
+      "key": "prestige-02",
+      "source": "../source/prestige-02.png",
+      "file": "prestige-02-gray.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "assetId": "139474054551675",
+      "moderation": "Approved",
+      "operationId": "7f50a80a-6183-4396-a9cb-921031ecc796"
+    },
+    {
+      "key": "prestige-03",
+      "source": "../source/prestige-03.png",
+      "file": "prestige-03-gray.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "assetId": "114226742807745",
+      "moderation": "Approved",
+      "operationId": "77c72134-0224-4dec-90da-6a59ad470ebb"
+    },
+    {
+      "key": "prestige-04",
+      "source": "../source/prestige-04.png",
+      "file": "prestige-04-gray.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "assetId": "122061151033862",
+      "moderation": "Approved",
+      "operationId": "4cbb2d27-5650-4366-9b6b-7d29494caaac"
+    },
+    {
+      "key": "prestige-05",
+      "source": "../source/prestige-05.png",
+      "file": "prestige-05-gray.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "assetId": "92699619063595",
+      "moderation": "Approved",
+      "operationId": "084ab9e6-27eb-4ae3-9651-6dc0b58fdc5b"
+    },
+    {
+      "key": "prestige-06",
+      "source": "../source/prestige-06.png",
+      "file": "prestige-06-gray.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "assetId": "101731782195423",
+      "moderation": "Approved",
+      "operationId": "d3e06b82-9a08-4672-861e-70cc37f33d44"
+    },
+    {
+      "key": "prestige-07",
+      "source": "../source/prestige-07.png",
+      "file": "prestige-07-gray.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "assetId": "137945930130318",
+      "moderation": "Approved",
+      "operationId": "0e6761c3-6004-4dd7-9512-7d353862cc55"
+    },
+    {
+      "key": "prestige-08",
+      "source": "../source/prestige-08.png",
+      "file": "prestige-08-gray.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "assetId": "138381040873575",
+      "moderation": "Approved",
+      "operationId": "2ce5d239-562c-4061-9af1-8ec6a8b550b0"
+    },
+    {
+      "key": "prestige-09",
+      "source": "../source/prestige-09.png",
+      "file": "prestige-09-gray.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "assetId": "89489899982298",
+      "moderation": "Approved",
+      "operationId": "f9821cf8-ffeb-4908-8752-68a75bb2aa78"
+    },
+    {
+      "key": "prestige-10",
+      "source": "../source/prestige-10.png",
+      "file": "prestige-10-gray.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "assetId": "78328724971540",
+      "moderation": "Approved",
+      "operationId": "5776d62a-be33-4cec-9605-afa29ca6525b"
+    },
+    {
+      "key": "prestige-master",
+      "source": "../source/prestige-master.png",
+      "file": "prestige-master-gray.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "assetId": "75531181941617",
+      "moderation": "Approved",
+      "operationId": "fe554659-5f4c-40bc-944c-a0fbb8351c93"
+    }
+  ],
+  "creatorId": "432115180"
+}

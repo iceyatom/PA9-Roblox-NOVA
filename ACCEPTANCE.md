@@ -80,3 +80,65 @@ On this machine, 90 samples of one fixed step with 120 simultaneous shots yielde
 ## Implementation notes
 
 The server samples both authoritative centers on receipt of a fire request. Internet latency can change what the shooter sees relative to the sampled positions. The first iteration uses interpolated snapshots without client prediction or rewind. All four active tile behaviors are editable. The two colored corner markers remain decorative pending owner review.
+
+## Leveling system — local verification, November 8, 2026
+
+- Official Luau 0.746: all 52 source/test scripts compiled successfully.
+- `python tools/check_logic.py --luau <luau.exe>`: **74 passed, 0 failed**, including 17 new progression, persistence, and reward cases. Coverage includes all ten prestige resets, Master entry and level 1,000, XP overflow, invalid profiles, profile session conflicts, expired leases, save retries, rematch rewards, draws, and disconnect outcomes.
+- `python tools/build.py`: regenerated `build/NOVA.rbxlx` with the new modules and tests.
+- No Roblox Studio instance was connected during this change. Engine/UI verification and published-server persistence remain pending. Local fake-store checks do not establish live DataStore behavior.
+
+Subsequent Studio verification: the open NOVA place (102464433517469) was missing all new progression modules. Synced the 13 changed/new scripts and tests into its Edit data model, then started Play. The client reported `ProgressionReady=true`, Level 1, and an enabled `NOVAProgression` panel. A screenshot confirmed the XP card and the character's Level 1 nameplate. All 13 progression/storage cases and 4 match reward cases passed in the actual Studio server. Published-server saving and a two-client portrait/XP playtest remain pending. The local place was updated without publishing.
+
+Manual checks in Studio (two clients):
+
+1. Confirm both players start at Level 1, can see each other's lobby nameplates, and see their own XP card. Queue together and check headshots and ranks on both duel seats, including during map selection.
+2. Complete a duel: the winner should receive 300 XP and the loser 100 XP exactly once. Rematch and verify another award. Disconnect during combat and confirm only the survivor receives 300 XP. Leave before combat and confirm no XP.
+3. Run `require(game.ServerStorage.NOVAUnitTest.RunUnitTest)("Progression")` and `require(game.ServerStorage.NOVAUnitTest.RunUnitTest)("MatchRewards")` in the Studio server Command Bar for rank, save, and reward boundary coverage.
+4. At level 55, check the two-click lobby prestige flow, cancellation by entering a challenge, ten resets, and Prestige Master entry at level 55. Test keyboard, touch, and controller selection, and check the lobby card on a narrow viewport.
+5. In a private published test server, earn XP, leave, and rejoin to verify the saved rank and XP. Confirm delayed saves/loads are disclosed, temporary failures recover, and overlapping sessions cannot overwrite each other. Studio intentionally does not access these profiles.
+
+## Animated XP recap — November 8, 2026
+
+- Official Luau CLI: **81 logic cases passed**, including seven new itemized-reward/animation-plan cases. All **55 Luau scripts compiled**. Rebuilt `build/NOVA.rbxlx`.
+- Synced the eight changed/new runtime and test scripts to the local NOVA place. In the actual Studio server, all seven XPRewards cases and four MatchRewards cases passed.
+- A Studio-only preview sent receipts through the real State snapshot handler. Visually verified the item rows, counting total, progression bar, rank, level gains, and result buttons. A level-1 victory ended at Level 3, 75/150 XP, with a half-full bar and +300 XP total. Confirmed the buttons are below the progress text and remain available.
+- Re-sent the same result with a rematch vote: the completed animation did not replay and the rematch button updated normally. A new-round preview reaching Prestige 5 level 55 stopped with a full bar and the prestige-available message.
+- Previews did not change the player's profile. Restored the lobby, confirmed Level 1 / 0 XP, and left Play running. No publishing was performed. A complete two-player duel with the new animation remains a manual gameplay check; the Studio checks used isolated result snapshots.
+
+## Prestige artwork — November 8, 2026
+
+- Generated twelve separate transparent PNGs with the built-in image generator, reviewing basic, mid-tier, and Master anchors before the intermediate groups. Checked the complete set at large and 48-pixel sizes. Sources, exact prompts, provenance, and the contact sheet are saved in `assets/ranks/`.
+- Uploaded all twelve as Image assets owned by NOVA's creator (432115180), with every upload reporting Approved moderation. The runtime catalog records the resulting IDs.
+- All **57 Luau scripts compiled** and all **81 local logic cases passed**. Rebuilt `build/NOVA.rbxlx` and synced the five changed/new shared/client modules into the open NOVA place.
+- In a Studio client, rendered all twelve at 108 and 42 pixels and verified every ImageLabel reported `IsLoaded=true`. Screenshot review confirmed their shared cartoon style and readable silhouettes.
+- Verified the Bronze Chevron in the lobby card and centered overhead nameplate. A client-only Master layout preview confirmed the Cosmic Star in both locations and the full Master level-1,000 text fitting the lobby card.
+- An isolated result snapshot verified the Cosmic Star on the player's duel panel and XP recap, the Infernal Crown on the rival's panel, and correct completion of the Master level-1,000 recap. All three images loaded and all rank labels fit. Studio output showed no script errors.
+- Removed the temporary gallery, restored original client attributes, and returned to the lobby. Confirmed both server and client remained Level 1, Prestige 0; previews did not award progression. Play is running for review. The local place was updated without publishing it.
+
+## Compact level card and progression menu — November 8, 2026
+
+- The 220 × 72 launcher has one image, one numeric level label, and an XP track/fill. Inspected its descendants in Studio: `LevelNumber` was the only TextLabel. XP reward-rate hints, prestige buttons, detailed rank text, and save status were removed from the launcher.
+- Generated and uploaded five matching transparent header/status sprites; all reported Approved moderation and loaded in Studio. Sources, prompts, and asset IDs are preserved under `assets/ranks/menu/`.
+- All **85 local logic checks passed**, including four new prerequisite/eligibility cases covering all ten prestiges and Master. All four ProgressionInfo cases also passed on the Studio server.
+- Exercised the real UI with virtual mouse input: opened the card, switched all three tabs, scrolled the twelve-card collection to Master, inspected its Prestige 10 level-55 requirement, returned to the next available prestige, and closed/reopened. Screenshot review confirmed the header art, rank icons, eligibility messages, and page layouts.
+- Checked Settings/progression mutual exclusion, controller RB tab switching, B closing, Y opening, and Escape dismissal. Escape also opened Roblox's own system menu, which is platform behavior.
+- Confirmed movement remained zero while holding W with progression open, including a client without a PlayerModule. Closing removed the movement action. Entering an actual empty queue automatically hid the progression GUI and released movement blocking; left that queue through the normal validated input remote and restored the lobby.
+- A client-only level-55 preview exercised two-click confirmation and its reset on close. Confirming sent the normal prestige request, which the server correctly rejected because its actual profile was Level 1. Restored all client attributes and confirmed the server remained Level 1, Prestige 0. A missing-level/loading preview also rendered safely with the action disabled.
+- The updated local place is running in the lobby for review. No place publishing or live profile changes were performed. Touch gestures and a physical controller were not tested; controller checks used virtual key input.
+
+### Progression panel cleanup and enlargement
+
+Applied the marked-up screenshot: removed the subtitle, completed-prestige statistic, and entire status/control-help footer. Expanded lifetime XP across the available content width. Action responses and load errors remain inline beneath the Requirements action when relevant. The window now scales up to 130%, with a 940 × 550 logical layout that fits inside the viewport. Studio reported a 1222 × 715 displayed panel; screenshot review confirmed all marked areas were absent, the larger text and art fit, and the panel remained centered. The changed script compiled, the standalone place was rebuilt, and Studio output showed no game script errors. Left the enlarged panel open in the local Play session for review; no publishing was performed.
+
+### Studio XP testing command
+
+Added `ServerScriptService.NOVA.TestXP`, a BindableFunction created only inside the Studio branch of ProgressionService. A numeric argument grants that XP; `"cap"` calculates the remaining XP to the current rank's cap without prestiging. In a fresh Studio server, +300 XP reached Level 3 with 75 XP; `"cap"` then reached Level 55 with zero current XP and prestige eligibility. A repeat cap grant gave zero XP, and a negative grant was rejected without altering lifetime XP. The client HUD updated to 55 with a full bar and the Requirements action enabled for Prestige 1. Confirmed no TestXP object exists in ReplicatedStorage.NOVA. Left the session at Prestige 0, Level 55 with Requirements open for the user's prestige test. The script compiled and the standalone place was rebuilt; no live data access or publishing occurred.
+
+### Prestige unlock reveal
+
+- Exported eleven true-grayscale passes for Prestiges 1–10 and Master. Verified equal RGB channels plus unchanged alpha/dimensions for every PNG. All eleven Roblox image uploads reported Approved; sources and asset provenance are in `assets/ranks/reveal/`.
+- All 63 Luau scripts compiled, and all 85 existing logic cases passed. The new server response retains its original text and adds rank data only after an actual successful prestige; the client uses that confirmation to start the effect.
+- Exercised real two-click prestige requests in Studio. A client-only fake level-55 attempt was rejected without a reveal. Actual cap grants and confirmations unlocked Prestige 1 and then Prestige 2. Observed loaded grayscale with color fully hidden, colorization, an icon peak width of 401 logical pixels, stamp motion, settled full color, and rotating golden rays. The first reveal auto-dismissed and returned to Progress. Screenshot review covered the Silver Bullet and Emerald Dagger effects.
+- A third real unlock tested controller Back dismissal, which returned to Progress. An isolated Master preview verified both Master image passes loaded and displayed the correct crest and title without changing the player's actual rank. Removed the preview and all temporary QA render connections.
+- Left the session at Prestige 3, Level 55, with Unlock Prestige 4 ready for the user's next test. No publishing or live profile changes were performed.

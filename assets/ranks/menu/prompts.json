@@ -1,0 +1,30 @@
+{
+  "generator": "built-in image_gen",
+  "icons": [
+    {
+      "key": "menu-progress",
+      "prompt": "Create ONE original isolated cartoon UI sprite for NOVA, matching the prestige icon set already generated: thick almost-black ink outlines, chunky rounded shapes, saturated jewel colors, just 2-3 clean cel-shaded facets per surface, crisp white gloss highlights, front three-quarter view with top-left lighting. Square composition, complete uncropped subject centered with generous transparent margin. GENUINELY transparent background, no text, numbers, UI frame, scenery, glow fog or watermark. Must read at 32 pixels. This is a single pictorial symbol used beside a column/tab heading, not an entire interface.\nSubject: A bright cyan XP crystal in front of three broad ascending purple-and-blue progress bars, with one compact golden upward arrow. One unified chunky icon, very few shapes.",
+      "file": "menu-progress.png"
+    },
+    {
+      "key": "menu-prestiges",
+      "prompt": "Create ONE original isolated cartoon UI sprite for NOVA, matching the prestige icon set already generated: thick almost-black ink outlines, chunky rounded shapes, saturated jewel colors, just 2-3 clean cel-shaded facets per surface, crisp white gloss highlights, front three-quarter view with top-left lighting. Square composition, complete uncropped subject centered with generous transparent margin. GENUINELY transparent background, no text, numbers, UI frame, scenery, glow fog or watermark. Must read at 32 pixels. This is a single pictorial symbol used beside a column/tab heading, not an entire interface.\nSubject: A thick open violet collection book with golden page edges, showing one large golden star medallion hovering over its center. Two broad purple cover wings, no writing, a few large page shapes, luxurious cartoon collection symbol.",
+      "file": "menu-prestiges.png"
+    },
+    {
+      "key": "menu-requirements",
+      "prompt": "Create ONE original isolated cartoon UI sprite for NOVA, matching the prestige icon set already generated: thick almost-black ink outlines, chunky rounded shapes, saturated jewel colors, just 2-3 clean cel-shaded facets per surface, crisp white gloss highlights, front three-quarter view with top-left lighting. Square composition, complete uncropped subject centered with generous transparent margin. GENUINELY transparent background, no text, numbers, UI frame, scenery, glow fog or watermark. Must read at 32 pixels. This is a single pictorial symbol used beside a column/tab heading, not an entire interface.\nSubject: A thick polished golden key resting diagonally over a small sapphire blue checklist plaque. Two bold mint green checkmarks on the plaque, no writing or fine lines, one unified chunky eligibility symbol.",
+      "file": "menu-requirements.png"
+    },
+    {
+      "key": "menu-locked",
+      "prompt": "Create ONE original isolated cartoon UI sprite for NOVA, matching the prestige icon set already generated: thick almost-black ink outlines, chunky rounded shapes, saturated jewel colors, just 2-3 clean cel-shaded facets per surface, crisp white gloss highlights, front three-quarter view with top-left lighting. Square composition, complete uncropped subject centered with generous transparent margin. GENUINELY transparent background, no text, numbers, UI frame, scenery, glow fog or watermark. Must read at 32 pixels. This is a single pictorial symbol used beside a column/tab heading, not an entire interface.\nSubject: One compact closed silver padlock, broad rounded squared-off steel body, dark slate side facet, thick silver U-shaped closed shackle, one large simple black keyhole. Friendly chunky lock silhouette, no other objects.",
+      "file": "menu-locked.png"
+    },
+    {
+      "key": "menu-unlocked",
+      "prompt": "Create ONE original isolated cartoon UI sprite for NOVA, matching the prestige icon set already generated: thick almost-black ink outlines, chunky rounded shapes, saturated jewel colors, just 2-3 clean cel-shaded facets per surface, crisp white gloss highlights, front three-quarter view with top-left lighting. Square composition, complete uncropped subject centered with generous transparent margin. GENUINELY transparent background, no text, numbers, UI frame, scenery, glow fog or watermark. Must read at 32 pixels. This is a single pictorial symbol used beside a column/tab heading, not an entire interface.\nSubject: One large mint green checkmark mounted on a small thick gold-rimmed emerald shield. Just one checkmark and one simple shield, clean joyful unlocked-completion status badge.",
+      "file": "menu-unlocked.png"
+    }
+  ]
+}

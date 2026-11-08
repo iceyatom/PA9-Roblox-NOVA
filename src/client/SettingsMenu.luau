@@ -139,6 +139,7 @@ end
 function Menu:setOpen(open)
     if open and not self.available then return end
     if self.settings.opened==open then return end
+    if open and self.beforeOpen then self.beforeOpen() end
     self.clear()
     if self.capture then self:endCapture() end
     self.settings.opened=open
