@@ -217,12 +217,12 @@ function LobbyWorld.ensure()
 end
 
 -- True when a character's root stands over the queue pad.
-function LobbyWorld.onPad(lobby,character)
-    local pad=lobby:FindFirstChild("QueuePad")
+function LobbyWorld.onPad(lobby,character,padName,radius)
+    local pad=lobby:FindFirstChild(padName or "QueuePad")
     local root=character and character:FindFirstChild("HumanoidRootPart")
     local humanoid=character and character:FindFirstChildOfClass("Humanoid")
     if not (pad and root and humanoid and humanoid.Health>0) then return false end
     local offset=root.Position-pad.Position
-    return Vector2.new(offset.X,offset.Z).Magnitude<=LobbyWorld.PadRadius and offset.Y>-1 and offset.Y<10
+    return Vector2.new(offset.X,offset.Z).Magnitude<=(radius or LobbyWorld.PadRadius) and offset.Y>-1 and offset.Y<10
 end
 return LobbyWorld

@@ -1,5 +1,25 @@
 # NOVA v1 acceptance record
 
+## Map-selection click audio — November 8, 2026
+
+Imported the supplied `CSGO Case Click.mp3` as the owning user's audio asset `92334355914521`; Roblox moderation returned **Approved**. The Studio client loaded the 0.705-second asset successfully. Render-driven reel checks produced **21 Sound.Played events**, with initial intervals of approximately 0.034–0.050 seconds and final intervals of approximately 1.55–1.57 seconds. The final check used 24 voices to preserve overlapping sample tails and measured nonzero playback loudness (peak approximately 45.15). Hiding the reel stopped every voice, and no console audio errors occurred. A separate timing sweep verified one trigger per crossed card center and silence after hiding. The game itself was not published.
+
+## Practice squares and lobby settings — November 8, 2026
+
+The practice actors now use equal 36 × 36 solid blue/red squares with no barrel, bullseye or colored pedestal. Settings is labeled **Settings**, with no F2 shortcut. The menu and launcher are available only in the main 3D lobby; controller View is also gated to the lobby. Starting a challenge closes an open menu, saves controls and hides the entire settings GUI. Returning to the lobby restores the button.
+
+All **62 automated checks passed**. A Studio playtest verified the plain square sizes/colors, the exact launcher label, no reaction to F2, mouse opening in the lobby, automatic closure on practice entry, and button restoration after leaving practice. The updated multiplayer acceptance run returned **passed = true**, verifying lobby-only settings, mouse rebinding, saves, hidden settings during duels, and the existing duel/rematch/disconnect flows; 16 projectile samples matched between clients.
+
+## High Score Practice — November 8, 2026
+
+All **62 automated checks passed**, including three new practice timing/input/isolation cases and two leaderboard cases. The checks cover the exact 3-second countdown and 30-second scoring window, late/pre-countdown shots, malformed and replayed sequences, foreign run IDs, excessive request bursts, independent players, abandoned attempts, retry invalidation, ten unique descending rankings, and atomic maximum saves against a fake store. No live player data was used.
+
+A solo Studio playtest entered the mint beacon from a normal lobby character and switched to the stationary 2D range. A held mouse button counted once; five further clicks yielded six shots. Movement and jump input left both actor positions unchanged. Results arrived at the authoritative deadline with six shots, personal best six, and a session-only save message. The wall board displayed the same player and score. Try again started a fresh countdown with zero shots and kept the personal best. A stale previous-run fire request was rejected, the on-screen Fire button counted one shot, and abandoning that retry restored the character, lobby HUD and custom camera without replacing the best. The same player subsequently entered and left the ordinary duel queue successfully.
+
+The existing real multiplayer acceptance test also returned **passed = true** with four concurrent clients and a fifth replacement. Movement, held jump, rebindable controls, isolated duels, health, results, map rotation, rematch, lobby return and disconnect recovery passed; 15 projectile samples matched between clients.
+
+The practice screen, animated countdown, beacon placement and wall leaderboard were visually inspected in Studio. Studio deliberately uses session rankings. Production cross-server persistence is implemented with an OrderedDataStore but has **not been verified in a published server**. The place was not published as part of this change.
+
 ## Rebindable controls update
 
 All **57 simulation checks passed**. Preference checks cover serialized keyboard/mouse and controller bindings, device independence, duplicate inputs, D-pad movement conflicts, reserved menu controls and malformed data.

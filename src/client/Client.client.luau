@@ -5,6 +5,8 @@ local player=Players.LocalPlayer
 local shared=game.ReplicatedStorage:WaitForChild("NOVA")
 local input=shared:WaitForChild("Input")
 local state=shared:WaitForChild("State")
+local practiceInput=shared:WaitForChild("PracticeInput")
+local practiceState=shared:WaitForChild("PracticeState")
 local hud=require(script.Parent.Hud).new(player:WaitForChild("PlayerGui"))
 local arena=require(script.Parent.Arena).new(hud.stage)
 local roller=require(script.Parent.MapRoller).new(hud.stage)
@@ -12,15 +14,26 @@ hud.mapCode.Text=("MAP   /   %s"):format(arena.map.code)
 hud.mapTitle.Text=arena.map.title
 local lobbyCard=require(script.Parent.LobbyHud).new(player.PlayerGui)
 local snapshot,seat,sequence
+local practice,practiceSnapshot,practiceSequence
 local function fire(kind,a,b)
+    if practiceSnapshot then
+        if kind=="move" or kind=="jump" then return end
+        if kind=="fire" then practiceSequence+=1; a=practiceSequence end
+        practiceInput:FireServer(kind,practiceSnapshot.id,a)
+        return
+    end
     if not snapshot or not seat then return end
     if kind=="fire" then sequence+=1; a=sequence end
     input:FireServer(kind,snapshot.lobby,snapshot.round,a,b)
 end
 local settings=require(script.Parent.ControlSettings).new()
-local clear=require(script.Parent.Input).connect(fire,function() return snapshot and snapshot.phase=="Playing" and not settings.opened end,settings)
+practice=require(script.Parent.PracticeHud).new(player.PlayerGui,fire)
+local clear=require(script.Parent.Input).connect(fire,function()
+    return not settings.opened and ((practiceSnapshot and practiceSnapshot.phase=="Playing") or (snapshot and snapshot.phase=="Playing"))
+end,settings)
 local settingsMenu=require(script.Parent.SettingsMenu).new(player.PlayerGui,settings,clear)
 settingsMenu.selectionOnClose=function()
+    if practiceSnapshot then return practiceSnapshot.phase=="Results" and practice.retry or practice.leave end
     if not snapshot then return nil end
     return snapshot.phase=="Results" and hud.rematch or snapshot.phase=="Waiting" and hud.leave or nil
 end
@@ -34,6 +47,7 @@ local inDuel
 local function setMode(duel)
     if inDuel==duel then return end
     inDuel=duel
+    settingsMenu:setAvailable(not duel)
     hud.gui.Enabled=duel
     lobbyCard.Enabled=not duel
     local camera=workspace.CurrentCamera
@@ -53,6 +67,8 @@ player.CharacterAdded:Connect(function(character)
     end
 end)
 state.OnClientEvent:Connect(function(nextState)
+    practiceSnapshot=nil
+    practice:hide()
     if nextState.phase=="Lobby" then
         snapshot,seat=nil,nil
         clear()
@@ -89,5 +105,23 @@ state.OnClientEvent:Connect(function(nextState)
     end
     arena:update(snapshot,os.clock())
 end)
-Run.RenderStepped:Connect(function() arena:draw(os.clock()); hud:tick(); roller:tick() end)
+practiceState.OnClientEvent:Connect(function(nextState)
+    local previous=practiceSnapshot
+    if nextState.phase=="Lobby" then
+        practiceSnapshot=nil; snapshot,seat=nil,nil
+        clear(); practice:hide(); setMode(false)
+        return
+    end
+    snapshot,seat=nil,nil
+    practiceSnapshot=nextState
+    if not previous or previous.id~=nextState.id then practiceSequence=0 end
+    if not previous or previous.id~=nextState.id or previous.phase~=nextState.phase then clear() end
+    setMode(true); hud.gui.Enabled=false; roller:hide()
+    practice:update(nextState)
+    if not settings.opened and (not previous or previous.phase~=nextState.phase)
+        and game:GetService("UserInputService"):GetLastInputType().Name:sub(1,7)=="Gamepad" then
+        game:GetService("GuiService").SelectedObject=settingsMenu.selectionOnClose()
+    end
+end)
+Run.RenderStepped:Connect(function() arena:draw(os.clock()); hud:tick(); roller:tick(); practice:tick() end)
 setMode(false)
