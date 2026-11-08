@@ -14,6 +14,7 @@ function Hud.new(playerGui)
     gui.DisplayOrder=10
     gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
     gui.Parent=playerGui
+    self.gui=gui
     local root=W.box(gui,"Backdrop",0,0,0,0,C.ink)
     root.Size=UDim2.fromScale(1,1)
     local origin=W.box(root,"Origin",0,0,0,0)
@@ -86,11 +87,14 @@ function Hud:update(snap,seat)
         for j,cell in side.cells do cell.BackgroundColor3=p.uid and j/10 <= p.hp/snap.maxHP and side.color or C.line end
     end
     self.notice.Visible=phase~="Playing"
-    self.notice.Size=UDim2.fromOffset(400,phase=="Results" and 160 or 111)
+    self.notice.Size=UDim2.fromOffset(400,(phase=="Results" or phase=="Waiting") and 160 or 111)
     self.rematch.Visible=phase=="Results"
-    self.leave.Visible=phase=="Results"
+    self.leave.Visible=phase=="Results" or phase=="Waiting"
+    self.leave.Position=UDim2.fromOffset(phase=="Waiting" and 23 or 244,109)
+    self.leave.Size=UDim2.fromOffset(phase=="Waiting" and 160 or 130,37)
+    self.leave.Text=phase=="Waiting" and "Leave queue" or "Lobby"
     if phase=="Waiting" then
-        self.kicker.Text,self.title.Text,self.note.Text="DUEL LOBBY","Waiting for a rival","The duel starts with two players."
+        self.kicker.Text,self.title.Text,self.note.Text="IN QUEUE","Waiting for a rival","The duel starts with two players."
     elseif phase=="Countdown" then
         self.kicker.Text,self.note.Text="BOTH PLAYERS READY","Movement and fire unlock together."
         self:tick()
@@ -99,7 +103,7 @@ function Hud:update(snap,seat)
         self.title.Text=snap.winner==0 and "Draw" or snap.winner==seat and "Victory" or "Defeat"
         self.note.Text=snap.reason=="Disconnect" and "Your rival disconnected." or snap.winner==0 and "Both players landed the final hit." or "Ten hits. Duel complete."
         local rival=snap.players[3-seat]
-        self.rematch.Text=not rival.uid and "Return to lobby" or snap.players[seat].vote and "Waiting for rival…" or rival.vote and "Accept rematch" or "Rematch"
+        self.rematch.Text=not rival.uid and "Find new rival" or snap.players[seat].vote and "Waiting for rival…" or rival.vote and "Accept rematch" or "Rematch"
     end
 end
 function Hud:tick()

@@ -7,6 +7,7 @@ local input=shared:WaitForChild("Input")
 local state=shared:WaitForChild("State")
 local hud=require(script.Parent.Hud).new(player:WaitForChild("PlayerGui"))
 local arena=require(script.Parent.Arena).new(hud.stage)
+local lobbyCard=require(script.Parent.LobbyHud).new(player.PlayerGui)
 local snapshot,seat,sequence
 local function fire(kind,a,b)
     if not snapshot or not seat then return end
@@ -18,12 +19,42 @@ hud.rematch.Activated:Connect(function() fire("rematch") end)
 hud.leave.Activated:Connect(function() fire("leave") end)
 local record
 if Run:IsStudio() then record=require(script.Parent.Diagnostics).attach(hud,arena,shared:WaitForChild("StudioControls")) end
+-- The lobby uses the normal Roblox character, camera and core UI. The duel uses the 2D stage.
+local inDuel
+local function setMode(duel)
+    if inDuel==duel then return end
+    inDuel=duel
+    hud.gui.Enabled=duel
+    lobbyCard.Enabled=not duel
+    local camera=workspace.CurrentCamera
+    if camera then
+        camera.CameraType=duel and Enum.CameraType.Scriptable or Enum.CameraType.Custom
+        local humanoid=player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        if not duel and humanoid then camera.CameraSubject=humanoid end
+    end
+    pcall(function() core:SetCoreGuiEnabled(Enum.CoreGuiType.All,not duel) end)
+    if not duel then pcall(function() core:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,false) end) end
+end
+player.CharacterAdded:Connect(function(character)
+    local camera=workspace.CurrentCamera
+    if camera and not inDuel then
+        camera.CameraType=Enum.CameraType.Custom
+        camera.CameraSubject=character:WaitForChild("Humanoid")
+    end
+end)
 state.OnClientEvent:Connect(function(nextState)
+    if nextState.phase=="Lobby" then
+        snapshot,seat=nil,nil
+        clear()
+        setMode(false)
+        return
+    end
     local previous=snapshot
     snapshot=nextState
     seat=nil
     for i,p in snapshot.players do if p.uid==player.UserId then seat=i end end
     if not seat then return end
+    setMode(true)
     local newDuel=not previous or previous.lobby~=snapshot.lobby or previous.round~=snapshot.round
     if newDuel then sequence=0 end
     if newDuel or previous.phase~=snapshot.phase then
@@ -39,6 +70,4 @@ state.OnClientEvent:Connect(function(nextState)
     arena:update(snapshot,os.clock())
 end)
 Run.RenderStepped:Connect(function() arena:draw(os.clock()); hud:tick() end)
-if workspace.CurrentCamera then workspace.CurrentCamera.CameraType=Enum.CameraType.Scriptable end
-pcall(function() core:SetCoreGuiEnabled(Enum.CoreGuiType.All,false) end)
-input:FireServer("ready")
+setMode(false)

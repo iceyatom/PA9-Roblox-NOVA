@@ -1,18 +1,18 @@
 # NOVA
 A Roblox platform duel with automatic two-player lobbies. Each server can host multiple independent Map 1 duels.
 
-Players automatically join the oldest lobby waiting for an opponent. A third player starts another lobby, a fourth joins them, and so on up to the Roblox server player limit. Each lobby owns its countdown, movement, health, shots, results and rematch votes. The HUD shows the assigned lobby number. Completed duels keep their seats for rematch decisions. After a combat disconnect, the survivor sees Victory and can choose Return to lobby to find another waiting opponent. Empty lobbies are removed. Waiting players from separate lobbies pair automatically when a seat opens.
+Players spawn as normal Roblox characters in a dark 3D lobby (`Workspace.NOVALobby`). Walking onto the lime queue pad removes the character and enters Map 1 matchmaking. Queued players join the oldest lobby waiting for an opponent. A third player starts another lobby, a fourth joins them, and so on up to the Roblox server player limit. Each lobby owns its countdown, movement, health, shots, results and rematch votes. The HUD shows the assigned lobby number. Completed duels keep their seats for rematch decisions. After a combat disconnect, the survivor sees Victory and can choose Find new rival to wait for another opponent. Empty lobbies are removed. Waiting players from separate lobbies pair automatically when a seat opens.
 
-Clients send their assigned lobby ID and round with each gameplay intention. The server checks both against the sender's actual membership. Snapshots and Studio tuning events reach only the members of that lobby. Players use the existing Leave button to exit the experience after a result.
+Clients send their assigned lobby ID and round with each gameplay intention. The server checks both against the sender's actual membership. Snapshots and Studio tuning events reach only the members of that lobby. Leave queue (while waiting) and Lobby (after a result) respawn the player in the 3D lobby.
 
 ## Architecture decision
-NOVA draws native ScreenGui rectangles on a fixed 16:9 stage. A server-owned fixed-step simulation operates in tile units with separate collision masks for bodies and projectiles. This preserves the reference's flat silhouettes, avoids perspective and 3D physics ownership differences, and lets the same collision code run in isolated tests. Roblox characters are disabled. The client sends input edges and displays authoritative snapshots.
+NOVA draws native ScreenGui rectangles on a fixed 16:9 stage. A server-owned fixed-step simulation operates in tile units with separate collision masks for bodies and projectiles. This preserves the reference's flat silhouettes, avoids perspective and 3D physics ownership differences, and lets the same collision code run in isolated tests. Roblox characters exist only in the 3D lobby; queued and dueling players have none. The client sends input edges and displays authoritative snapshots.
 
 ## Map reconstruction
 The first screenshot (214811) contains 38 columns and 29 rows starting at image pixel (20,9), on a 32-pixel pitch. Coordinates start at the upper left, increase right and down, and mirror across x=19. The two centers start at (6.5,27.5) and (31.5,27.5). Purple bodies occupy the entire outlined tile. The upper rings have different masks on their inner and outer uprights. The original black interior, outline contours, central bridge and staircase floor are built from editable tiles. Yellow and muted green corner squares are visual markers. The colored spawn caps are interpreted as health bars. Two additional low mint strips near the spawns identify the actual launch triggers, which pass bullets and activate once per contact. Side margins contain the duel HUD.
 
 ## Match rules
-A/D move, Space jumps from a surface, and gravity brings the player down. Each left mouse press launches one shot at the opponent's authoritative center when the request arrives. Direction is frozen for the flight. The server accepts increasing integer shot IDs for the current round only. Impacts in the same simulation step are applied together; simultaneous lethal impacts draw. Both players must vote for a rematch. Leave exits the session. A combat disconnect gives the remaining player a win, and they may choose to wait for a new opponent. New arrivals cannot enter an active duel.
+A/D move, Space jumps from a surface, and gravity brings the player down. Each left mouse press launches one shot at the opponent's authoritative center when the request arrives. Direction is frozen for the flight. The server accepts increasing integer shot IDs for the current round only. Impacts in the same simulation step are applied together; simultaneous lethal impacts draw. Both players must vote for a rematch. Lobby returns the player to the 3D lobby. A combat disconnect gives the remaining player a win, and they may choose to wait for a new opponent. New arrivals cannot enter an active duel.
 
 ## Developer controls
 Studio-only diagnostics and automated tests are gated by RunService:IsStudio(). Balance defaults are in ReplicatedStorage/NOVA/Config. The map and tile catalog are adjacent modules. Production has no configuration remote.
@@ -32,12 +32,12 @@ Hold Space or Xbox A / PlayStation Cross (×) to jump again automatically whenev
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
 | `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog and Map1 |
-| `src/server` | `ServerScriptService.NOVA` | Server, Lobbies, Match, Movement, Combat and StudioTest |
-| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, Widgets, Arena, Input and Diagnostics |
+| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat and StudioTest |
+| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, Widgets, Arena, Input and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |
 
-The build maps `.server.luau` to Script, `.client.luau` to LocalScript and other `.luau` files to ModuleScript. At runtime the server creates State and Input under ReplicatedStorage.NOVA. Each client creates PlayerGui.NOVA. Only a named Studio integration run clones the input probe into test clients.
+LobbyWorld builds `Workspace.NOVALobby` and the night lighting at server start unless the place already contains a NOVALobby, so a hand-edited lobby in Studio is kept. The build maps `.server.luau` to Script, `.client.luau` to LocalScript and other `.luau` files to ModuleScript. At runtime the server creates State and Input under ReplicatedStorage.NOVA. Each client creates PlayerGui.NOVA. Only a named Studio integration run clones the input probe into test clients.
 
 ## Reproduce the MCP deployment
 

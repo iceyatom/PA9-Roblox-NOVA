@@ -26,7 +26,10 @@ return function()
     local function install(p)
         local gui=p:WaitForChild("PlayerGui",20)
         if not gui or gui:FindFirstChild("NOVAProbe") then return end
-        local probe=script.Parent.Probe:Clone(); probe.Name="NOVAProbe"; probe.Parent=gui
+        -- Lobby respawns clear loose PlayerGui scripts, so the probe lives in a persistent ScreenGui.
+        local host=Instance.new("ScreenGui"); host.Name="NOVAProbe"; host.ResetOnSpawn=false
+        local probe=script.Parent.Probe:Clone(); probe.Name="Probe"; probe.Parent=host
+        host.Parent=gui
     end
     players.PlayerAdded:Connect(install)
     for _,p in players:GetPlayers() do task.spawn(install,p) end
@@ -42,12 +45,23 @@ return function()
     local function waitPhase(p,phase)
         return untilTrue(function() local r=read(p); return r.phase==phase and r end,12,phase)
     end
+    -- Clients spawn in the 3D lobby. Standing on the pad queues them for Map 1.
+    local function queue(p)
+        local root=untilTrue(function() return p.Character and p.Character:FindFirstChild("HumanoidRootPart") end,20,"lobby character for "..p.Name)
+        local pad=workspace.NOVALobby.QueuePad
+        root.Parent:PivotTo(CFrame.new(pad.Position+Vector3.new(0,4,0)))
+        untilTrue(function() return read(p).phase=="Waiting" or read(p).phase=="Countdown" end,6,"queue for "..p.Name)
+        assert(p.Character==nil,"Queued player keeps no 3D character")
+    end
     local function exercise()
         local p1=untilTrue(function() return next(ready) end,35,"first client ready")
+        assert(read(p1).phase=="","Clients start in the lobby without a duel")
+        queue(p1)
         untilTrue(function() local r=read(p1); return r.hud:find("LOBBY") and r.visible end,5,"waiting screen")
         note("One real client displayed Waiting")
         test:AddPlayers(1)
         local p2=untilTrue(function() for p in ready do if p~=p1 then return p end end end,40,"second client ready")
+        queue(p2)
         local r1,r2=waitPhase(p1,"Playing"),waitPhase(p2,"Playing")
         assert(r1.seat==1 and r2.seat==2 and r1.round==r2.round)
         assert(r1.seen.Countdown and r2.seen.Countdown,"Missing countdown on client")
@@ -59,6 +73,7 @@ return function()
             for p in ready do if p~=p1 and p~=p2 then table.insert(found,p) end end
             return #found==2 and found
         end,40,"second lobby clients")
+        queue(extras[1]); queue(extras[2])
         local e1,e2=waitPhase(extras[1],"Playing"),waitPhase(extras[2],"Playing")
         assert(e1.lobby==e2.lobby and e1.lobby~=r1.lobby)
         assert(e1.p[1].uid~=r1.p[1].uid and e1.p[2].uid~=r1.p[2].uid)
@@ -116,18 +131,20 @@ return function()
         assert(r1.title=="Defeat" and r2.title=="Victory")
         channel:FireClient(p2,-1,"leave")
         waitPhase(p1,"Waiting")
-        untilTrue(function() return p2.Parent~=players end,8,"Leave button to exit client")
-        note("Red won the second full duel. Leave removed red and restored the blue lobby")
+        untilTrue(function() return read(p2).phase=="Lobby" and p2.Character and p2.Character:FindFirstChild("HumanoidRootPart") end,8,"Leave button returns red to the 3D lobby")
+        assert(p2.Parent==players)
+        note("Red won the second full duel. Leave respawned red in the 3D lobby and restored blue's Waiting room")
         test:AddPlayers(1)
         local replacement=untilTrue(function()
             for p in ready do
                 if p~=p1 and p~=p2 and p~=extras[1] and p~=extras[2] and p.Parent==players then return p end
             end
         end,35,"replacement client")
+        queue(replacement)
         waitPhase(p1,"Playing"); waitPhase(replacement,"Playing")
         channel:FireClient(replacement,-1,"disconnect")
         r1=waitPhase(p1,"Results")
-        assert(r1.title=="Victory" and r1.vote=="Return to lobby")
+        assert(r1.title=="Victory" and r1.vote=="Find new rival")
         request(p1,"vote"); waitPhase(p1,"Waiting")
         note("Active disconnect awarded victory; remaining player returned to Waiting")
         e1,e2=read(extras[1]),read(extras[2])

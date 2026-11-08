@@ -3,6 +3,9 @@ local Run = game:GetService("RunService")
 local shared = game.ReplicatedStorage:WaitForChild("NOVA")
 local Config = require(shared.Config)
 local lobbies = require(script.Parent.Lobbies).new(require(shared.Map1).arena,Config)
+local LobbyWorld = require(script.Parent.LobbyWorld)
+local world = LobbyWorld.ensure()
+-- Characters exist only in the 3D lobby. Queued and dueling players use the 2D stage.
 Players.CharacterAutoLoads = false
 
 local function remote(name)
@@ -39,24 +42,67 @@ local function flush()
     table.clear(lobbies.dirty)
 end
 
+local function spawnInLobby(p)
+    if p.Parent==Players and not lobbies.membership[p] then p:LoadCharacter() end
+end
+local function track(p)
+    p.CharacterAdded:Connect(function(character)
+        character:WaitForChild("Humanoid").Died:Connect(function()
+            task.wait(3)
+            if p.Character==character then spawnInLobby(p) end
+        end)
+    end)
+    spawnInLobby(p)
+end
+Players.PlayerAdded:Connect(track)
+for _,p in Players:GetPlayers() do task.spawn(track,p) end
+
+local function enterQueue(p)
+    if lobbies.membership[p] then return end
+    lobbies:join(p)
+    local character=p.Character
+    p.Character=nil
+    if character then character:Destroy() end
+    flush()
+end
+local function returnToLobby(p)
+    lobbies:remove(p)
+    state:FireClient(p,{phase="Lobby"})
+    flush()
+    spawnInLobby(p)
+end
+
+-- Queue anyone standing on the pad and keep the sign's counts current.
+local status=world:FindFirstChild("Status",true)
+local scanElapsed=0
+Run.Heartbeat:Connect(function(dt)
+    scanElapsed+=dt
+    if scanElapsed<0.1 then return end
+    scanElapsed=0
+    for _,p in Players:GetPlayers() do
+        if not lobbies.membership[p] and LobbyWorld.onPad(world,p.Character) then enterQueue(p) end
+    end
+    if status then
+        local queued,live=0,0
+        for _,room in lobbies.rooms do
+            local seats=room.sim.seats
+            if seats[1] and seats[2] then live+=1 elseif room.sim.phase=="Waiting" then queued+=1 end
+        end
+        status.Text=("%d IN QUEUE   /   %d LIVE DUEL%s"):format(queued,live,live==1 and "" or "S")
+    end
+end)
+
 Players.PlayerRemoving:Connect(function(p)
     lobbies:remove(p)
     flush()
 end)
 input.OnServerEvent:Connect(function(p,kind,lobbyId,round,a,b)
     if p.Parent~=Players then return end
-    if kind == "ready" then
-        if lobbies.membership[p] then return end
-        lobbies:join(p)
-        flush()
-        return
-    end
     local entry=lobbies.membership[p]
     if not entry or entry.room.id~=lobbyId or entry.room.sim.round~=round then return end
-    if kind == "leave" and entry.room.sim.phase == "Results" then
-        lobbies:remove(p)
-        flush()
-        p:Kick("You left the NOVA duel.")
+    local phase=entry.room.sim.phase
+    if kind == "leave" and (phase == "Results" or phase == "Waiting") then
+        returnToLobby(p)
     else
         lobbies:intent(p,lobbyId,round,kind,a,b)
         flush()
