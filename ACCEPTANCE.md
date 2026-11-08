@@ -105,3 +105,13 @@ Manual checks in Studio (two clients):
 - A Studio-only preview sent receipts through the real State snapshot handler. Visually verified the item rows, counting total, progression bar, rank, level gains, and result buttons. A level-1 victory ended at Level 3, 75/150 XP, with a half-full bar and +300 XP total. Confirmed the buttons are below the progress text and remain available.
 - Re-sent the same result with a rematch vote: the completed animation did not replay and the rematch button updated normally. A new-round preview reaching Prestige 5 level 55 stopped with a full bar and the prestige-available message.
 - Previews did not change the player's profile. Restored the lobby, confirmed Level 1 / 0 XP, and left Play running. No publishing was performed. A complete two-player duel with the new animation remains a manual gameplay check; the Studio checks used isolated result snapshots.
+
+## Prestige artwork — November 8, 2026
+
+- Generated twelve separate transparent PNGs with the built-in image generator, reviewing basic, mid-tier, and Master anchors before the intermediate groups. Checked the complete set at large and 48-pixel sizes. Sources, exact prompts, provenance, and the contact sheet are saved in `assets/ranks/`.
+- Uploaded all twelve as Image assets owned by NOVA's creator (432115180), with every upload reporting Approved moderation. The runtime catalog records the resulting IDs.
+- All **57 Luau scripts compiled** and all **81 local logic cases passed**. Rebuilt `build/NOVA.rbxlx` and synced the five changed/new shared/client modules into the open NOVA place.
+- In a Studio client, rendered all twelve at 108 and 42 pixels and verified every ImageLabel reported `IsLoaded=true`. Screenshot review confirmed their shared cartoon style and readable silhouettes.
+- Verified the Bronze Chevron in the lobby card and centered overhead nameplate. A client-only Master layout preview confirmed the Cosmic Star in both locations and the full Master level-1,000 text fitting the lobby card.
+- An isolated result snapshot verified the Cosmic Star on the player's duel panel and XP recap, the Infernal Crown on the rival's panel, and correct completion of the Master level-1,000 recap. All three images loaded and all rank labels fit. Studio output showed no script errors.
+- Removed the temporary gallery, restored original client attributes, and returned to the lobby. Confirmed both server and client remained Level 1, Prestige 0; previews did not award progression. Play is running for review. The local place was updated without publishing it.

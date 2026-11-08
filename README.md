@@ -44,6 +44,8 @@ Results animate an itemized XP recap: **Duel completed +100 XP**, plus **Victory
 
 The lobby card shows rank, current XP, the next level, and save status. Nameplates above lobby characters show their display name and rank; the Roblox player list also shows Level and Prestige. Both duel seats show an avatar headshot and full rank from matchmaking through the result screen. Thumbnail loading happens independently of gameplay and is cached per user.
 
+Twelve original cartoon icons identify Prestige 0, Prestiges 1–10, and Prestige Master. The icons appear in the lobby card, overhead nameplates, duel player panels, and animated XP recap, with rank and level text retained. The set progresses from a basic bronze chevron through jeweled weapons to an infernal crown, void phoenix, celestial dragon, and the winged cosmic Master crest. Sources, prompts, a contact sheet, and Roblox asset provenance are in `assets/ranks/`; selection and asset IDs live in `src/shared/RankIcons.luau`. Images load only as their ranks are displayed.
+
 Published servers store profiles in `NOVA_Progression_v1` using atomic updates, a per-server session token, and a 180-second lease renewed every 30 seconds. Failed loads never replace a saved profile with defaults; the card reports the failure, retries, and challenges wait until the profile is available. Failed saves retry, retain pending progression in memory, and report the delayed save. Profiles save on prestige, periodically, on departure, and during shutdown. An expired lease stops progression changes until renewal succeeds. Studio uses session-only progression without reading or changing live profiles.
 
 ## Developer controls
@@ -91,10 +93,10 @@ Then open the map in the editor, Save it, and click **Export to repo**. The firs
 
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
-| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression and XPRewards |
+| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, XPRewards and RankIcons |
 | `src/shared/maps` | `ReplicatedStorage.NOVA.Maps` | Map data modules for all five arenas |
 | `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences, ProgressionService, ProgressionStore and StudioTest |
-| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, XPRecap, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu and Diagnostics |
+| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, XPRecap, RankIcon, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |
 

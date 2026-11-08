@@ -2,6 +2,7 @@ local W=require(script.Parent.Widgets)
 local C=W.colors
 local P=require(game.ReplicatedStorage.NOVA.Progression)
 local Rewards=require(game.ReplicatedStorage.NOVA.XPRewards)
+local RankIcon=require(script.Parent.RankIcon)
 local Recap={}
 Recap.__index=Recap
 
@@ -26,6 +27,7 @@ function Recap:rank(level,xp,full)
     local d={level=level,prestige=data.prestige,master=data.master}
     local capped=level==P.cap(d)
     self.rankLabel.Text=P.label(d)
+    RankIcon.set(self.rankIcon,d)
     self.fill.Size=UDim2.fromScale(capped and 1 or (full and 1 or xp/P.cost(level)),1)
     self.progress.Text=capped and (d.master and "MAX LEVEL / 1,000" or "LEVEL 55 / PRESTIGE AVAILABLE")
         or ("%d / %d XP  →  Level %d"):format(math.floor(xp),P.cost(level),level+1)
@@ -69,7 +71,8 @@ function Recap:start(key,receipt)
     W.text(self.frame,"TotalLabel",0,totalY+13,300,26,"TOTAL XP",14,C.white,Enum.Font.GothamBold)
     self.total=W.text(self.frame,"Total",300,totalY+13,154,26,"+0 XP",22,C.mint,Enum.Font.GothamBold)
     self.total.TextXAlignment=Enum.TextXAlignment.Right
-    self.rankLabel=W.text(self.frame,"Rank",0,totalY+53,270,24,"",16,C.white,Enum.Font.GothamBold)
+    self.rankIcon=RankIcon.new(self.frame,"RankIcon",0,totalY+51,28)
+    self.rankLabel=W.text(self.frame,"Rank",36,totalY+53,234,24,"",14,C.white,Enum.Font.GothamBold)
     self.levelUp=W.text(self.frame,"LevelUp",275,totalY+53,179,24,"",15,C.mint,Enum.Font.GothamBold)
     self.levelUp.TextXAlignment=Enum.TextXAlignment.Right
     local track=W.box(self.frame,"XPTrack",0,totalY+86,454,10,C.line)

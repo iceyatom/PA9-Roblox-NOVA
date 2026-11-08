@@ -4,16 +4,19 @@ local shared=game.ReplicatedStorage.NOVA
 local P=require(shared.Progression)
 local W=require(script.Parent.Widgets)
 local C=W.colors
+local RankIcon=require(script.Parent.RankIcon)
 local Hud={}
 
 local function nameplates()
     local function track(other)
         local connections={}
-        local label
+        local label,icon
         local function rank()
             if label then
                 label.Text=other:GetAttribute("RankLabel") or "Loading rank…"
                 label.TextColor3=other:GetAttribute("PrestigeMaster") and C.mint or C.purple
+                local prestige=other:GetAttribute("Prestige")
+                RankIcon.set(icon,prestige~=nil and {prestige=prestige,master=other:GetAttribute("PrestigeMaster")} or nil)
             end
         end
         local function character(model)
@@ -22,14 +25,25 @@ local function nameplates()
             if not head or not model.Parent then return end
             if humanoid then humanoid.NameDisplayDistance=0 end
             local gui=Instance.new("BillboardGui")
-            gui.Name="NOVARank"; gui.Adornee=head; gui.Size=UDim2.fromOffset(250,56)
+            gui.Name="NOVARank"; gui.Adornee=head; gui.Size=UDim2.fromOffset(304,80)
             gui.StudsOffsetWorldSpace=Vector3.new(0,3,0)
             gui.MaxDistance=80; gui.AlwaysOnTop=false; gui.Parent=head
-            local name=W.text(gui,"Name",0,0,250,26,other.DisplayName,18,C.white,Enum.Font.GothamBold)
+            local name=W.text(gui,"Name",0,0,304,26,other.DisplayName,18,C.white,Enum.Font.GothamBold)
             name.TextXAlignment=Enum.TextXAlignment.Center
             name.TextStrokeTransparency=.5
-            label=W.text(gui,"Rank",0,27,250,23,"",15,C.purple,Enum.Font.GothamBold)
-            label.TextXAlignment=Enum.TextXAlignment.Center
+            local row=W.box(gui,"RankRow",0,27,304,48)
+            local layout=Instance.new("UIListLayout")
+            layout.FillDirection=Enum.FillDirection.Horizontal
+            layout.HorizontalAlignment=Enum.HorizontalAlignment.Center
+            layout.VerticalAlignment=Enum.VerticalAlignment.Center
+            layout.SortOrder=Enum.SortOrder.LayoutOrder
+            layout.Padding=UDim.new(0,6)
+            layout.Parent=row
+            icon=RankIcon.new(row,"RankIcon",0,0,48)
+            icon.LayoutOrder=1
+            label=W.text(row,"Rank",0,0,0,24,"",13,C.purple,Enum.Font.GothamBold)
+            label.LayoutOrder=2
+            label.AutomaticSize=Enum.AutomaticSize.X
             label.TextStrokeTransparency=.4
             rank()
         end
@@ -50,8 +64,9 @@ function Hud.new(playerGui)
     gui.Name="NOVAProgression"; gui.ResetOnSpawn=false; gui.DisplayOrder=6; gui.Parent=playerGui
     local card=W.box(gui,"Card",16,16,340,182,C.panel)
     W.stroke(card,C.line)
-    local rank=W.text(card,"Rank",16,9,308,28,"Loading progression…",21,C.white,Enum.Font.GothamBold)
-    local detail=W.text(card,"Progress",16,42,308,20,"",14,C.muted)
+    local icon=RankIcon.new(card,"RankIcon",12,7,56)
+    local rank=W.text(card,"Rank",78,9,246,28,"Loading progression…",18,C.white,Enum.Font.GothamBold)
+    local detail=W.text(card,"Progress",78,40,246,20,"",12,C.muted)
     local track=W.box(card,"XPTrack",16,69,308,6,C.line)
     local fill=W.box(track,"XPFill",0,0,0,6,C.purple)
     local button=W.button(card,"Prestige",16,88,308,32,"Reach level 55 to prestige",false)
@@ -68,6 +83,7 @@ function Hud.new(playerGui)
     end
     local function refresh()
         local d=data()
+        RankIcon.set(icon,d)
         local ready=player:GetAttribute("ProgressionReady")==true
         rank.Text=P.label(d)
         rank.TextColor3=d and d.master and C.mint or C.white

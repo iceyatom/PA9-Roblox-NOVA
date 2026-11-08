@@ -2,6 +2,7 @@ local W=require(script.Parent.Widgets)
 local C=W.colors
 local P=require(game.ReplicatedStorage.NOVA.Progression)
 local Portrait=require(script.Parent.Portrait)
+local RankIcon=require(script.Parent.RankIcon)
 local Hud={}
 Hud.__index=Hud
 local bold=Enum.Font.GothamBold
@@ -48,11 +49,12 @@ function Hud.new(playerGui)
         avatar.BackgroundColor3=C.panel; avatar.BorderSizePixel=0; avatar.ZIndex=3; avatar.Parent=stage
         W.round(avatar)
         local name=W.text(stage,"Callsign"..i,x+45,y+30,162,32,"Open seat",21,C.white,bold)
-        local rank=W.text(stage,"Rank"..i,x,y+66,207,18,"",12,C.muted)
-        local hp=W.text(stage,"Vitals"..i,x,y+85,207,18,"AWAITING PLAYER",12,C.muted)
+        local rankIcon=RankIcon.new(stage,"RankIcon"..i,x,y+66,30)
+        local rank=W.text(stage,"Rank"..i,x+38,y+68,169,18,"",11,C.muted)
+        local hp=W.text(stage,"Vitals"..i,x,y+94,207,18,"AWAITING PLAYER",12,C.muted)
         local cells={}
-        for j=1,10 do cells[j]=W.box(stage,"HP",x+(j-1)*20.7,y+103,17,5,C.line) end
-        self.seats[i]={who=who,name=name,rank=rank,avatar=avatar,hp=hp,cells=cells,color=col}
+        for j=1,10 do cells[j]=W.box(stage,"HP",x+(j-1)*20.7,y+115,17,5,C.line) end
+        self.seats[i]={who=who,name=name,rank=rank,rankIcon=rankIcon,avatar=avatar,hp=hp,cells=cells,color=col}
     end
     -- Right rail: persistent legend for the four collision behaviors.
     local rx=1195
@@ -93,6 +95,7 @@ function Hud:update(snap,seat)
         side.who.Text=("PLAYER 0%d%s"):format(i,i==seat and "   /   YOU" or "")
         side.name.Text=p.name or "Open seat"
         side.rank.Text=p.uid and P.label(p.progression) or ""
+        RankIcon.set(side.rankIcon,p.uid and p.progression or nil)
         side.rank.TextColor3=p.progression and p.progression.master and C.mint or C.muted
         Portrait.set(side.avatar,p.uid)
         side.hp.Text=p.uid and ("%02d / %02d HP"):format(p.hp,snap.maxHP) or "AWAITING PLAYER"

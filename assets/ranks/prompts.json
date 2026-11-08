@@ -1,0 +1,185 @@
+{
+  "generator": "built-in image_gen",
+  "icons": [
+    {
+      "key": "prestige-00",
+      "prompt": "Use case: stylized-concept. Asset: ONE isolated prestige rank inventory icon for the Roblox game NOVA. Match the user's reference shop icons: thick almost-black ink outlines, chunky friendly cartoon silhouette, bright clean cel shading in just 2-3 large facets, tiny crisp white gloss marks, no photorealism, no texture, no text or numbers or letters, no watermark, no UI tile or enclosing button or background. Orthographic/front three-quarter icon, top-left lighting. Square 1024x1024 composition, entire object within the middle 76% with generous transparent margins. Keep large bold readable shapes at 48 pixels. Genuinely transparent background; no ground or drop shadow outside the object.\nRank Prestige 0: ONE very basic squat bronze upward chevron badge. A single solid inverted V made of copper-bronze metal, thick bevel, broad flat faces, restrained warm brown and orange highlight. The most basic starter rank: no wings, gems, sparks, border shield or extra adornments.",
+      "file": "source/prestige-00.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaBounds": [
+        0,
+        37,
+        1226,
+        1222
+      ]
+    },
+    {
+      "key": "prestige-01",
+      "prompt": "Use case: stylized-concept. Asset: ONE isolated prestige rank inventory icon for the Roblox game NOVA. Match the user's reference shop icons: thick almost-black ink outlines, chunky friendly cartoon silhouette, bright clean cel shading in just 2-3 large facets, tiny crisp white gloss marks, no photorealism, no texture, no text or numbers or letters, no watermark, no UI tile or enclosing button or background. Orthographic/front three-quarter icon, top-left lighting. Square 1024x1024 composition, entire object within the middle 76% with generous transparent margins. Keep large bold readable shapes at 48 pixels. Genuinely transparent background; no ground or drop shadow outside the object.\nRank Prestige 1: ONE chunky polished SILVER BULLET cartridge tilted from lower left to upper right. Rounded pointed steel tip, short broad silver casing, dark grey groove near the flat base, clean icy white highlights. Basic rare rank; silver and cool grey only, no wings, flames, ornaments, trailing effects or extra objects.\nMaintain the same chunky thick dark outline and crisp clean glossy color facets as the bronze chevron and ruby warhammer already generated in this conversation.",
+      "file": "source/prestige-01.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaBounds": [
+        73,
+        103,
+        1232,
+        1198
+      ]
+    },
+    {
+      "key": "prestige-02",
+      "prompt": "Use case: stylized-concept. Asset: ONE isolated prestige rank inventory icon for the Roblox game NOVA. Match the user's reference shop icons: thick almost-black ink outlines, chunky friendly cartoon silhouette, bright clean cel shading in just 2-3 large facets, tiny crisp white gloss marks, no photorealism, no texture, no text or numbers or letters, no watermark, no UI tile or enclosing button or background. Orthographic/front three-quarter icon, top-left lighting. Square 1024x1024 composition, entire object within the middle 76% with generous transparent margins. Keep large bold readable shapes at 48 pixels. Genuinely transparent background; no ground or drop shadow outside the object.\nRank Prestige 2: ONE EMERALD DAGGER tilted from lower left to upper right. Short wide bright emerald-green blade with only 3 big faceted cel-shaded planes, simple polished silver crossguard and pommel, short charcoal grip. Restrained early prestige ornamentation, no flames, wings or elaborate backing.\nMaintain the same chunky thick dark outline and crisp clean glossy color facets as the bronze chevron and ruby warhammer already generated in this conversation.",
+      "file": "source/prestige-02.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaBounds": [
+        41,
+        53,
+        1222,
+        1236
+      ]
+    },
+    {
+      "key": "prestige-03",
+      "prompt": "Use case: stylized-concept. Asset: ONE isolated prestige rank inventory icon for the Roblox game NOVA. Match the user's reference shop icons: thick almost-black ink outlines, chunky friendly cartoon silhouette, bright clean cel shading in just 2-3 large facets, tiny crisp white gloss marks, no photorealism, no texture, no text or numbers or letters, no watermark, no UI tile or enclosing button or background. Orthographic/front three-quarter icon, top-left lighting. Square 1024x1024 composition, entire object within the middle 76% with generous transparent margins. Keep large bold readable shapes at 48 pixels. Genuinely transparent background; no ground or drop shadow outside the object.\nRank Prestige 3: ONE chunky SAPPHIRE SHIELD front facing, broad symmetrical kite shape. Rich royal-blue shield face, a large central cyan diamond gem, thick silver bevel edge and a single simple angular bottom point. Three big glossy highlight marks, restrained early prestige ornamentation. No weapons behind it and no wings.\nMaintain the same chunky thick dark outline and crisp clean glossy color facets as the bronze chevron and ruby warhammer already generated in this conversation.",
+      "file": "source/prestige-03.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaBounds": [
+        33,
+        21,
+        1226,
+        1254
+      ]
+    },
+    {
+      "key": "prestige-04",
+      "prompt": "Use case: stylized-concept. Asset: ONE isolated prestige rank inventory icon for the Roblox game NOVA. Match the user's reference shop icons: thick almost-black ink outlines, chunky friendly cartoon silhouette, bright clean cel shading in just 2-3 large facets, tiny crisp white gloss marks, no photorealism, no texture, no text or numbers or letters, no watermark, no UI tile or enclosing button or background. Orthographic/front three-quarter icon, top-left lighting. Square 1024x1024 composition, entire object within the middle 76% with generous transparent margins. Keep large bold readable shapes at 48 pixels. Genuinely transparent background; no ground or drop shadow outside the object.\nRank Prestige 4: ONE AMETHYST BATTLE AXE tilted from lower left handle to upper right axe head. A big purple crystal crescent blade with a bright lilac bevel, thick polished silver housing, short dark purple grip and simple violet gem pommel. More magical than the sapphire shield, less elaborate than the ruby warhammer. A strong chunky axe silhouette; no wings or flames.\nMatch the thick clean ink outlines, chunky shapes and glossy cel-shaded facets of the previously generated ruby warhammer and emerald dagger. Subject fills 80% of the canvas and is completely uncropped.",
+      "file": "source/prestige-04.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaBounds": [
+        27,
+        37,
+        1242,
+        1238
+      ]
+    },
+    {
+      "key": "prestige-05",
+      "prompt": "Use case: stylized-concept. Asset: ONE isolated prestige rank inventory icon for the Roblox game NOVA. Match the user's reference shop icons: thick almost-black ink outlines, chunky friendly cartoon silhouette, bright clean cel shading in just 2-3 large facets, tiny crisp white gloss marks, no photorealism, no texture, no text or numbers or letters, no watermark, no UI tile or enclosing button or background. Orthographic/front three-quarter icon, top-left lighting. Square 1024x1024 composition, entire object within the middle 76% with generous transparent margins. Keep large bold readable shapes at 48 pixels. Genuinely transparent background; no ground or drop shadow outside the object.\nRank Prestige 5: ONE mythic RUBY WARHAMMER, tilted diagonally from lower left handle to upper right oversized hammer head. Squat blocky ruby-red hammer head with three enormous facets, chunky golden end caps, short dark grip, one small red gem. Two or three compact orange flame tongues hug the hammer head silhouette. Bold and joyful, medium ornamentation, only a handful of large shapes.",
+      "file": "source/prestige-05.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaBounds": [
+        0,
+        23,
+        1230,
+        1204
+      ]
+    },
+    {
+      "key": "prestige-06",
+      "prompt": "Use case: stylized-concept. Asset: ONE isolated prestige rank inventory icon for the Roblox game NOVA. Match the user's reference shop icons: thick almost-black ink outlines, chunky friendly cartoon silhouette, bright clean cel shading in just 2-3 large facets, tiny crisp white gloss marks, no photorealism, no texture, no text or numbers or letters, no watermark, no UI tile or enclosing button or background. Orthographic/front three-quarter icon, top-left lighting. Square 1024x1024 composition, entire object within the middle 76% with generous transparent margins. Keep large bold readable shapes at 48 pixels. Genuinely transparent background; no ground or drop shadow outside the object.\nRank Prestige 6: ONE LIGHTNING TRIDENT tilted from lower left short handle to upper right three-pronged head. Thick golden metal, exactly three enormous sharp chunky prongs, a bright electric-blue central gem, broad cyan inlays and exactly two simple zigzag lightning bolts hugging the head. Compact shaft so the head dominates, energetic mythic rank, crisp opaque facets, no mist or glow cloud.\nMatch the thick clean ink outlines, chunky shapes and glossy cel-shaded facets of the previously generated ruby warhammer and emerald dagger. Subject fills 80% of the canvas and is completely uncropped.",
+      "file": "source/prestige-06.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaBounds": [
+        23,
+        21,
+        1232,
+        1232
+      ]
+    },
+    {
+      "key": "prestige-07",
+      "prompt": "Use case: stylized-concept. Asset: ONE isolated prestige rank inventory icon for the Roblox game NOVA. Match the user's reference shop icons: thick almost-black ink outlines, chunky friendly cartoon silhouette, bright clean cel shading in just 2-3 large facets, tiny crisp white gloss marks, no photorealism, no texture, no text or numbers or letters, no watermark, no UI tile or enclosing button or background. Orthographic/front three-quarter icon, top-left lighting. Square 1024x1024 composition, entire object within the middle 76% with generous transparent margins. Keep large bold readable shapes at 48 pixels. Genuinely transparent background; no ground or drop shadow outside the object.\nRank Prestige 7: ONE TURQUOISE CRYSTAL SCEPTER tilted from lower left handle to upper right jewel head. A short rich golden shaft and bold symmetrical gold cradle holding one huge mint-cyan crystal, with exactly two large floating turquoise diamond fragments flanking the crystal. Purple grip and a small purple pommel, more extravagant than a lightning trident, strong readable shapes, no fog or glow cloud.\nMatch the thick clean ink outlines, chunky shapes and glossy cel-shaded facets of the previously generated ruby warhammer and emerald dagger. Subject fills 80% of the canvas and is completely uncropped.",
+      "file": "source/prestige-07.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaBounds": [
+        27,
+        39,
+        1240,
+        1230
+      ]
+    },
+    {
+      "key": "prestige-08",
+      "prompt": "Use case: stylized-concept. Asset: ONE isolated prestige rank inventory icon for the Roblox game NOVA. Match the user's reference shop icons: thick almost-black ink outlines, chunky friendly cartoon silhouette, bright clean cel shading in just 2-3 large facets, tiny crisp white gloss marks, no photorealism, no texture, no text or numbers or letters, no watermark, no UI tile or enclosing button or background. Orthographic/front three-quarter icon, top-left lighting. Square 1024x1024 composition, entire object within the middle 76% with generous transparent margins. Keep large bold readable shapes at 48 pixels. Genuinely transparent background; no ground or drop shadow outside the object.\nRank Prestige 8: ONE INFERNAL CROWN, front facing and symmetrical, with five broad jagged gold points tipped in saturated red ruby crystals, a wide crimson band, one huge central ruby jewel, thick gold bevels, and two compact orange-red flame curls hugging the sides. Extravagant but fewer than 15 broad shape regions, clearly a crown at 48 pixels, no wings, no tiny filigree.\nMatch the same family as the generated ruby warhammer, sapphire shield and cosmic star crest: thick almost-black outlines, huge cel-shaded facets and bright white gloss. Keep the entire object uncropped with transparent edge margins.",
+      "file": "source/prestige-08.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaBounds": [
+        25,
+        103,
+        1225,
+        1254
+      ]
+    },
+    {
+      "key": "prestige-09",
+      "prompt": "Use case: stylized-concept. Asset: ONE isolated prestige rank inventory icon for the Roblox game NOVA. Match the user's reference shop icons: thick almost-black ink outlines, chunky friendly cartoon silhouette, bright clean cel shading in just 2-3 large facets, tiny crisp white gloss marks, no photorealism, no texture, no text or numbers or letters, no watermark, no UI tile or enclosing button or background. Orthographic/front three-quarter icon, top-left lighting. Square 1024x1024 composition, entire object within the middle 76% with generous transparent margins. Keep large bold readable shapes at 48 pixels. Genuinely transparent background; no ground or drop shadow outside the object.\nRank Prestige 9: ONE VOID PHOENIX CREST, a stylized symmetrical bird rising with two huge swept-up wings and a pointed tail. Its body and head are rich violet, wing feathers transition from deep purple to hot pink, a cyan breast gem and thin polished gold edges. Exactly three broad feathers per wing; strong spread-wing silhouette, a pair of compact violet flame curls at its feet. More mythic than the infernal crown but less elaborate than the final cosmic star. No realistic feather texture, no background or fog.\nMatch the same family as the generated ruby warhammer, sapphire shield and cosmic star crest: thick almost-black outlines, huge cel-shaded facets and bright white gloss. Keep the entire object uncropped with transparent edge margins.",
+      "file": "source/prestige-09.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaBounds": [
+        30,
+        23,
+        1236,
+        1254
+      ]
+    },
+    {
+      "key": "prestige-10",
+      "prompt": "Use case: stylized-concept. Asset: ONE isolated prestige rank inventory icon for the Roblox game NOVA. Match the user's reference shop icons: thick almost-black ink outlines, chunky friendly cartoon silhouette, bright clean cel shading in just 2-3 large facets, tiny crisp white gloss marks, no photorealism, no texture, no text or numbers or letters, no watermark, no UI tile or enclosing button or background. Orthographic/front three-quarter icon, top-left lighting. Square 1024x1024 composition, entire object within the middle 76% with generous transparent margins. Keep large bold readable shapes at 48 pixels. Genuinely transparent background; no ground or drop shadow outside the object.\nRank Prestige 10: ONE CELESTIAL DRAGON CREST, front three-quarter head of a friendly fierce dragon with oversized sweeping gold horns, a broad cyan face, rich royal-blue facets, a bright purple forehead gem, and two small angular golden wing shapes behind the head. Bold heroic silhouette, the last numbered prestige, luxurious gold trim and highly saturated cyan-purple-gold palette. No full body, no shield frame, no tiny scales or filigree. Still simpler than the final winged cosmic star crest.\nMatch the same family as the generated ruby warhammer, sapphire shield and cosmic star crest: thick almost-black outlines, huge cel-shaded facets and bright white gloss. Keep the entire object uncropped with transparent edge margins.",
+      "file": "source/prestige-10.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaBounds": [
+        0,
+        23,
+        1234,
+        1232
+      ]
+    },
+    {
+      "key": "prestige-master",
+      "prompt": "Use case: stylized-concept. Asset: ONE isolated prestige rank inventory icon for the Roblox game NOVA. Match the user's reference shop icons: thick almost-black ink outlines, chunky friendly cartoon silhouette, bright clean cel shading in just 2-3 large facets, tiny crisp white gloss marks, no photorealism, no texture, no text or numbers or letters, no watermark, no UI tile or enclosing button or background. Orthographic/front three-quarter icon, top-left lighting. Square 1024x1024 composition, entire object within the middle 76% with generous transparent margins. Keep large bold readable shapes at 48 pixels. Genuinely transparent background; no ground or drop shadow outside the object.\nRank PRESTIGE MASTER, the final and grandest rank: ONE symmetrical COSMIC STAR CREST, a large five-point radiant iridescent cyan-violet-magenta star core in a thick gold frame, with a pair of broad upward-swept golden feather wings, a small crown-like top point, and exactly three big floating crystal fragments near the upper tips. Rich celestial gold, cyan, purple and hot pink. Extravagant mythic yet graphic and legible, broad shapes and solid opaque color surfaces, no fog or bloom wash or tiny decorative clutter.",
+      "file": "source/prestige-master.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaBounds": [
+        0,
+        20,
+        1248,
+        1238
+      ]
+    }
+  ]
+}
