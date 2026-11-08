@@ -7,6 +7,7 @@ local input=shared:WaitForChild("Input")
 local state=shared:WaitForChild("State")
 local hud=require(script.Parent.Hud).new(player:WaitForChild("PlayerGui"))
 local arena=require(script.Parent.Arena).new(hud.stage)
+local roller=require(script.Parent.MapRoller).new(hud.stage)
 hud.mapCode.Text=("MAP   /   %s"):format(arena.map.code)
 hud.mapTitle.Text=arena.map.title
 local lobbyCard=require(script.Parent.LobbyHud).new(player.PlayerGui)
@@ -48,6 +49,7 @@ state.OnClientEvent:Connect(function(nextState)
     if nextState.phase=="Lobby" then
         snapshot,seat=nil,nil
         clear()
+        roller:hide()
         setMode(false)
         return
     end
@@ -57,6 +59,11 @@ state.OnClientEvent:Connect(function(nextState)
     for i,p in snapshot.players do if p.uid==player.UserId then seat=i end end
     if not seat then return end
     setMode(true)
+    arena:setMap(snapshot.mapId)
+    arena.field.Visible=snapshot.phase~="Selecting"
+    hud.mapCode.Text=snapshot.phase=="Selecting" and "MAP   /   --" or ("MAP   /   %s"):format(arena.map.code)
+    hud.mapTitle.Text=snapshot.phase=="Selecting" and "Selecting arena…" or arena.map.title
+    roller:update(snapshot)
     local newDuel=not previous or previous.lobby~=snapshot.lobby or previous.round~=snapshot.round
     if newDuel then sequence=0 end
     if newDuel or previous.phase~=snapshot.phase then
@@ -71,5 +78,5 @@ state.OnClientEvent:Connect(function(nextState)
     hud:update(snapshot,seat)
     arena:update(snapshot,os.clock())
 end)
-Run.RenderStepped:Connect(function() arena:draw(os.clock()); hud:tick() end)
+Run.RenderStepped:Connect(function() arena:draw(os.clock()); hud:tick(); roller:tick() end)
 setMode(false)

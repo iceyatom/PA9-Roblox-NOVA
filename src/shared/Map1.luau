@@ -71,4 +71,31 @@ function Map.active()
     warn("[NOVA] Active map "..id.." is invalid, using Split Circuit: "..tostring(arena))
     return Map.arena
 end
+
+-- Compile the rotation once per process; editor maps join the rotation on the next Play.
+local rotation
+function Map.pool()
+    if rotation then return rotation end
+    rotation = {}
+    for _, module in Maps:GetChildren() do
+        if module:IsA("ModuleScript") then
+            local ok, arena = pcall(Map.load, module.Name)
+            if ok then table.insert(rotation, arena)
+            else warn("[NOVA] Skipping invalid map "..module.Name..": "..tostring(arena)) end
+        end
+    end
+    table.sort(rotation, function(a,b) return a.code == b.code and a.id < b.id or a.code < b.code end)
+    assert(#rotation > 0, "No playable maps")
+    return rotation
+end
+
+local random = Random.new()
+function Map.choose(previous)
+    local candidates = {}
+    for _, arena in Map.pool() do
+        if arena.id ~= previous then table.insert(candidates, arena) end
+    end
+    if #candidates == 0 then return Map.pool()[1] end
+    return candidates[random:NextInteger(1,#candidates)]
+end
 return Map

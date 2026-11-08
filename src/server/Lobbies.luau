@@ -2,8 +2,8 @@ local Match=require(script.Parent.Match)
 local Lobbies={}
 Lobbies.__index=Lobbies
 
-function Lobbies.new(map,cfg)
-    return setmetatable({map=map,cfg=cfg,rooms={},membership={},nextId=0,dirty={}},Lobbies)
+function Lobbies.new(map,cfg,chooseMap)
+    return setmetatable({map=map,cfg=cfg,chooseMap=chooseMap,rooms={},membership={},nextId=0,dirty={}},Lobbies)
 end
 
 local function loneWaiting(room)
@@ -19,7 +19,7 @@ function Lobbies:join(player)
     end
     if not target then
         self.nextId+=1
-        target={id=self.nextId,sim=Match.new(self.map,self.cfg)}
+        target={id=self.nextId,sim=Match.new(self.map,self.cfg,self.chooseMap)}
         self.rooms[target.id]=target
     end
     local entry={room=target,seat=assert(target.sim:join(player))}

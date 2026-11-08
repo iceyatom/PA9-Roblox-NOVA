@@ -1,5 +1,11 @@
 # NOVA v1 acceptance record
 
+## Map rotation update — November 8, 2026
+
+All **54 simulation checks passed**. The four reference maps compile at 40 × 30 tiles with the traced spawns and collision masks. Rotation tests cover skipping the previous map, locking input during selection, countdown timing, mutual rematch votes, stale round rejection, cancellation on departure, and independent lobbies.
+
+The real multiplayer acceptance run returned **passed = true**. Both clients received the same selected map, then rematched to a different map through the UI buttons. Four concurrent clients occupied two separate duels; a fifth replacement client joined later. Movement, repeated jump input, shooting, health, results, queue departure and disconnect recovery passed. There were 18 matching projectile samples across the dueling clients. The horizontal reel was inspected in Studio.
+
 ## Held jump update
 
 All **50 simulation checks passed**. The new checks cover repeated jumps while held, stopping after release, short taps, and rejection of invalid held-state values. Client input checks cover Space and controller A/Cross together, releasing one while the other stays held, cancellation, clearing held input and distinct trigger presses.

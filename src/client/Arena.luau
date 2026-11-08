@@ -1,5 +1,5 @@
 local shared=game.ReplicatedStorage.NOVA
-local map=require(shared.Map1).active()
+local Maps=require(shared.Map1)
 local cfg=require(shared.Config)
 local catalog=require(shared.TileCatalog)
 local W=require(script.Parent.Widgets)
@@ -7,8 +7,9 @@ local C=W.colors
 local Arena={}
 Arena.__index=Arena
 
-function Arena.new(stage)
-    local self=setmetatable({map=map},Arena)
+function Arena.new(stage,selectedMap)
+    local map=selectedMap or Maps.active()
+    local self=setmetatable({map=map,stage=stage},Arena)
     local unit=math.min(cfg.TilePixels,890/map.width,667/map.height)
     self.unit=unit
     local width,height=unit*map.width,unit*map.height
@@ -80,6 +81,16 @@ function Arena.new(stage)
         body.Visible=false
     end
     return self
+end
+
+function Arena:setMap(id)
+    if self.map.id==id then return end
+    local masks=self.diagnostics.Visible
+    self.field:Destroy()
+    local replacement=Arena.new(self.stage,Maps.load(id))
+    for key in self do self[key]=nil end
+    for key,value in replacement do self[key]=value end
+    self.diagnostics.Visible=masks
 end
 
 function Arena:update(snap,time)

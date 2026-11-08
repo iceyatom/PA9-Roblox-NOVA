@@ -77,7 +77,7 @@ end
 function Hud:update(snap,seat)
     self.snap=snap
     local phase=snap.phase
-    local status=({Waiting="1 OF 2",Countdown="COUNTDOWN",Playing="LIVE",Results="FINAL"})[phase]
+    local status=({Waiting="1 OF 2",Selecting="MAP SHUFFLE",Countdown="COUNTDOWN",Playing="LIVE",Results="FINAL"})[phase]
     self.phaseLabel.Text=("LOBBY %02d / %s"):format(snap.lobby,status)
     for i,p in snap.players do
         local side=self.seats[i]
@@ -86,7 +86,7 @@ function Hud:update(snap,seat)
         side.hp.Text=p.uid and ("%02d / %02d HP"):format(p.hp,snap.maxHP) or "AWAITING PLAYER"
         for j,cell in side.cells do cell.BackgroundColor3=p.uid and j/10 <= p.hp/snap.maxHP and side.color or C.line end
     end
-    self.notice.Visible=phase~="Playing"
+    self.notice.Visible=phase~="Playing" and phase~="Selecting"
     self.notice.Size=UDim2.fromOffset(400,(phase=="Results" or phase=="Waiting") and 160 or 111)
     self.rematch.Visible=phase=="Results"
     self.leave.Visible=phase=="Results" or phase=="Waiting"

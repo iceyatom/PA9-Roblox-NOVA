@@ -34,7 +34,8 @@ local function handle(cmd,arg)
     if cmd=="read" then
         local seat=stage.Seat1.Text:find("YOU",1,true) and 1 or 2
         return {seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
-            hp=stage.Vitals2.Text,seen=seen,round=latest and latest.round or 0,lobby=latest and latest.lobby,
+            hp=stage.Vitals2.Text,seen=seen,round=latest and latest.round or 0,lobby=latest and latest.lobby,mapId=latest and latest.mapId,
+            rollVisible=stage.MapShuffle.Visible,rollHeading=stage.MapShuffle.Heading.Text,
             p=latest and latest.players or {},vote=notice.Rematch.Text,
             visible=notice.Visible,bar=stage.Map1.Player2.Health.Fill.Size.X.Scale,trail=trail}
     elseif cmd=="keys" then
@@ -63,6 +64,8 @@ local function handle(cmd,arg)
         return {takeoffs=takeoffs,settled=settled,final=y()}
     elseif cmd=="lane" then
         shared.StudioControls:FireServer("lane")
+        task.wait(.2)
+        return latest.players[1].y
     elseif cmd=="fire" then
         for i=1,arg do click(center(stage.Map1)) end
     elseif cmd=="hold" then

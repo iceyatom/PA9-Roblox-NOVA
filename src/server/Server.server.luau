@@ -2,13 +2,14 @@ local Players = game:GetService("Players")
 local Run = game:GetService("RunService")
 local shared = game.ReplicatedStorage:WaitForChild("NOVA")
 local Config = require(shared.Config)
-local map = require(shared.Map1).active()
-local lobbies = require(script.Parent.Lobbies).new(map,Config)
+local Maps = require(shared.Map1)
+local map = Maps.active()
+local lobbies = require(script.Parent.Lobbies).new(map,Config,Maps.choose)
 local LobbyWorld = require(script.Parent.LobbyWorld)
 local world = LobbyWorld.ensure()
 local signKicker = world:FindFirstChild("Kicker",true)
-if signKicker then signKicker.Text = ("MAP %s  /  %s"):format(map.code,map.title:upper()) end
-if Run:IsStudio() then print(("[NOVA] Active map: %s (%s)"):format(map.title,map.id)) end
+if signKicker then signKicker.Text = ("%d MAPS  /  RANDOM ROTATION"):format(#Maps.pool()) end
+if Run:IsStudio() then print(("[NOVA] Map rotation: %d maps"):format(#Maps.pool())) end
 -- Characters exist only in the 3D lobby. Queued and dueling players use the 2D stage.
 Players.CharacterAutoLoads = false
 
@@ -22,7 +23,7 @@ local state = remote("State")
 local input = remote("Input")
 local function broadcast(room)
     local sim=room.sim
-    local snap = {lobby=room.id,phase=sim.phase,round=sim.round,tick=sim.stepNumber,ends=workspace:GetServerTimeNow()+sim.count,
+    local snap = {lobby=room.id,phase=sim.phase,round=sim.round,mapId=sim.map.id,tick=sim.stepNumber,ends=workspace:GetServerTimeNow()+sim.count,
         winner=sim.winner,reason=sim.reason,players={},shots={},maxHP=sim.cfg.Health}
     for i=1,2 do
         local p,b = sim.seats[i],sim.bodies[i]
@@ -128,9 +129,11 @@ if Run:IsStudio() then
             sim.cfg[key]=math.clamp(value,unpack(ranges[key]))
             notify("tuned",key,sim.cfg[key])
         elseif action == "lane" and sim.phase == "Playing" then
+            local left,right,y=sim:duelLane()
+            if not left then return end
             table.clear(sim.bullets)
             for i,b in sim.bodies do
-                b.x,b.y,b.vy,b.axis,b.jump,b.pad,b.grounded = i==1 and 15 or 23,11.5,0,0,false,false,true
+                b.x,b.y,b.vy,b.axis,b.jump,b.pad,b.grounded,b.jumpHeld = i==1 and left or right,y,0,0,false,false,true,false
             end
             notify("lane")
             broadcast(room)
