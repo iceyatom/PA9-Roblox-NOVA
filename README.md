@@ -32,7 +32,9 @@ A/D move, Space jumps from a surface, and gravity brings the player down. Each l
 
 ## Levels and prestige
 
-Players start at level 1, reach level 55, and choose **Prestige** in the top-left lobby card. The first click explains the reset; **Confirm prestige** performs it. Each of the ten prestiges resets level to 1 and current XP to zero. After reaching Prestige 10 level 55, **Become Prestige Master** keeps level 55 and unlocks levels 56–1,000. Prestige Master level 1,000 is the final cap. Prestige is available only in the 3D lobby, outside matchmaking and practice.
+Players start at level 1 and reach level 55 before choosing a prestige. Click the compact top-left level card to open progression, then use the **Requirements** tab to unlock the next prestige. The first click explains the reset; **Confirm Prestige** performs it. Each of the ten prestiges resets level to 1 and current XP to zero. After reaching Prestige 10 level 55, **Become Prestige Master** keeps level 55 and unlocks levels 56–1,000. Prestige Master level 1,000 is the final cap. Prestige is available only in the 3D lobby, outside matchmaking and practice.
+
+After the server confirms a prestige, the new icon appears in grayscale, grows and lifts while changing to full color, then stamps down with a short squash and rebound. Golden radial rays counter-rotate behind it, with a soft aura, an expanding impact ring, and sparks. The reveal displays the new prestige and item name, then returns to Progress automatically or through Continue / controller Back. Closing progression or entering a challenge cancels the effect and releases its resources. Failed requests do not animate. Grayscale image passes preserve the original artwork's exact alpha and geometry; assets and upload records are in `assets/ranks/reveal/`.
 
 A completed duel gives its winner **300 total XP** and its loser **100 XP**. Draws give both players 100 XP. A combat disconnect gives the survivor 300 XP; the departing player receives none. Queueing, map selection, countdowns, abandoned duels, and High Score Practice do not award XP. Each round finishes and awards rewards once, including rematches. The match result shows the earned XP.
 
@@ -42,14 +44,22 @@ Results animate an itemized XP recap: **Duel completed +100 XP**, plus **Victory
 
 `src/shared/Progression.luau` owns the tunable rewards and XP curve: the step from level 1 to 2 costs 100 XP, then each step costs 25 more. Master levels keep the level-55 cost of 1,450 XP per level. Excess XP is discarded at level 55 until prestige is chosen, and at the final cap. Lifetime XP survives prestige.
 
-The lobby card shows rank, current XP, the next level, and save status. Nameplates above lobby characters show their display name and rank; the Roblox player list also shows Level and Prestige. Both duel seats show an avatar headshot and full rank from matchmaking through the result screen. Thumbnail loading happens independently of gameplay and is cached per user.
+The compact lobby card contains only the rank icon, numeric level, and XP bar. Clicking anywhere on it opens a three-tab progression panel. **Progress** shows the current rank, XP toward the next level, and lifetime XP. **Prestiges** shows all twelve icons in a scrollable collection with Current, Unlocked, Next, Ready, or Locked states. Selecting any card opens its **Requirements**, including the previous prestige's level-55 prerequisite, reset behavior, and progress toward eligibility. The server remains authoritative for prestige actions. Load errors and prestige responses appear below the Requirements action when relevant; XP-per-win advertising is absent from this UI. The enlarged panel scales up to 130% while fitting within the viewport, with no subtitle, completed-prestige statistic, or status/control-help footer.
+
+The progression panel and Settings close each other when opened. Character movement is blocked while progression is open, including clients without a legacy PlayerModule. Entering a queue or practice closes it and releases movement. Controller Y / Triangle opens progression, LB / RB switches tabs, and B closes it. The close button and Escape also dismiss it; Escape can open Roblox's system menu. A confirmation is cleared when closing the panel or changing tabs/targets.
+
+Nameplates above lobby characters show their display name and rank; the Roblox player list also shows Level and Prestige. Both duel seats show an avatar headshot and full rank from matchmaking through the result screen. Thumbnail loading happens independently of gameplay and is cached per user.
 
 Twelve original cartoon icons identify Prestige 0, Prestiges 1–10, and Prestige Master. The icons appear in the lobby card, overhead nameplates, duel player panels, and animated XP recap, with rank and level text retained. The set progresses from a basic bronze chevron through jeweled weapons to an infernal crown, void phoenix, celestial dragon, and the winged cosmic Master crest. Sources, prompts, a contact sheet, and Roblox asset provenance are in `assets/ranks/`; selection and asset IDs live in `src/shared/RankIcons.luau`. Images load only as their ranks are displayed.
 
-Published servers store profiles in `NOVA_Progression_v1` using atomic updates, a per-server session token, and a 180-second lease renewed every 30 seconds. Failed loads never replace a saved profile with defaults; the card reports the failure, retries, and challenges wait until the profile is available. Failed saves retry, retain pending progression in memory, and report the delayed save. Profiles save on prestige, periodically, on departure, and during shutdown. An expired lease stops progression changes until renewal succeeds. Studio uses session-only progression without reading or changing live profiles.
+Five additional original sprites identify the Progress, Prestiges, and Requirements headers and locked/unlocked states. Their transparent PNGs, exact generation prompts, and approved Roblox upload IDs are in `assets/ranks/menu/`; runtime IDs are in `ProgressionArt`. `ProgressionInfo` derives the collection states and prerequisites from the existing progression rules.
+
+Published servers store profiles in `NOVA_Progression_v1` using atomic updates, a per-server session token, and a 180-second lease renewed every 30 seconds. Failed loads never replace a saved profile with defaults; the progression panel reports the failure, retries, and challenges wait until the profile is available. Failed saves retry, retain pending progression in memory, and report the delayed save. Profiles save on prestige, periodically, on departure, and during shutdown. An expired lease stops progression changes until renewal succeeds. Studio uses session-only progression without reading or changing live profiles.
 
 ## Developer controls
 Studio-only diagnostics and automated tests are gated by RunService:IsStudio(). Balance defaults are in ReplicatedStorage/NOVA/Config. The map and tile catalog are adjacent modules. Production has no configuration remote.
+
+During Studio Play, switch the Command Bar to **Server** and use `game.ServerScriptService.NOVA.TestXP:Invoke(game.Players:GetPlayers()[1], "cap")` to fill the first player's current rank to level 55, or Master to level 1,000. Replace `"cap"` with a whole XP amount such as `5000` to grant exactly that amount. The returned table reports the new rank and eligibility, and the UI updates immediately. Use the normal Requirements tab to confirm a prestige, then run `"cap"` again to test the next one. This server-only BindableFunction is created only in Studio, has no client remote, uses session progression, and disappears when Play stops.
 
 Press **F4** in a Studio client. **Show masks** displays tile and player bounds, spawn crosses and one-step projectile traces. Click the parameter name to cycle through five settings, then use **+ / −** to adjust the running server. **Set duel lane** moves both players onto an unobstructed platform in the current map during combat for repeatable shooting tests. The panel records phase changes, tuning and hits. Runtime adjustments last for the current server. Edit the Config source to change future sessions.
 
@@ -93,10 +103,10 @@ Then open the map in the editor, Save it, and click **Export to repo**. The firs
 
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
-| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, XPRewards and RankIcons |
+| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, ProgressionInfo, ProgressionArt, PrestigeRevealArt, XPRewards and RankIcons |
 | `src/shared/maps` | `ReplicatedStorage.NOVA.Maps` | Map data modules for all five arenas |
 | `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences, ProgressionService, ProgressionStore and StudioTest |
-| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, XPRecap, RankIcon, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu and Diagnostics |
+| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, ProgressionMenu, PrestigeReveal, XPRecap, RankIcon, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |
 

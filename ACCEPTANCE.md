@@ -115,3 +115,30 @@ Manual checks in Studio (two clients):
 - Verified the Bronze Chevron in the lobby card and centered overhead nameplate. A client-only Master layout preview confirmed the Cosmic Star in both locations and the full Master level-1,000 text fitting the lobby card.
 - An isolated result snapshot verified the Cosmic Star on the player's duel panel and XP recap, the Infernal Crown on the rival's panel, and correct completion of the Master level-1,000 recap. All three images loaded and all rank labels fit. Studio output showed no script errors.
 - Removed the temporary gallery, restored original client attributes, and returned to the lobby. Confirmed both server and client remained Level 1, Prestige 0; previews did not award progression. Play is running for review. The local place was updated without publishing it.
+
+## Compact level card and progression menu — November 8, 2026
+
+- The 220 × 72 launcher has one image, one numeric level label, and an XP track/fill. Inspected its descendants in Studio: `LevelNumber` was the only TextLabel. XP reward-rate hints, prestige buttons, detailed rank text, and save status were removed from the launcher.
+- Generated and uploaded five matching transparent header/status sprites; all reported Approved moderation and loaded in Studio. Sources, prompts, and asset IDs are preserved under `assets/ranks/menu/`.
+- All **85 local logic checks passed**, including four new prerequisite/eligibility cases covering all ten prestiges and Master. All four ProgressionInfo cases also passed on the Studio server.
+- Exercised the real UI with virtual mouse input: opened the card, switched all three tabs, scrolled the twelve-card collection to Master, inspected its Prestige 10 level-55 requirement, returned to the next available prestige, and closed/reopened. Screenshot review confirmed the header art, rank icons, eligibility messages, and page layouts.
+- Checked Settings/progression mutual exclusion, controller RB tab switching, B closing, Y opening, and Escape dismissal. Escape also opened Roblox's own system menu, which is platform behavior.
+- Confirmed movement remained zero while holding W with progression open, including a client without a PlayerModule. Closing removed the movement action. Entering an actual empty queue automatically hid the progression GUI and released movement blocking; left that queue through the normal validated input remote and restored the lobby.
+- A client-only level-55 preview exercised two-click confirmation and its reset on close. Confirming sent the normal prestige request, which the server correctly rejected because its actual profile was Level 1. Restored all client attributes and confirmed the server remained Level 1, Prestige 0. A missing-level/loading preview also rendered safely with the action disabled.
+- The updated local place is running in the lobby for review. No place publishing or live profile changes were performed. Touch gestures and a physical controller were not tested; controller checks used virtual key input.
+
+### Progression panel cleanup and enlargement
+
+Applied the marked-up screenshot: removed the subtitle, completed-prestige statistic, and entire status/control-help footer. Expanded lifetime XP across the available content width. Action responses and load errors remain inline beneath the Requirements action when relevant. The window now scales up to 130%, with a 940 × 550 logical layout that fits inside the viewport. Studio reported a 1222 × 715 displayed panel; screenshot review confirmed all marked areas were absent, the larger text and art fit, and the panel remained centered. The changed script compiled, the standalone place was rebuilt, and Studio output showed no game script errors. Left the enlarged panel open in the local Play session for review; no publishing was performed.
+
+### Studio XP testing command
+
+Added `ServerScriptService.NOVA.TestXP`, a BindableFunction created only inside the Studio branch of ProgressionService. A numeric argument grants that XP; `"cap"` calculates the remaining XP to the current rank's cap without prestiging. In a fresh Studio server, +300 XP reached Level 3 with 75 XP; `"cap"` then reached Level 55 with zero current XP and prestige eligibility. A repeat cap grant gave zero XP, and a negative grant was rejected without altering lifetime XP. The client HUD updated to 55 with a full bar and the Requirements action enabled for Prestige 1. Confirmed no TestXP object exists in ReplicatedStorage.NOVA. Left the session at Prestige 0, Level 55 with Requirements open for the user's prestige test. The script compiled and the standalone place was rebuilt; no live data access or publishing occurred.
+
+### Prestige unlock reveal
+
+- Exported eleven true-grayscale passes for Prestiges 1–10 and Master. Verified equal RGB channels plus unchanged alpha/dimensions for every PNG. All eleven Roblox image uploads reported Approved; sources and asset provenance are in `assets/ranks/reveal/`.
+- All 63 Luau scripts compiled, and all 85 existing logic cases passed. The new server response retains its original text and adds rank data only after an actual successful prestige; the client uses that confirmation to start the effect.
+- Exercised real two-click prestige requests in Studio. A client-only fake level-55 attempt was rejected without a reveal. Actual cap grants and confirmations unlocked Prestige 1 and then Prestige 2. Observed loaded grayscale with color fully hidden, colorization, an icon peak width of 401 logical pixels, stamp motion, settled full color, and rotating golden rays. The first reveal auto-dismissed and returned to Progress. Screenshot review covered the Silver Bullet and Emerald Dagger effects.
+- A third real unlock tested controller Back dismissal, which returned to Progress. An isolated Master preview verified both Master image passes loaded and displayed the correct crest and title without changing the player's actual rank. Removed the preview and all temporary QA render connections.
+- Left the session at Prestige 3, Level 55, with Unlock Prestige 4 ready for the user's next test. No publishing or live profile changes were performed.

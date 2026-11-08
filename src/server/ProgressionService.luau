@@ -27,7 +27,35 @@ function Service.new()
         r.version+=1
         self:publish(player)
         task.spawn(function() self:save(player,false) end)
-        return r.data.master and "Prestige Master unlocked!" or ("Prestige %d unlocked!"):format(r.data.prestige)
+        local message=r.data.master and "Prestige Master unlocked!" or ("Prestige %d unlocked!"):format(r.data.prestige)
+        return message,{prestige=r.data.prestige,master=r.data.master,level=r.data.level}
+    end
+    if Run:IsStudio() then
+        -- Server Command Bar only: never replicated and never created in live games.
+        local test=Instance.new("BindableFunction")
+        test.Name="TestXP"
+        test.OnInvoke=function(player,amount)
+            assert(Run:IsStudio() and not self.storage,"Test XP is Studio-only")
+            assert(typeof(player)=="Instance" and player:IsA("Player") and player.Parent==Players,"Pass a connected Player")
+            assert(self:ready(player),"Wait for the player's progression to load")
+            local r=self.records[player]
+            if amount=="cap" then
+                local remaining=0
+                for level=r.data.level,P.cap(r.data)-1 do remaining+=P.cost(level) end
+                amount=math.max(0,remaining-r.data.xp)
+            end
+            assert(type(amount)=="number" and amount==amount and amount>=0 and amount<=1000000000 and amount%1==0,
+                "Use a nonnegative whole XP amount (up to 1 billion), or 'cap'")
+            P.award(r.data,amount)
+            r.version+=1
+            self:publish(player)
+            local result=table.clone(r.data)
+            result.rank=P.label(r.data)
+            result.granted=amount
+            result.canPrestige=P.canPrestige(r.data)
+            return result
+        end
+        test.Parent=script.Parent
     end
     task.spawn(function()
         while not self.closing do
