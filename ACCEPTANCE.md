@@ -1,5 +1,13 @@
 # NOVA v1 acceptance record
 
+## Crate reel audio and immediate item reveal — November 8, 2026
+
+Map and crate reels now share `ReelAudio`, reusing the approved map-cycle sound `92334355914521` at volume 0.5 with 24 overlapping voices. A real crate opening produced 32 Sound.Played events; intervals slowed from approximately 0.032–0.050 seconds to 1.97 seconds. All 24 voices loaded and playback loudness reached approximately 45.15. Cancelling during a spin removed the reveal and stopped every voice; a cooldown rejection produced no animation. An isolated run of the production map `tick()` method, with stand-in visual cards, still produced 21 clicks and stopped all voices on hide. This was an audio/motion check, not another multiplayer match.
+
+After landing, the awarded category sprite uses the prestige lift/grow/stamp trajectory, squash/rebound, counter-rotating golden rays, soft aura, expanding rings, sparks and a brief flash. Approved full-color inventory sprites are reused. Continue becomes available after the two-second item animation. Closing, leaving the lobby or resizing cancels render connections and sound; presentation does not grant a second reward.
+
+The received sprite's ImageLabel is prepared during the reel. Landing starts motion immediately, with no image-loading gate. In a real Studio crate opening, the visible loaded item appeared 0.0333 seconds after the reel landed and reached the settled phase. The Studio console contained no runtime errors. A separate iPhone 17 Pro landscape preview using an existing authoritative receipt reached settled with readable reward/detail text and a visible Continue button; the simulator was reset afterwards. Short viewports use a compact reveal layout. The changed modules compile, the local place was rebuilt, and sources were synced to Studio. No place was published.
+
 ## Inventory visual polish — November 8, 2026
 
 The Inventory launcher now matches the Level card's 220 × 72 logical pixels, 56-pixel sprite slot, and 26-pixel Gotham Black text. A running Studio client confirmed both actual launcher heights were 72 pixels and the Inventory label fit. The inventory window now uses the progression panel's 12-pixel outer corner radius and up-to-130% desktop scale. Its cards, detail panel, search field and controls have rounded corners. Buttons use shaded faces, four-pixel bottom shadows, and hover/controller emphasis; tabs, filters, item names, rarity labels and body copy have larger text.

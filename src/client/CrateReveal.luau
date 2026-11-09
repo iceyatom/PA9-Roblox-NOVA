@@ -35,7 +35,7 @@ function Reveal:show(receipt)
     local width=self.panel.Size.X.Offset
     local screen=self.panel:FindFirstAncestorWhichIsA("ScreenGui")
     local short=screen and screen.AbsoluteSize.Y<560
-    local height=short and math.max(340,screen.AbsoluteSize.Y-24) or 650
+    local height=short and math.max(300,screen.AbsoluteSize.Y-24) or 650
     local root=W.box(self.panel,"CrateReveal",0,0,width,math.max(650,self.panel.Size.Y.Offset),C.ink,40); root.Active=true; self.overlay=root
     root:SetAttribute("ContentHeight",height)
     root:SetAttribute("Phase","rolling"); root:SetAttribute("ReceiptId",receipt.requestId)
@@ -71,6 +71,13 @@ function Reveal:show(receipt)
     detail.TextWrapped=true; detail.TextTruncate=Enum.TextTruncate.None
     local done=Style.button(root,"Continue",24,554,width-48,50,"Continue",true); done.ZIndex=46; done.Visible=false
     done.Activated:Connect(function() self:hide(); if self.onDone then self.onDone() end end)
+    -- Prepare the exact awarded sprite while the reel is still rolling.
+    self.unlock=ItemUnlock.new(root,item,function()
+        if self.generation~=generation or not self.active then return end
+        root:SetAttribute("Phase","settled"); done.Visible=true
+        if self.onReady then self.onReady() end
+        if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" then Gui.SelectedObject=done end
+    end,height)
     local target=(width-48)/2-((winner-1)*stride+66)
     local function tickAudio()
         self.audio:advance(math.floor(((width-48)/2-strip.Position.X.Offset-66)/stride+.000001))
@@ -94,12 +101,7 @@ function Reveal:show(receipt)
         detail.Position=UDim2.fromOffset(24,short and height-83 or 530); detail.ZIndex=48
         if short then detail.TextSize=14 end
         done.Position=UDim2.fromOffset(24,short and height-40 or 590); done.Size=UDim2.fromOffset(width-48,short and 36 or 44)
-        self.unlock=ItemUnlock.new(root,item,function()
-            if self.generation~=generation or not self.active then return end
-            root:SetAttribute("Phase","settled"); done.Visible=true
-            if self.onReady then self.onReady() end
-            if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" then Gui.SelectedObject=done end
-        end,height)
+        self.unlock:play()
     end)
     self.tween:Play()
 end

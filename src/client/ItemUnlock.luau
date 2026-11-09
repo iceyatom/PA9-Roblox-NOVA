@@ -22,7 +22,7 @@ function Unlock.new(parent,item,onReady,height)
     local self=setmetatable({onReady=onReady},Unlock)
     height=height or 650
     local root=W.box(parent,"ItemUnlock",0,0,parent.Size.X.Offset,height,nil,42); self.root=root
-    root:SetAttribute("Phase","loading"); root:SetAttribute("ItemId",item.id)
+    root.Visible=false; root:SetAttribute("Phase","prepared"); root:SetAttribute("ItemId",item.id)
     local origin=W.box(root,"Origin",parent.Size.X.Offset/2,height<650 and height*.43 or 290,0,0)
     local fit=Instance.new("UIScale")
     fit.Scale=math.min(1,(parent.Size.X.Offset-24)/580,height<650 and (height-120)/580 or 1); fit.Parent=origin
@@ -65,17 +65,17 @@ function Unlock.new(parent,item,onReady,height)
     self.icon.Image=Art[item.category] or ""; self.icon.Parent=self.holder
     self.flash=W.box(root,"StampFlash",0,0,0,0,pale,10); self.flash.Size=UDim2.fromScale(1,1)
     self.flash.BackgroundTransparency=1; self.flash.Active=false
+    -- Prepare the actual ImageLabel during the spin, including its first engine render.
     task.spawn(function() pcall(function() Content:PreloadAsync({self.icon}) end) end)
-    self.waitStart=os.clock(); self:render(0)
-    self.root:SetAttribute("Phase","loading")
+    self:render(0); root:SetAttribute("Phase","prepared")
+    return self
+end
+function Unlock:play()
+    -- Loading never blocks motion, even if asset delivery is late.
+    self.root.Visible=true; self.started=os.clock(); self:render(0)
     self.connection=Run.RenderStepped:Connect(function()
-        if not self.started then
-            if not self.icon.IsLoaded and os.clock()-self.waitStart<4 then return end
-            self.started=os.clock()
-        end
         self:render(os.clock()-self.started)
     end)
-    return self
 end
 function Unlock:render(t)
     if self.ready and t>=2.2 then
