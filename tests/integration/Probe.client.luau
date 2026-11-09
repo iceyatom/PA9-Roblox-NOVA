@@ -1,6 +1,8 @@
 -- Cloned only into StudioTestService clients for the named integration run.
 local run=game:GetService("RunService")
 if not run:IsStudio() then return end
+-- Core player-list placement varies with the Studio client window size and can cover Settings.
+game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList,false)
 local player=game.Players.LocalPlayer
 local shared=game.ReplicatedStorage:WaitForChild("NOVA")
 local qa=shared:WaitForChild("AcceptanceProbe")
@@ -11,6 +13,12 @@ local virtual=assert(game:GetService("UserInputService"):CreateVirtualInput(),"V
 local latest
 local seen={}
 local trail={}
+local cosmeticShot={}
+gui.DescendantAdded:Connect(function(object)
+    if object.Name=="Core" and object.Parent and object.Parent.Name=="Pulse" then cosmeticShot.bullet=object.BackgroundColor3:ToHex()
+    elseif object.Name=="CosmeticTracer" then cosmeticShot.tracer=object.BackgroundColor3:ToHex()
+    elseif object:IsA("Sound") and object.Name=="CosmeticShot" then cosmeticShot.sound=object.SoundId end
+end)
 shared.State.OnClientEvent:Connect(function(s)
     latest=s; seen[s.phase]=true
     if s.round==1 then
@@ -31,13 +39,40 @@ local function click(pos,hold)
 end
 local function center(f) return f.AbsolutePosition+f.AbsoluteSize/2 end
 local function handle(cmd,arg)
-    if cmd=="read" then
+    if cmd=="inventory" then
+        local inv=player.PlayerGui:WaitForChild("NOVAInventory")
+        local panel=inv.InventoryOverlay.Origin.Panel
+        local remote=shared.InventoryRequest
+        click(center(inv.InventoryButton)); task.wait(.25)
+        assert(inv.InventoryOverlay.Visible,"Inventory launcher did not open")
+        click(center(panel.Items.skin_mint)); task.wait(.1)
+        click(center(panel.Details.EquipOrOpen)); task.wait(.25)
+        click(center(panel.Details.Favorite)); task.wait(.25)
+        for _,itemId in {"bullet_solar","tracer_comet","card_nebula","sound_arcade"} do
+            assert(remote:InvokeServer("equip",itemId).ok); task.wait(.2)
+        end
+        local profile=remote:InvokeServer("read").profile; task.wait(.2)
+        assert(profile.data.equipped.skins=="skin_mint" and profile.data.favorites.skin_mint)
+        local denied=remote:InvokeServer("grant","crate_dev"); task.wait(.2)
+        assert(not denied.ok,"Client grant action was accepted")
+        local key=game:GetService("HttpService"):GenerateGUID(false)
+        local award=remote:InvokeServer("open","crate_dev",key); task.wait(.2)
+        assert(award.ok and award.receipt.duplicate and award.receipt.shards>0)
+        local retry=remote:InvokeServer("open","crate_dev",key); task.wait(.2)
+        assert(retry.ok and retry.receipt.itemId==award.receipt.itemId and retry.profile.data.owned.crate_dev==9)
+        assert(retry.profile.data.shards==award.profile.data.shards,"Replay awarded duplicate currency twice")
+        click(center(panel.Close)); task.wait(.2)
+        assert(not inv.InventoryOverlay.Visible)
+        return true
+    elseif cmd=="read" then
         local seat=stage.Seat1.Text:find("YOU",1,true) and 1 or 2
         return {seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
             hp=stage.Vitals2.Text,seen=seen,round=latest and latest.round or 0,lobby=latest and latest.lobby,mapId=latest and latest.mapId,
             rollVisible=stage.MapShuffle.Visible,rollHeading=stage.MapShuffle.Heading.Text,
             p=latest and latest.players or {},vote=notice.Rematch.Text,
-            visible=notice.Visible,bar=stage.Map1.Player2.Health.Fill.Size.X.Scale,trail=trail}
+            visible=notice.Visible,bar=stage.Map1.Player2.Health.Fill.Size.X.Scale,trail=trail,
+            skinColor1=stage.Map1.Player1.BackgroundColor3:ToHex(),cardVisible1=stage.PlayerCard1.BackgroundTransparency==0,
+            inventoryVisible=player.PlayerGui.NOVAInventory.Enabled,cosmeticShot=table.clone(cosmeticShot)}
     elseif cmd=="keys" then
         virtual:SendKey(true,Enum.KeyCode[arg],false)
         task.wait(.19)
@@ -108,6 +143,7 @@ local function handle(cmd,arg)
         assert(saved.pc.jump=="Space" and saved.pc.fire=="MouseButton1" and saved.pc.left=="A")
         return true
     elseif cmd=="settingsUnavailable" then
+        assert(not shared.InventoryRequest:InvokeServer("equip","skin_ember").ok,"Equipment changed outside lobby")
         local settingsGui=player.PlayerGui.NOVASettings
         local settingsStage=settingsGui.Root.Origin.Stage
         assert(not settingsGui.Enabled and not settingsStage.OpenSettings.Visible,"Settings are visible outside the main lobby")

@@ -2,11 +2,10 @@ local W=require(script.Parent.Widgets)
 local C=W.colors
 local Maps=require(game.ReplicatedStorage.NOVA.Map1)
 local cfg=require(game.ReplicatedStorage.NOVA.Config)
-local ContentProvider=game:GetService("ContentProvider")
+local ReelAudio=require(script.Parent.ReelAudio)
 local Roller={}
 Roller.__index=Roller
 local pitch,cardWidth,landing=280,260,23
-local clickSoundId="rbxassetid://92334355914521"
 
 local function card(parent,arena,index)
     local frame=W.box(parent,"MapCard"..index,(index-1)*pitch,0,cardWidth,256,C.panel)
@@ -29,23 +28,8 @@ function Roller.new(stage)
     W.stroke(overlay,C.line)
     overlay.Active=true
     self.overlay=overlay
-    -- Enough voices for the full sample tails at the reel's fastest crossing rate.
-    self.clickSounds={}
-    self.clickVoice=0
-    if clickSoundId~="" then
-        for i=1,24 do
-            local sound=Instance.new("Sound")
-            sound.Name="MapCycleClick"..i
-            sound.SoundId=clickSoundId
-            sound.Volume=.5
-            sound.Parent=overlay
-            table.insert(self.clickSounds,sound)
-        end
-        task.spawn(function()
-            local ok,err=pcall(function() ContentProvider:PreloadAsync(self.clickSounds) end)
-            if not ok then warn("[NOVA] Could not preload map cycle click: "..tostring(err)) end
-        end)
-    end
+    self.audio=ReelAudio.new(overlay,"MapCycleClick")
+    self.clickSounds=self.audio.sounds
     self.heading=W.text(overlay,"Heading",24,14,846,30,"SHUFFLING MAPS",22,C.white,Enum.Font.GothamBold)
     self.heading.TextXAlignment=Enum.TextXAlignment.Center
     local window=W.box(overlay,"ReelWindow",12,58,870,258)
@@ -63,17 +47,11 @@ function Roller:hide()
     self.overlay.Visible=false
     self.key=nil
     self.lastPin=nil
-    for _,sound in self.clickSounds do sound:Stop() end
+    self.audio:stop()
 end
 
 function Roller:click()
-    if #self.clickSounds==0 then return end
-    self.clickVoice=self.clickVoice%#self.clickSounds+1
-    local sound=self.clickSounds[self.clickVoice]
-    if not sound.IsLoaded then return end
-    sound:Stop()
-    sound.TimePosition=0
-    sound:Play()
+    self.audio:click()
 end
 
 function Roller:update(snap)

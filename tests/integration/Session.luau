@@ -50,7 +50,10 @@ return function()
         local root=untilTrue(function() return p.Character and p.Character:FindFirstChild("HumanoidRootPart") end,20,"lobby character for "..p.Name)
         local pad=workspace.NOVALobby.QueuePad
         root.Parent:PivotTo(CFrame.new(pad.Position+Vector3.new(0,4,0)))
-        untilTrue(function() return read(p).phase=="Waiting" or read(p).phase=="Countdown" end,6,"queue for "..p.Name)
+        untilTrue(function()
+            local phase=read(p).phase
+            return phase=="Waiting" or phase=="Selecting" or phase=="Countdown"
+        end,6,"queue for "..p.Name)
         assert(p.Character==nil,"Queued player keeps no 3D character")
     end
     local function exercise()
@@ -58,6 +61,10 @@ return function()
         assert(read(p1).phase=="","Clients start in the lobby without a duel")
         request(p1,"settings")
         note("Lobby Settings button opened the menu; F2 did not. PC rebinding, conflicts, session saves and reset defaults passed")
+        untilTrue(function() return p1:GetAttribute("InventoryReady") end,15,"inventory profile")
+        game.ServerScriptService.NOVA.GrantInventory:Invoke(p1,"samples")
+        request(p1,"inventory")
+        note("Inventory launcher, UI equip/favorite, developer grants, duplicate currency and idempotent crate retry passed; client grant rejected")
         queue(p1)
         untilTrue(function() local r=read(p1); return r.hud:find("LOBBY") and r.visible end,5,"waiting screen")
         note("One real client displayed Waiting")
@@ -66,6 +73,10 @@ return function()
         queue(p2)
         local r1,r2=waitPhase(p1,"Playing"),waitPhase(p2,"Playing")
         assert(r1.seat==1 and r2.seat==2 and r1.round==r2.round)
+        assert(r1.p[1].cosmetics.skins=="skin_mint" and r2.p[1].cosmetics.bullets=="bullet_solar")
+        assert(r1.skinColor1=="50e4ac" and r2.skinColor1=="50e4ac" and r1.cardVisible1 and r2.cardVisible1)
+        assert(not r1.inventoryVisible and not r2.inventoryVisible)
+        note("Both real duel clients rendered the equipped skin and player-card background; inventory stayed hidden outside the lobby")
         assert(r1.seen.Countdown and r2.seen.Countdown,"Missing countdown on client")
         local firstMap=require(shared.Map1).load(r1.mapId)
         assert(r1.mapId==r2.mapId and r1.seen.Selecting and r2.seen.Selecting)
@@ -110,6 +121,11 @@ return function()
         request(p1,"hold"); task.wait(.55)
         r1,r2=read(p1),read(p2)
         assert(r1.p[2].hp==9 and r2.p[2].hp==9,"hold must emit exactly one shot")
+        for _,view in {r1,r2} do
+            assert(view.cosmeticShot.bullet=="ffc857" and view.cosmeticShot.tracer=="50e4ec")
+            assert(view.cosmeticShot.sound=="rbxasset://sounds/volume_slider.ogg")
+        end
+        note("Both clients rendered the equipped bullet, tracer and shot sound from real authoritative projectiles")
         local sharedSamples=0
         for tick,pos in r1.trail do
             if r2.trail[tick] then assert(r2.trail[tick]==pos); sharedSamples+=1 end
