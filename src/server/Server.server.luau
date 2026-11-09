@@ -15,6 +15,8 @@ local world = LobbyWorld.ensure()
 local practiceWorld=require(script.Parent.PracticeWorld).ensure(world)
 local practice=require(script.Parent.Practice).new()
 progression.canPrestige=function(p) return not lobbies.membership[p] and not practice.sessions[p] end
+local inventory=require(script.Parent.InventoryService).new()
+inventory.canUse=progression.canPrestige
 local leaderboard=require(script.Parent.PracticeLeaderboard).new(practiceWorld.Leaderboard)
 local signKicker = world:FindFirstChild("Kicker",true)
 if signKicker then signKicker.Text = ("%d MAPS  /  RANDOM ROTATION"):format(#Maps.pool()) end
@@ -49,7 +51,7 @@ local function broadcast(room)
     for i=1,2 do
         local p,b = sim.seats[i],sim.bodies[i]
         snap.players[i] = {uid=p and p.UserId,name=p and p.DisplayName,x=b.x,y=b.y,hp=b.hp,vote=sim.votes[i] == true,
-            progression=p and progression:view(p),xpAward=sim.rewards[i],xpRecap=sim.xpRecaps[i]}
+            progression=p and progression:view(p),cosmetics=p and inventory:view(p),xpAward=sim.rewards[i],xpRecap=sim.xpRecaps[i]}
     end
     for i,b in sim.bullets do snap.shots[i]={b.id,b.x,b.y,b.seat,b.vx,b.vy} end
     for _,p in sim.seats do
@@ -74,6 +76,7 @@ local function spawnInLobby(p)
 end
 local function track(p)
     task.spawn(function() progression:load(p) end)
+    task.spawn(function() inventory:load(p) end)
     p.CharacterAdded:Connect(function(character)
         character:WaitForChild("Humanoid").Died:Connect(function()
             task.wait(3)
@@ -86,7 +89,7 @@ Players.PlayerAdded:Connect(track)
 for _,p in Players:GetPlayers() do task.spawn(track,p) end
 
 local function enterQueue(p)
-    if lobbies.membership[p] or practice.sessions[p] or not progression:ready(p) then return end
+    if lobbies.membership[p] or practice.sessions[p] or not progression:ready(p) or not inventory:ready(p) then return end
     lobbies:join(p)
     local character=p.Character
     p.Character=nil
@@ -101,7 +104,7 @@ local function returnToLobby(p)
 end
 
 local function enterPractice(p)
-    if lobbies.membership[p] or practice.sessions[p] or not progression:ready(p) then return end
+    if lobbies.membership[p] or practice.sessions[p] or not progression:ready(p) or not inventory:ready(p) then return end
     local s=practice:start(p,workspace:GetServerTimeNow())
     local character=p.Character
     p.Character=nil
@@ -149,6 +152,7 @@ Players.PlayerRemoving:Connect(function(p)
     practice:remove(p)
     lobbies:remove(p)
     flush()
+    inventory:remove(p)
     progression:remove(p)
 end)
 input.OnServerEvent:Connect(function(p,kind,lobbyId,round,a,b)

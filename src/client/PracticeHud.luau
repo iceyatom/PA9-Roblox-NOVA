@@ -1,5 +1,12 @@
 local W=require(script.Parent.Widgets)
 local C=W.colors
+local Cosmetics=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
+local Preview=require(script.Parent.InventoryPreview)
+local function equipment()
+    local result={}
+    for category in Cosmetics.defaults do result[category]=game.Players.LocalPlayer:GetAttribute("Cosmetic_"..category) end
+    return result
+end
 local Tween=game:GetService("TweenService")
 local PracticeHud={}
 PracticeHud.__index=PracticeHud
@@ -70,10 +77,16 @@ function PracticeHud.new(playerGui,send)
 end
 
 function PracticeHud:pulse()
-    local pulse=W.box(self.field,"Shot",253,293,20,6,C.mint,8)
+    local equipped=equipment()
+    local bullet=Cosmetics.get(equipped,"bullets")
+    local tracer=Cosmetics.get(equipped,"tracers")
+    local pulse=W.box(self.field,"Shot",253,293,20,6,bullet.default and C.mint or Preview.color(bullet),8)
+    if tracer.length and tracer.length>0 then W.box(pulse,"Tracer",-tracer.length*24,1,tracer.length*24,4,Preview.color(tracer)) end
+    Preview.sound(self.field,Cosmetics.get(equipped,"sounds"))
     table.insert(self.pulses,{frame=pulse,at=os.clock()})
 end
 function PracticeHud:update(snap)
+    self.body.BackgroundColor3=Preview.color(Cosmetics.get(equipment(),"skins"))
     local old=self.snap
     if not old or old.id~=snap.id then
         self.lastNumber=nil

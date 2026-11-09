@@ -1,5 +1,35 @@
 # NOVA v1 acceptance record
 
+## Crate reel audio and immediate item reveal — November 8, 2026
+
+Map and crate reels now share `ReelAudio`, reusing the approved map-cycle sound `92334355914521` at volume 0.5 with 24 overlapping voices. A real crate opening produced 32 Sound.Played events; intervals slowed from approximately 0.032–0.050 seconds to 1.97 seconds. All 24 voices loaded and playback loudness reached approximately 45.15. Cancelling during a spin removed the reveal and stopped every voice; a cooldown rejection produced no animation. An isolated run of the production map `tick()` method, with stand-in visual cards, still produced 21 clicks and stopped all voices on hide. This was an audio/motion check, not another multiplayer match.
+
+After landing, the awarded category sprite uses the prestige lift/grow/stamp trajectory, squash/rebound, counter-rotating golden rays, soft aura, expanding rings, sparks and a brief flash. Approved full-color inventory sprites are reused. Continue becomes available after the two-second item animation. Closing, leaving the lobby or resizing cancels render connections and sound; presentation does not grant a second reward.
+
+The received sprite's ImageLabel is prepared during the reel. Landing starts motion immediately, with no image-loading gate. In a real Studio crate opening, the visible loaded item appeared 0.0333 seconds after the reel landed and reached the settled phase. The Studio console contained no runtime errors. A separate iPhone 17 Pro landscape preview using an existing authoritative receipt reached settled with readable reward/detail text and a visible Continue button; the simulator was reset afterwards. Short viewports use a compact reveal layout. The changed modules compile, the local place was rebuilt, and sources were synced to Studio. No place was published.
+
+## Inventory visual polish — November 8, 2026
+
+The Inventory launcher now matches the Level card's 220 × 72 logical pixels, 56-pixel sprite slot, and 26-pixel Gotham Black text. A running Studio client confirmed both actual launcher heights were 72 pixels and the Inventory label fit. The inventory window now uses the progression panel's 12-pixel outer corner radius and up-to-130% desktop scale. Its cards, detail panel, search field and controls have rounded corners. Buttons use shaded faces, four-pixel bottom shadows, and hover/controller emphasis; tabs, filters, item names, rarity labels and body copy have larger text.
+
+Desktop and iPhone 17 Pro portrait inspection found no truncated visible labels. Crate details and action text fit; a real crate opening reached Ember Core, displayed its duplicate conversion into 60 Shards, and showed the rounded Continue button and its shadow correctly. The changed modules compiled and the place was rebuilt. The Studio console contained no runtime errors. Existing approved NOVA sprites were reused. The device simulator was reset to the default viewport; no place was published.
+
+## Inventory — November 8, 2026
+
+All **98 local logic checks passed**, including 13 new inventory/leased-storage cases. Coverage includes ownership enforcement, equip/unequip defaults, favorites, crate quantities, every weighted reward boundary, duplicate-to-Shards conversion, idempotent request replay after serialization, bounded receipt history, invalid input/profile rejection, session conflicts, stale-server save rejection, and save failures/retries. Every Luau source/test compiled with the official compiler, and `build/NOVA.rbxlx` was regenerated.
+
+All **13 inventory cases also passed in the actual Studio server**. A solo Studio client opened Inventory through its launcher, equipped Mint Circuit, saved a favorite, and opened a test crate through the UI. The server consumed exactly one crate; the scrolling reel landed on the authoritative Arcade Click reward and displayed its duplicate conversion into 25 Shards. All six uploaded NOVA sprites were Approved and observed with `ImageLabel.IsLoaded=true`. The six 1254 × 1254 transparent sources passed the sprite validator and were reviewed together at 128 and 48 pixels on NOVA's dark UI.
+
+The updated real multiplayer acceptance run returned **passed=true** with four concurrent clients and a fifth replacement. It verified inventory launcher clicks, UI equipment/favorites, server-only sample grants, rejection of client grants, duplicate currency, and idempotent crate retries. Both duel clients rendered the equipped skin and player-card background, then the gold bullet, cyan tracer, and equipped shot sound from real authoritative projectiles. Inventory was hidden outside the lobby and an equipment request during a duel was rejected. The existing movement, health, separate lobbies, rematch, queue return, and disconnect checks passed; 16 projectile samples matched between clients.
+
+The test setup hides Roblox's Core player list so it cannot cover Settings in small Studio client windows. The queue fixture now accepts the Selecting phase, matching the existing eight-second map reel. These are acceptance-harness corrections.
+
+Desktop and iPhone 17 Pro landscape/portrait layouts were visually checked in Studio. The game permits Sensor orientation. Narrow screens use readable wrapped tabs, a stacked grid/details layout, and vertical scrolling; preview/actions remained reachable. The simulator was reset to the default viewport. These are emulator/layout checks, not physical phone or console tests.
+
+Injected controller inputs opened Inventory with X, switched to Bullet Skins with RB, and closed it with B. Closing removed the movement action binding and restored Settings. The equipped built-in sound loaded successfully with a 0.845-second duration. The final Studio console contained no runtime errors.
+
+Studio uses session inventory and does not access live inventory profiles. Published-server cross-session persistence remains unverified. No place was published.
+
 ## Map-selection click audio — November 8, 2026
 
 Imported the supplied `CSGO Case Click.mp3` as the owning user's audio asset `92334355914521`; Roblox moderation returned **Approved**. The Studio client loaded the 0.705-second asset successfully. Render-driven reel checks produced **21 Sound.Played events**, with initial intervals of approximately 0.034–0.050 seconds and final intervals of approximately 1.55–1.57 seconds. The final check used 24 voices to preserve overlapping sample tails and measured nonzero playback loudness (peak approximately 45.15). Hiding the reel stopped every voice, and no console audio errors occurred. A separate timing sweep verified one trigger per crossed card center and silence after hiding. The game itself was not published.

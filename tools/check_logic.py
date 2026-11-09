@@ -10,7 +10,7 @@ from pathlib import Path
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-CASES = ("Progression", "ProgressionStore", "ProgressionInfo", "XPRewards", "MatchRewards", "Match", "Lobbies",
+CASES = ("Inventory", "InventoryStore", "Progression", "ProgressionStore", "ProgressionInfo", "XPRewards", "MatchRewards", "Match", "Lobbies",
          "Movement", "Combat", "Practice", "MapRotation")
 PRELUDE = r'''
 local modules,cache,nodes={},{},{}

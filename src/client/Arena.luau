@@ -4,6 +4,8 @@ local cfg=require(shared.Config)
 local catalog=require(shared.TileCatalog)
 local W=require(script.Parent.Widgets)
 local C=W.colors
+local Cosmetics=require(shared.InventoryCatalog)
+local Preview=require(script.Parent.InventoryPreview)
 local Arena={}
 Arena.__index=Arena
 
@@ -102,6 +104,7 @@ function Arena:update(snap,time)
         for id,shot in self.shots do
             shot.frame:Destroy()
             shot.trace:Destroy()
+            shot.tail:Destroy()
             self.shots[id]=nil
         end
     end
@@ -110,6 +113,8 @@ function Arena:update(snap,time)
         local actor=self.actors[i]
         actor.body.Visible=p.uid~=nil
         actor.label.Text=p.name or ""
+        actor.color=p.uid and Preview.color(Cosmetics.get(p.cosmetics,"skins")) or (i==1 and C.blue or C.red)
+        if Cosmetics.get(p.cosmetics,"skins").default then actor.color=i==1 and C.blue or C.red end
         if not changed and p.hp<actor.hp then actor.flash=time+0.13 end
         actor.hp=p.hp
         actor.bar.Size=UDim2.fromScale(p.hp/snap.maxHP,1)
@@ -120,22 +125,29 @@ function Arena:update(snap,time)
         local id=b[1]
         local shot=self.shots[id]
         if not shot then
-            local color=b[4]==1 and C.blue or C.red
+            local equipped=snap.players[b[4]].cosmetics
+            local bullet=Cosmetics.get(equipped,"bullets")
+            local tracer=Cosmetics.get(equipped,"tracers")
+            local color=bullet.default and (b[4]==1 and C.blue or C.red) or Preview.color(bullet)
             local diameter=2*cfg.BulletRadius*unit
             local glow=W.box(self.field,"Pulse",0,0,diameter*2.6,diameter*2.6,color,4)
             glow.AnchorPoint=Vector2.new(0.5,0.5)
             glow.BackgroundTransparency=0.62
             W.round(glow)
-            local core=W.box(glow,"Core",diameter*0.8,diameter*0.8,diameter,diameter,C.white,5)
+            local core=W.box(glow,"Core",diameter*0.8,diameter*0.8,diameter,diameter,Preview.color(bullet),5)
             W.round(core)
             local trace=W.box(self.field,"Sweep",0,0,1,1,C.purple,6)
             trace.AnchorPoint=Vector2.new(0.5,0.5)
-            shot={frame=glow,trace=trace}
+            local tail=W.box(self.field,"CosmeticTracer",0,0,1,3,Preview.color(tracer),4)
+            tail.AnchorPoint=Vector2.new(.5,.5); tail.BackgroundTransparency=.25
+            shot={frame=glow,trace=trace,tail=tail,tailLength=tracer.length or 0}
             self.shots[id]=shot
+            if not changed and snap.phase=="Playing" then Preview.sound(self.field,Cosmetics.get(equipped,"sounds")) end
         end
         seen[id]=true
         shot.target=Vector2.new(b[2],b[3])
         local velocity=Vector2.new(b[5],b[6])
+        shot.direction=velocity.Magnitude>0 and velocity.Unit or Vector2.xAxis
         shot.start=shot.draw or shot.target
         local segment=velocity*cfg.Step
         local mid=(shot.target-segment/2)*unit
@@ -144,7 +156,7 @@ function Arena:update(snap,time)
         shot.trace.Rotation=math.deg(math.atan2(segment.Y,segment.X))
     end
     for id,shot in self.shots do
-        if not seen[id] then shot.frame:Destroy(); shot.trace:Destroy(); self.shots[id]=nil end
+        if not seen[id] then shot.frame:Destroy(); shot.trace:Destroy(); shot.tail:Destroy(); self.shots[id]=nil end
     end
 end
 
@@ -159,6 +171,11 @@ function Arena:draw(time)
     for _,shot in self.shots do
         shot.draw=shot.start:Lerp(shot.target,alpha)
         shot.frame.Position=UDim2.fromOffset(shot.draw.X*self.unit,shot.draw.Y*self.unit)
+        local midpoint=shot.draw-shot.direction*shot.tailLength/2
+        shot.tail.Position=UDim2.fromOffset(midpoint.X*self.unit,midpoint.Y*self.unit)
+        shot.tail.Size=UDim2.fromOffset(shot.tailLength*self.unit,3)
+        shot.tail.Rotation=math.deg(math.atan2(shot.direction.Y,shot.direction.X))
+        shot.tail.Visible=shot.tailLength>0
         shot.trace.Visible=self.diagnostics.Visible
     end
 end

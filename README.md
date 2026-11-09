@@ -13,7 +13,7 @@ The first screenshot (214811) contains 38 columns and 29 rows starting at image 
 
 ## Map rotation
 
-The selection reel plays the supplied `CSGO Case Click.mp3` whenever a card center crosses the selection pins. Its imported Roblox audio is `rbxassetid://92334355914521` (NOVA Map Cycle Click); the ID and playback volume are in `src/client/MapRoller.luau`. Audio is preloaded on each client, overlapping clicks keep their sample tails, and playback stops when the reel closes. Click spacing follows the reel's slowdown and no skipped clicks are replayed in a burst after a delayed frame.
+The selection reel plays the supplied `CSGO Case Click.mp3` whenever a card center crosses the selection pins. Its imported Roblox audio is `rbxassetid://92334355914521` (NOVA Map Cycle Click); the shared ID and playback volume are in `src/client/ReelAudio.luau`, used by both map and crate rolls. Audio is preloaded on each client, overlapping clicks keep their sample tails, and playback stops when the reel closes. Click spacing follows the reel's slowdown and no skipped clicks are replayed in a burst after a delayed frame.
 
 The rotation includes Split Circuit (01), Crossfire (02), Skyline (03), Hourglass (04), and Nexus (05). The four new layouts trace screenshots 214830, 214842, 214905, and 214925 on a 40 × 30 grid. Crossfire and Nexus retain the small asymmetries in their references. Purple tiles block players and shots; dark blue tiles block players; light blue tiles block shots; green tiles are launch triggers.
 
@@ -55,6 +55,26 @@ Twelve original cartoon icons identify Prestige 0, Prestiges 1–10, and Prestig
 Five additional original sprites identify the Progress, Prestiges, and Requirements headers and locked/unlocked states. Their transparent PNGs, exact generation prompts, and approved Roblox upload IDs are in `assets/ranks/menu/`; runtime IDs are in `ProgressionArt`. `ProgressionInfo` derives the collection states and prerequisites from the existing progression rules.
 
 Published servers store profiles in `NOVA_Progression_v1` using atomic updates, a per-server session token, and a 180-second lease renewed every 30 seconds. Failed loads never replace a saved profile with defaults; the progression panel reports the failure, retries, and challenges wait until the profile is available. Failed saves retry, retain pending progression in memory, and report the delayed save. Profiles save on prestige, periodically, on departure, and during shutdown. An expired lease stops progression changes until renewal succeeds. Studio uses session-only progression without reading or changing live profiles.
+
+## Inventory
+
+The **Inventory** button sits directly beneath the Level card in the main lobby. Xbox **X / PlayStation Square** also opens it; LB/RB changes categories, B closes the reveal or menu, and Escape dismisses it. Inventory, progression, and Settings close one another. Inventory blocks lobby movement and closes when entering a queue or practice. Desktop uses tabs, an item grid, and a preview/details panel; narrow screens use a stacked, vertically scrollable layout with readable controls. Selecting a card scrolls to its preview on narrow screens.
+
+Categories are **Skins, Bullet Skins, Tracers, Backgrounds, Sound Effects, and Crates**. Search, rarity filters, favorites-only filtering, and Equipped/Rarity/Name sorting operate on owned items. One cosmetic per category can be equipped; unequipping returns to its always-owned default. Backgrounds customize the duel player card. Skin colors, bullet colors, projectile tails, and shot sounds apply in real gameplay, including practice. These are development cosmetics; final collectible skin artwork is intentionally deferred. Defaults preserve NOVA's original appearance and silent shot sound.
+
+Players receive no sample collectibles or crates automatically. From the **server Command Bar during Studio Play**, grant a sample bundle:
+
+```lua
+game.ServerScriptService.NOVA.GrantInventory:Invoke(game.Players:GetPlayers()[1], "samples")
+```
+
+The bundle grants all ten sample cosmetics and ten test crates. For just five crates, use `:Invoke(player, "crate_dev", 5)`. Individual stable IDs are in `src/shared/InventoryCatalog.luau`; for example `skin_mint` or `card_nebula`. This tool is a server-only BindableFunction, accessible to trusted developer server code; it has no client remote, chat command, or public admin UI. In a published server, trusted server-side invocation changes that player's saved inventory. Studio grants are session-only.
+
+Opening a **NOVA Test Crate** consumes one crate and grants one server-selected cosmetic. A scrolling reel slows onto that exact reward, using the map roll's click sound as cards pass the pins. The received sprite is prepared during the spin and immediately lifts, grows and stamps down at landing, with the prestige animation's golden rays, rings and sparks. Continue appears after two seconds. Duplicates become **Shards**, a placeholder currency with no spending or purchase system. Crate details disclose rarity odds. The temporary drop table and duplicate values live in `InventoryCatalog`; rewards do not affect combat statistics. The server checks ownership, lobby membership, profile readiness, request rate, and the opening cooldown. A bounded history of request receipts makes connection retries idempotent, including after a profile reload; the animation never grants rewards.
+
+Published servers use `NOVA_Inventory_v1` with atomic UpdateAsync writes and a per-server 180-second lease, renewed every 30 seconds. Ownership, equipment, favorites, quantities, Shards, and recent crate receipts are saved. Invalid or failed loads never overwrite a profile with defaults; errors are shown and retried. Expired leases block mutations, and delayed saves retain pending changes for retries. Studio uses session data without accessing live profiles. Cross-session persistence needs verification in a published server; Studio API access is unnecessary for these previews.
+
+The six original transparent category/launcher sprites were made with the NOVA UI Sprites skill and built-in image generation. Sources, exact prompts, asset IDs, moderation results, and a dark-background review sheet are under `assets/inventory/`; runtime IDs are in `InventoryArt`. Crate animation uses native UI transforms and TweenService.
 
 ## Developer controls
 Studio-only diagnostics and automated tests are gated by RunService:IsStudio(). Balance defaults are in ReplicatedStorage/NOVA/Config. The map and tile catalog are adjacent modules. Production has no configuration remote.
@@ -103,10 +123,10 @@ Then open the map in the editor, Save it, and click **Export to repo**. The firs
 
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
-| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, ProgressionInfo, ProgressionArt, PrestigeRevealArt, XPRewards and RankIcons |
+| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, ProgressionInfo, ProgressionArt, PrestigeRevealArt, XPRewards, RankIcons, InventoryCatalog, Inventory and InventoryArt |
 | `src/shared/maps` | `ReplicatedStorage.NOVA.Maps` | Map data modules for all five arenas |
-| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences, ProgressionService, ProgressionStore and StudioTest |
-| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, ProgressionMenu, PrestigeReveal, XPRecap, RankIcon, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu and Diagnostics |
+| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences, ProgressionService, ProgressionStore, InventoryService, InventoryStore and StudioTest |
+| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, ProgressionMenu, PrestigeReveal, XPRecap, RankIcon, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu, InventoryMenu, InventoryPreview, InventoryStyle, CrateReveal, ItemUnlock, ReelAudio and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |
 

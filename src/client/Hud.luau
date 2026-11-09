@@ -3,6 +3,7 @@ local C=W.colors
 local P=require(game.ReplicatedStorage.NOVA.Progression)
 local Portrait=require(script.Parent.Portrait)
 local RankIcon=require(script.Parent.RankIcon)
+local Cosmetics=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
 local Hud={}
 Hud.__index=Hud
 local bold=Enum.Font.GothamBold
@@ -42,6 +43,10 @@ function Hud.new(playerGui)
     for i=1,2 do
         local y=304+(i-1)*143
         local col=i==1 and C.blue or C.red
+        local card=W.box(stage,"PlayerCard"..i,x-5,y-4,220,132,C.panel)
+        card.BackgroundColor3=Color3.new(1,1,1)
+        card.BackgroundTransparency=1
+        local gradient=Instance.new("UIGradient"); gradient.Rotation=25; gradient.Parent=card
         W.box(stage,"SeatColor",x,y+4,5,17,col)
         local who=W.text(stage,"Seat"..i,x+16,y,195,26,"PLAYER 0"..i,16,C.muted)
         local avatar=Instance.new("ImageLabel")
@@ -54,7 +59,7 @@ function Hud.new(playerGui)
         local hp=W.text(stage,"Vitals"..i,x,y+94,207,18,"AWAITING PLAYER",12,C.muted)
         local cells={}
         for j=1,10 do cells[j]=W.box(stage,"HP",x+(j-1)*20.7,y+115,17,5,C.line) end
-        self.seats[i]={who=who,name=name,rank=rank,rankIcon=rankIcon,avatar=avatar,hp=hp,cells=cells,color=col}
+        self.seats[i]={who=who,name=name,rank=rank,rankIcon=rankIcon,avatar=avatar,hp=hp,cells=cells,color=col,card=card,gradient=gradient}
     end
     -- Right rail: persistent legend for the four collision behaviors.
     local rx=1195
@@ -92,6 +97,11 @@ function Hud:update(snap,seat)
     self.phaseLabel.Text=("LOBBY %02d / %s"):format(snap.lobby,status)
     for i,p in snap.players do
         local side=self.seats[i]
+        local background=Cosmetics.get(p.cosmetics,"backgrounds")
+        side.card.BackgroundTransparency=p.uid and not background.default and 0 or 1
+        if side.backgroundId~=background.id then
+            side.backgroundId=background.id; side.gradient.Color=ColorSequence.new(W.rgb(background.color),C.ink)
+        end
         side.who.Text=("PLAYER 0%d%s"):format(i,i==seat and "   /   YOU" or "")
         side.name.Text=p.name or "Open seat"
         side.rank.Text=p.uid and P.label(p.progression) or ""
