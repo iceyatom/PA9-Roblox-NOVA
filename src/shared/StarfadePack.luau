@@ -1,0 +1,6 @@
+return {
+    {id="skin_starfade_matrix",category="skins",name="Starfade Matrix",rarity="Cosmic",color="00fbd7",visual="starfade",setName="Starfade",description="A square obsidian chassis with spectral edge buses, floating constellations and a breathing four-point star. Rainbow radiance spills beyond the rim."},
+    {id="bullet_spectral_pearl",category="bullets",name="Spectral Pearl",rarity="Cosmic",color="dfff00",visual="starfade",setName="Starfade",description="A circular black lens with a rotating rainbow aperture and a twinkling multicolor star at its heart."},
+    {id="tracer_chromatic_wake",category="tracers",name="Chromatic Wake",rarity="Cosmic",color="ff00d9",visual="starfade",setName="Starfade",length=4.4,lifetime=.44,frames=1,description="White-hot rainbow filaments carry twinkling four-point stars, drifting black fragments, living constellation links and lingering chromatic afterimages."},
+    {id="card_constellation_void",category="backgrounds",name="Constellation Void",rarity="Cosmic",color="1680ff",visual="starfade",setName="Starfade",description="Spectral constellations float over an obsidian starfield. Rainbow edge light, soft radiance and shimmering stars surround a quiet player nameplate."},
+}

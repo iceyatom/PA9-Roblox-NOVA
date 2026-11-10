@@ -98,6 +98,10 @@ local novaAssets=require(script.Parent.SupernovaAssets)
 if novaAssets.skin~="" and novaAssets.bullet~="" and novaAssets.background~="" and novaAssets.halo~="" then
     for _,item in require(script.Parent.SupernovaPack) do add(item.id,item.category,item.name,item.rarity,item.color,false,item) end
 end
+local starAssets=require(script.Parent.StarfadeAssets)
+if starAssets.skin~="" and starAssets.bullet~="" and starAssets.background~="" and starAssets.star~="" then
+    for _,item in require(script.Parent.StarfadePack) do add(item.id,item.category,item.name,item.rarity,item.color,false,item) end
+end
 Catalog.editorBase=EditorModel.copy({items=Catalog.items,byId=Catalog.byId,defaults=Catalog.defaults,
     rarities=Catalog.rarities,categories=Catalog.categories})
 local edits=require(script.Parent.InventoryEdits)

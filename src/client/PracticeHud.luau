@@ -82,11 +82,11 @@ function PracticeHud:pulse()
     local bullet=Cosmetics.get(equipped,"bullets")
     local tracer=Cosmetics.get(equipped,"tracers")
     local pulse=W.box(self.field,"Shot",253,293,20,6,bullet.default and C.mint or Preview.color(bullet),8)
-    if bullet.setId or (bullet.visual=="prism_veil" or bullet.visual=="dragonforge" or bullet.visual=="riftglass" or bullet.visual=="cipher" or bullet.visual=="supernova") then pulse.Size=UDim2.fromOffset(9,9); W.round(pulse); Batch.overlay(pulse,bullet,"bullets") end
+    if bullet.setId or (bullet.visual=="prism_veil" or bullet.visual=="dragonforge" or bullet.visual=="riftglass" or bullet.visual=="cipher" or bullet.visual=="supernova" or bullet.visual=="starfade") then pulse.Size=UDim2.fromOffset(9,9); W.round(pulse); Batch.overlay(pulse,bullet,"bullets") end
     local trail
     if tracer.length and tracer.length>0 then
         trail=W.box(pulse,"Tracer",0,0,0,4,Preview.color(tracer))
-        if (tracer.setId or (tracer.visual=="prism_veil" or tracer.visual=="dragonforge" or tracer.visual=="riftglass" or tracer.visual=="cipher" or tracer.visual=="supernova")) and not Batch.reduced() then
+        if (tracer.setId or (tracer.visual=="prism_veil" or tracer.visual=="dragonforge" or tracer.visual=="riftglass" or tracer.visual=="cipher" or tracer.visual=="supernova" or tracer.visual=="starfade")) and not Batch.reduced() then
             trail.Size=UDim2.fromOffset(0,11); trail.BackgroundTransparency=1; Batch.overlay(trail,tracer,"wakes")
         end
     end
