@@ -67,9 +67,21 @@ function Hud.new(playerGui,clear,beforeOpen)
     card.BackgroundColor3=C.panel
     W.stroke(card,C.line)
     local corner=Instance.new("UICorner"); corner.CornerRadius=UDim.new(0,10); corner.Parent=card
+    local batch=require(script.Parent.BatchOneVisuals)
+    local catalog=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
+    local function drawCard()
+        local old=card:FindFirstChild("BatchArt")
+        if old then old:Destroy() end
+        local key=game.Players.LocalPlayer:GetAttribute("Cosmetic_backgrounds")
+        batch.card(card,catalog.get({backgrounds=key},"backgrounds"))
+    end
+    game.Players.LocalPlayer:GetAttributeChangedSignal("Cosmetic_backgrounds"):Connect(drawCard)
+    game.Players.LocalPlayer:GetAttributeChangedSignal("ReducedEffects"):Connect(drawCard)
+    drawCard()
     local icon=RankIcon.new(card,"RankIcon",8,8,56)
     local number=W.text(card,"LevelNumber",76,6,128,34,"—",26,C.white,Enum.Font.GothamBlack)
     local track=W.box(card,"XPTrack",76,49,128,8,C.line)
+    track.ZIndex=2
     local fill=W.box(track,"XPFill",0,0,0,8,C.purple)
     local Menu=require(script.Parent.ProgressionMenu)
     local menu=Menu.new(gui,card,clear,beforeOpen)

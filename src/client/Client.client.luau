@@ -49,6 +49,12 @@ end
 task.spawn(function() settings:load() end)
 hud.rematch.Activated:Connect(function() fire("rematch") end)
 hud.leave.Activated:Connect(function() fire("leave") end)
+local openAfterLobby=false
+hud.openChest.Activated:Connect(function()
+    if snapshot and snapshot.phase=="Results" and snapshot.winner==seat and snapshot.chest and snapshot.chest.status=="Chest earned" then
+        openAfterLobby=true; fire("leave")
+    end
+end)
 local record
 if Run:IsStudio() then record=require(script.Parent.Diagnostics).attach(hud,arena,shared:WaitForChild("StudioControls")) end
 -- The lobby uses the normal Roblox character, camera and core UI. The duel uses the 2D stage.
@@ -85,6 +91,8 @@ state.OnClientEvent:Connect(function(nextState)
         clear()
         roller:hide()
         setMode(false)
+        arena:clearShots()
+        if openAfterLobby then openAfterLobby=false; inventory:openVictoryChest() end
         return
     end
     local previous=snapshot
@@ -134,5 +142,5 @@ practiceState.OnClientEvent:Connect(function(nextState)
         game:GetService("GuiService").SelectedObject=settingsMenu.selectionOnClose()
     end
 end)
-Run.RenderStepped:Connect(function() arena:draw(os.clock()); hud:tick(); roller:tick(); practice:tick() end)
+Run.RenderStepped:Connect(function(dt) if snapshot then arena:draw(os.clock(),dt) end; hud:tick(); roller:tick(); practice:tick() end)
 setMode(false)

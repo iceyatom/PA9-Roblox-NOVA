@@ -85,13 +85,24 @@ function Hud.new(playerGui)
     end)
     self.rematch=W.button(self.notice,"Rematch",23,109,209,37,"Rematch",true)
     self.leave=W.button(self.notice,"Leave",244,109,130,37,"Leave",false)
+    self.chest=W.box(self.notice,"VictoryChest",12,164,376,128,C.ink)
+    self.chestStatus=W.text(self.chest,"Status",9,2,360,24,"Reward saving",16,C.mint,Enum.Font.GothamBold)
+    local odds=W.text(self.chest,"Odds",9,27,358,52,
+        "1 item · No pity · Duplicate Shards by tier\nUncommon 60% / 10  ·  Rare 25% / 25  ·  Epic 10% / 60\nLegendary 4% / 150  ·  Cosmic 1% / 500",13,C.muted,Enum.Font.Gotham)
+    odds.TextWrapped=true; odds.TextTruncate=Enum.TextTruncate.None
+    self.openChest=W.button(self.chest,"OpenNow",9,84,173,36,"Open now",true)
+    self.saveChest=W.button(self.chest,"SaveLater",190,84,175,36,"Save for later",false)
+    self.saveChest.Activated:Connect(function()
+        if self.snap.chest then self.dismissed=self.snap.chest.key; self:update(self.snap,self.seat) end
+    end)
+    self.chest.Visible=false
     self.rematch.Visible=false
     self.leave.Visible=false
     return self
 end
 
 function Hud:update(snap,seat)
-    self.snap=snap
+    self.snap=snap; self.seat=seat
     local phase=snap.phase
     local status=({Waiting="1 OF 2",Selecting="MAP SHUFFLE",Countdown="COUNTDOWN",Playing="LIVE",Results="FINAL"})[phase]
     self.phaseLabel.Text=("LOBBY %02d / %s"):format(snap.lobby,status)
@@ -100,6 +111,7 @@ function Hud:update(snap,seat)
         local background=Cosmetics.get(p.cosmetics,"backgrounds")
         side.card.BackgroundTransparency=p.uid and not background.default and 0 or 1
         if side.backgroundId~=background.id then
+            require(script.Parent.BatchOneVisuals).overlay(side.card,background,"card")
             side.backgroundId=background.id; side.gradient.Color=ColorSequence.new(W.rgb(background.color),C.ink)
         end
         side.who.Text=("PLAYER 0%d%s"):format(i,i==seat and "   /   YOU" or "")
@@ -136,6 +148,17 @@ function Hud:update(snap,seat)
         self.leave.Position=UDim2.fromOffset(347,y)
     else
         self.rematch.Position=UDim2.fromOffset(23,109)
+    end
+    local chest=phase=="Results" and snap.winner==seat and snap.chest
+    self.chest.Visible=chest and self.dismissed~=chest.key or false
+    if self.chest.Visible then
+        local size=self.notice.Size
+        self.chest.Position=UDim2.fromOffset((size.X.Offset-376)/2,size.Y.Offset)
+        self.notice.Size=UDim2.fromOffset(size.X.Offset,size.Y.Offset+133)
+        self.notice.Position-=UDim2.fromOffset(0,66)
+        self.chestStatus.Text="Items Batch 1 Chest  /  "..chest.status
+        self.openChest.Visible=chest.status=="Chest earned"
+        self.saveChest.Visible=self.openChest.Visible
     end
     self.leave.Text=phase=="Waiting" and "Leave queue" or "Lobby"
     if phase=="Waiting" then

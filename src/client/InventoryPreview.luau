@@ -2,12 +2,19 @@ local W=require(script.Parent.Widgets)
 local C=W.colors
 local Catalog=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
 local Art=require(game.ReplicatedStorage.NOVA.InventoryArt)
+local Batch=require(script.Parent.BatchOneVisuals)
+local Assets=require(game.ReplicatedStorage.NOVA.BatchOneAssets)
+local voices={}
 local Preview={}
 local colors={}
 function Preview.icon(parent,category,x,y,size)
     local image=Instance.new("ImageLabel")
     image.Name="Sprite"; image.BackgroundTransparency=1; image.Size=UDim2.fromOffset(size,size)
-    image.Position=UDim2.fromOffset(x,y); image.Image=Art[category] or ""; image.ScaleType=Enum.ScaleType.Fit
+    image.Position=UDim2.fromOffset(x,y)
+    if type(category)=="table" then
+        if not Batch.apply(image,category) then image.Image=Art[category.category] or "" end
+    else image.Image=Art[category] or "" end
+    image.ScaleType=Enum.ScaleType.Fit
     image.ZIndex=3; image.Parent=parent
     return image
 end
@@ -16,34 +23,55 @@ function Preview.color(item)
     if not colors[hex] then colors[hex]=W.rgb(hex) end
     return colors[hex]
 end
+function Preview.stopSounds(parent)
+    for i=#voices,1,-1 do
+        local voice=voices[i]
+        if not voice.Parent or voice.Parent==parent then
+            voice:Destroy()
+            table.remove(voices,i)
+        end
+    end
+end
 function Preview.sound(parent,item)
-    if not item.sound or item.sound=="" then return end
-    local sound=Instance.new("Sound"); sound.Name="CosmeticShot"; sound.SoundId=item.sound
+    if not item.setId and (not item.sound or item.sound=="") then return end
+    for i=#voices,1,-1 do if not voices[i].Parent then table.remove(voices,i) end end
+    if #voices>=8 then table.remove(voices,1):Destroy() end
+    local sound=Instance.new("Sound"); sound.Name="CosmeticShot"; sound.SoundId=item.setId and Assets.audio or item.sound
+    if item.setId then
+        sound.PlaybackRegionsEnabled=true; sound.PlaybackRegion=NumberRange.new(item.artIndex,item.artIndex+.39)
+        sound.TimePosition=item.artIndex
+    end
+    table.insert(voices,sound)
     sound.PlaybackSpeed=item.pitch or 1; sound.Volume=.22; sound.Parent=parent
     sound.Ended:Once(function() sound:Destroy() end)
     game:GetService("Debris"):AddItem(sound,3); sound:Play()
 end
-function Preview.draw(parent,item,equipped)
+function Preview.draw(parent,item,equipped,focused)
     for _,child in parent:GetChildren() do child:Destroy() end
     if not item then return end
     local w,h=parent.Size.X.Offset,parent.Size.Y.Offset
     local color=Preview.color(item)
-    if item.category=="skins" then
-        local body=W.box(parent,"BodyPreview",w/2-25,h/2-25,50,50,color); W.stroke(body,C.white,2)
+    if item.category=="skins" and item.setId then
+        local body=W.box(parent,"BodyPreview",w/2-(focused and 62 or 22),h/2-(focused and 62 or 22),focused and 124 or 44,focused and 124 or 44,color); Batch.overlay(body,item,"skins")
+    elseif item.category=="skins" then
+        local body=W.box(parent,"BodyPreview",w/2-(focused and 62 or 25),h/2-(focused and 62 or 25),focused and 124 or 50,focused and 124 or 50,color); W.stroke(body,C.white,2)
         W.box(body,"Highlight",6,6,38,5,C.white).BackgroundTransparency=.65
     elseif item.category=="bullets" or item.category=="tracers" then
         local bullet=Catalog.get(equipped,"bullets")
         local tracer=item.category=="tracers" and item or Catalog.get(equipped,"tracers")
         local line=W.box(parent,"TracerPreview",w/2-95,h/2-3,90,6,Preview.color(tracer)); line.Visible=(tracer.length or 0)>0
-        local core=W.box(parent,"BulletPreview",w/2-8,h/2-8,16,16,item.category=="bullets" and color or Preview.color(bullet)); W.round(core)
+        local core=W.box(parent,"BulletPreview",w/2-(focused and 20 or 8),h/2-(focused and 20 or 8),focused and 40 or 16,focused and 40 or 16,item.category=="bullets" and color or Preview.color(bullet)); W.round(core)
+        Batch.overlay(core,item.category=="bullets" and item or bullet,"bullets")
+        if tracer.setId and not Batch.reduced() then line.BackgroundTransparency=1;Batch.overlay(line,tracer,"wakes") end
     elseif item.category=="backgrounds" then
         local card=W.box(parent,"PlayerCardPreview",20,h/2-40,w-40,80,color)
         card.BackgroundColor3=Color3.new(1,1,1)
         local grad=Instance.new("UIGradient"); grad.Color=ColorSequence.new(color,C.ink); grad.Rotation=25; grad.Parent=card
+        Batch.card(card,item)
         local avatar=Instance.new("ImageLabel"); avatar.BackgroundTransparency=1; avatar.Size=UDim2.fromOffset(52,52); avatar.Position=UDim2.fromOffset(12,14); avatar.Parent=card
         require(script.Parent.Portrait).set(avatar,game.Players.LocalPlayer.UserId)
         W.text(card,"Name",76,15,w-126,25,game.Players.LocalPlayer.DisplayName,16,C.white,Enum.Font.GothamBold)
         W.text(card,"Label",76,42,w-126,20,"PLAYER CARD",11,C.white)
-    else Preview.icon(parent,item.category,w/2-60,h/2-60,120) end
+    else Preview.icon(parent,item,w/2-60,h/2-60,120) end
 end
 return Preview

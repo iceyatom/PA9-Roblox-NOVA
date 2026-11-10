@@ -21,6 +21,7 @@ function Match:startRound()
 end
 
 function Match:reset(phase)
+    self.chestResult=nil
     self.bodies = {Movement.body(self.map.spawns[1],self.cfg),Movement.body(self.map.spawns[2],self.cfg)}
     self.phase,self.votes,self.bullets,self.serial,self.winner,self.reason = phase,{}, {},0,nil,nil
     self.rewards={}

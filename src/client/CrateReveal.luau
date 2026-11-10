@@ -40,7 +40,21 @@ function Reveal:show(receipt)
     root:SetAttribute("ContentHeight",height)
     root:SetAttribute("Phase","rolling"); root:SetAttribute("ReceiptId",receipt.requestId)
     Style.round(root,12)
-    local crateIcon=Preview.icon(root,"crates",width/2-52,27,104)
+    if require(script.Parent.BatchOneVisuals).reduced() then
+        root:SetAttribute("Phase","settled")
+        local center=math.min(155,height*.3)
+        Preview.icon(root,item,(width-center)/2,20,center)
+        local y=center+26
+        local title=W.text(root,"Result",16,y,width-32,34,item.name,24,C.white,Enum.Font.GothamBold)
+        title.TextXAlignment=Enum.TextXAlignment.Center
+        local detail=W.text(root,"Detail",12,y+38,width-24,28,item.rarity.."  /  "..(receipt.duplicate and ("+"..receipt.shards.." Shards") or "Added to inventory"),16,W.rgb(Catalog.rarityColors[item.rarity]))
+        detail.TextXAlignment=Enum.TextXAlignment.Center
+        local done=Style.button(root,"Continue",24,y+78,width-48,42,"Continue",true)
+        done.Activated:Connect(function() self:hide(); if self.onDone then self.onDone() end end)
+        if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" then Gui.SelectedObject=done end
+        return
+    end
+    local crateIcon=Preview.icon(root,crate,width/2-52,27,104)
     local title=W.text(root,"Title",24,140,width-48,42,"Opening "..crate.name, width<600 and 21 or 29,C.white,Enum.Font.GothamBlack)
     title.TextXAlignment=Enum.TextXAlignment.Center
     local viewport=W.box(root,"ReelViewport",24,220,width-48,178,C.panel,41); viewport.ClipsDescendants=true
@@ -58,7 +72,7 @@ function Reveal:show(receipt)
         local card=W.box(strip,"Reward"..i,(i-1)*stride,8,132,162,C.ink,43)
         Style.round(card,8)
         W.box(card,"Rarity",0,156,132,6,W.rgb(Catalog.rarityColors[entry.rarity]),44)
-        Preview.icon(card,entry.category,25,8,82)
+        Preview.icon(card,entry,25,8,82)
         local name=W.text(card,"Name",7,98,118,42,entry.name,16,C.white,Enum.Font.GothamBold)
         name.TextWrapped=true; name.TextTruncate=Enum.TextTruncate.None; name.TextXAlignment=Enum.TextXAlignment.Center
         W.text(card,"RarityName",8,140,116,16,entry.rarity,13,W.rgb(Catalog.rarityColors[entry.rarity]),Enum.Font.GothamBold)
@@ -97,7 +111,7 @@ function Reveal:show(receipt)
         result.Text=item.name; result.TextColor3=W.rgb(Catalog.rarityColors[item.rarity])
         result.Position=UDim2.fromOffset(24,short and height-122 or 478); result.ZIndex=48
         if short then result.TextSize=24 end
-        detail.Text=receipt.duplicate and ("Duplicate converted into +%d Shards"):format(receipt.shards) or "Added to your inventory"
+        detail.Text=item.rarity.."  /  "..(receipt.duplicate and ("Duplicate converted into +%d Shards"):format(receipt.shards) or "Added to your inventory")
         detail.Position=UDim2.fromOffset(24,short and height-83 or 530); detail.ZIndex=48
         if short then detail.TextSize=14 end
         done.Position=UDim2.fromOffset(24,short and height-40 or 590); done.Size=UDim2.fromOffset(width-48,short and 36 or 44)

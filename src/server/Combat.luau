@@ -24,6 +24,7 @@ function Combat.fire(sim, seat, sequence)
     local dx,dy = target.x-owner.x,target.y-owner.y
     local length = math.sqrt(dx*dx+dy*dy)
     if length < 1e-7 or length ~= length then return false end
+    owner.acceptedShots=(owner.acceptedShots or 0)+1
     sim.serial += 1
     local speed = sim.cfg.BulletSpeed
     table.insert(sim.bullets,{id=sim.serial,seat=seat,x=owner.x,y=owner.y,vx=dx/length*speed,vy=dy/length*speed})

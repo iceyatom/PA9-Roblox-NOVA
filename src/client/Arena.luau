@@ -6,6 +6,7 @@ local W=require(script.Parent.Widgets)
 local C=W.colors
 local Cosmetics=require(shared.InventoryCatalog)
 local Preview=require(script.Parent.InventoryPreview)
+local Batch=require(script.Parent.BatchOneVisuals)
 local Arena={}
 Arena.__index=Arena
 
@@ -16,7 +17,11 @@ function Arena.new(stage,selectedMap)
     self.unit=unit
     local width,height=unit*map.width,unit*map.height
     local field=W.box(stage,"Map1",(1440-width)/2,76+(667-height)/2,width,height,W.rgb("080911"))
+    field.ClipsDescendants=true
     self.field=field
+    self.tailPool={}; self.tailCount=0
+    self.mobile=game:GetService("UserInputService").TouchEnabled
+    self.low=self.mobile; self.windowSeconds=0; self.windowFrames=0; self.slowFrames=0; self.headroom=0
     W.stroke(field,C.line,1)
     local function rect(parent,name,x,y,w,h,color,z)
         return W.box(parent,name,x*unit,y*unit,w*unit,h*unit,color,z)
@@ -85,6 +90,33 @@ function Arena.new(stage,selectedMap)
     return self
 end
 
+function Arena:releaseShot(id,shot)
+    shot.frame:Destroy(); shot.trace:Destroy()
+    if shot.tail then
+        shot.tail.Visible=false
+        table.insert(self.tailPool,shot.tail)
+    end
+    self.shots[id]=nil
+end
+function Arena:clearShots()
+    Preview.stopSounds(self.field)
+    for id,shot in self.shots do self:releaseShot(id,shot) end
+    self.received=nil; self.round=nil
+end
+function Arena:tail(tracer)
+    if not tracer.length or tracer.length<=0 then return nil end
+    local limit=(self.low or Batch.reduced()) and 64 or 128
+    if self.tailCount-#self.tailPool>=limit then return nil end
+    local node=table.remove(self.tailPool)
+    if not node then
+        node=Instance.new("ImageLabel"); self.tailCount+=1
+        node.Name="CosmeticTracer"; node.AnchorPoint=Vector2.new(.5,.5)
+        node.BorderSizePixel=0; node.ZIndex=4
+    end
+    node.BackgroundColor3=Preview.color(tracer); node.BackgroundTransparency=.2
+    node.Image=""; node.Visible=false; node.Parent=self.field
+    return node
+end
 function Arena:setMap(id)
     if self.map.id==id then return end
     local masks=self.diagnostics.Visible
@@ -101,18 +133,20 @@ function Arena:update(snap,time)
     self.lobby=snap.lobby
     self.round=snap.round
     if changed then
-        for id,shot in self.shots do
-            shot.frame:Destroy()
-            shot.trace:Destroy()
-            shot.tail:Destroy()
-            self.shots[id]=nil
-        end
+        Preview.stopSounds(self.field)
+        for id,shot in self.shots do self:releaseShot(id,shot) end
     end
     self.received=time
     for i,p in snap.players do
         local actor=self.actors[i]
         actor.body.Visible=p.uid~=nil
         actor.label.Text=p.name or ""
+        Batch.overlay(actor.body,Cosmetics.get(p.cosmetics,"skins"),"skins")
+        local accepted=p.acceptedShots or 0
+        if not changed and actor.accepted and accepted>actor.accepted then
+            for _=1,math.min(8,accepted-actor.accepted) do Preview.sound(self.field,Cosmetics.get(p.cosmetics,"sounds")) end
+        end
+        actor.accepted=accepted
         actor.color=p.uid and Preview.color(Cosmetics.get(p.cosmetics,"skins")) or (i==1 and C.blue or C.red)
         if Cosmetics.get(p.cosmetics,"skins").default then actor.color=i==1 and C.blue or C.red end
         if not changed and p.hp<actor.hp then actor.flash=time+0.13 end
@@ -134,15 +168,22 @@ function Arena:update(snap,time)
             glow.AnchorPoint=Vector2.new(0.5,0.5)
             glow.BackgroundTransparency=0.62
             W.round(glow)
-            local core=W.box(glow,"Core",diameter*0.8,diameter*0.8,diameter,diameter,Preview.color(bullet),5)
-            W.round(core)
+            local core=Instance.new("ImageLabel")
+            core.Name="Core"; core.Position=UDim2.fromOffset(diameter*.8,diameter*.8)
+            core.Size=UDim2.fromOffset(diameter,diameter); core.BackgroundColor3=Preview.color(bullet)
+            core.BorderSizePixel=0; core.ZIndex=5
+            if bullet.setId then
+                Batch.apply(core,bullet,"bullets")
+                core.ImageRectOffset+=Vector2.new(35,35); core.ImageRectSize=Vector2.new(186,186)
+                glow.BackgroundColor3=b[4]==1 and C.blue or C.red
+            end
+            W.round(core); core.Parent=glow
             local trace=W.box(self.field,"Sweep",0,0,1,1,C.purple,6)
             trace.AnchorPoint=Vector2.new(0.5,0.5)
-            local tail=W.box(self.field,"CosmeticTracer",0,0,1,3,Preview.color(tracer),4)
-            tail.AnchorPoint=Vector2.new(.5,.5); tail.BackgroundTransparency=.25
-            shot={frame=glow,trace=trace,tail=tail,tailLength=tracer.length or 0}
+            shot={frame=glow,trace=trace,tail=self:tail(tracer),tracer=tracer,
+                origin=Vector2.new(b[2],b[3]),tailLength=tracer.length or 0}
             self.shots[id]=shot
-            if not changed and snap.phase=="Playing" then Preview.sound(self.field,Cosmetics.get(equipped,"sounds")) end
+
         end
         seen[id]=true
         shot.target=Vector2.new(b[2],b[3])
@@ -156,26 +197,55 @@ function Arena:update(snap,time)
         shot.trace.Rotation=math.deg(math.atan2(segment.Y,segment.X))
     end
     for id,shot in self.shots do
-        if not seen[id] then shot.frame:Destroy(); shot.trace:Destroy(); shot.tail:Destroy(); self.shots[id]=nil end
+        if not seen[id] then self:releaseShot(id,shot) end
     end
 end
 
-function Arena:draw(time)
+function Arena:draw(time,dt)
     if not self.received then return end
+    dt=dt or 1/60
+    local target=self.mobile and 1/30 or 1/60
+    self.windowSeconds+=dt
+    self.windowFrames+=1
+    if dt>target*1.04 then self.slowFrames+=1 end
+    if self.windowSeconds>=2 then
+        if self.slowFrames>self.windowFrames*.05 then
+            self.low=true; self.headroom=0
+        else
+            self.headroom+=self.windowSeconds
+            if self.headroom>=10 then self.low=false end
+        end
+        self.windowSeconds=0; self.windowFrames=0; self.slowFrames=0
+    end
+    local simple=Batch.reduced() or self.low
+    local active=0
     local alpha=math.clamp((time-self.received)*cfg.SnapshotRate,0,1)
     for _,actor in self.actors do
         actor.body.Position=UDim2.fromOffset(actor.target.X*self.unit,actor.target.Y*self.unit)
         actor.body.BackgroundColor3=time<actor.flash and C.white or actor.color
+        local art=actor.body:FindFirstChild("BatchArt")
+        if art then art.Visible=time>=actor.flash end
         actor.box.Visible=self.diagnostics.Visible
     end
     for _,shot in self.shots do
         shot.draw=shot.start:Lerp(shot.target,alpha)
         shot.frame.Position=UDim2.fromOffset(shot.draw.X*self.unit,shot.draw.Y*self.unit)
-        local midpoint=shot.draw-shot.direction*shot.tailLength/2
-        shot.tail.Position=UDim2.fromOffset(midpoint.X*self.unit,midpoint.Y*self.unit)
-        shot.tail.Size=UDim2.fromOffset(shot.tailLength*self.unit,3)
-        shot.tail.Rotation=math.deg(math.atan2(shot.direction.Y,shot.direction.X))
-        shot.tail.Visible=shot.tailLength>0
+        if shot.tail then
+            active+=1
+            local length=math.min(shot.tailLength*(simple and .65 or 1),(shot.draw-shot.origin).Magnitude)
+            local mid=shot.draw-shot.direction*length/2
+            local animated=not simple and shot.tracer.setId~=nil
+            shot.tail.Visible=length>0 and active<=(simple and 64 or 128)
+            shot.tail.Position=UDim2.fromOffset(mid.X*self.unit,mid.Y*self.unit)
+            shot.tail.Size=UDim2.fromOffset(length*self.unit,animated and 3*cfg.BulletRadius*self.unit or 3)
+            shot.tail.Rotation=math.deg(math.atan2(shot.direction.Y,shot.direction.X))
+            local frame=animated and math.floor(time*18)%shot.tracer.frames or -1
+            if shot.frameIndex~=frame then
+                shot.frameIndex=frame
+                shot.tail.BackgroundTransparency=animated and 1 or .2
+                if animated then Batch.apply(shot.tail,shot.tracer,"wakes",frame) else shot.tail.Image="" end
+            end
+        end
         shot.trace.Visible=self.diagnostics.Visible
     end
 end

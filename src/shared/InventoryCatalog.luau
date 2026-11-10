@@ -4,9 +4,9 @@ Catalog.categories={
     {id="skins",name="Skins"},{id="bullets",name="Bullet Skins"},{id="tracers",name="Tracers"},
     {id="backgrounds",name="Backgrounds"},{id="sounds",name="Sound Effects"},{id="crates",name="Crates"},
 }
-Catalog.rarities={"Common","Rare","Epic","Legendary"}
-Catalog.rarityColors={Common="9ca8bc",Rare="527eff",Epic="b56dff",Legendary="ffc857"}
-Catalog.duplicateValues={Common=10,Rare=25,Epic=60,Legendary=150}
+Catalog.rarities={"Common","Uncommon","Rare","Epic","Legendary","Cosmic"}
+Catalog.rarityColors={Chest="59e0aa",Uncommon="49c976",Cosmic="f05252",Common="9ca8bc",Rare="527eff",Epic="b56dff",Legendary="ffc857"}
+Catalog.duplicateValues={Uncommon=10,Cosmic=500,Common=10,Rare=25,Epic=60,Legendary=150}
 Catalog.items={}; Catalog.byId={}; Catalog.defaults={}
 local function add(id,category,name,rarity,color,default,extra)
     local item={id=id,category=category,name=name,rarity=rarity,color=color,default=default==true,
@@ -36,6 +36,42 @@ add("crate_dev","crates","NOVA Test Crate","Epic","793dff",false,
     rewards={{id="skin_mint",weight=20},{id="skin_ember",weight=8},{id="bullet_ion",weight=20},
         {id="bullet_solar",weight=2},{id="tracer_violet",weight=20},{id="tracer_comet",weight=8},
         {id="card_nebula",weight=8},{id="card_aurora",weight=20},{id="sound_arcade",weight=20},{id="sound_low",weight=8}}})
+Catalog.batchTiers={
+    {name="Uncommon",limit=6000,layers=1,frames=4,tail=.18},
+    {name="Rare",limit=8500,layers=2,frames=8,tail=.24},
+    {name="Epic",limit=9500,layers=3,frames=12,tail=.30},
+    {name="Legendary",limit=9900,layers=3,frames=16,tail=.36},
+    {name="Cosmic",limit=10000,layers=4,frames=16,tail=.40},
+}
+local pools={}
+local rewards={}
+for _,tier in Catalog.batchTiers do pools[tier.name]={} end
+for index,set in require(script.Parent.BatchOneSets) do
+    local tier=Catalog.batchTiers[table.find(Catalog.rarities,set.rarity)-1]
+    for slot,piece in set.pieces do
+        local category=Catalog.categories[slot].id
+        local extra={setId=set.id,setName=set.name,artIndex=index-1,accent=set.accent,description=piece[3]}
+        if category=="tracers" then
+            extra.frames=tier.frames; extra.lifetime=tier.tail; extra.length=tier.tail*10; extra.layers=tier.layers
+        end
+        add(piece[1],category,piece[2],set.rarity,set.color,false,extra)
+        table.insert(rewards,{id=piece[1]})
+    end
+    table.insert(pools[set.rarity],set)
+end
+add("crate_batch1","crates","Items Batch 1 Chest","Chest","59e0aa",false,{
+    rewards=rewards,
+    description="1 item · No pity. Duplicates pay Shards.\nUncommon 60% / 10 · Rare 25% / 25\nEpic 10% / 60 · Legendary 4% / 150\nCosmic 1% / 500",
+})
+function Catalog.batchTier(draw)
+    for _,tier in Catalog.batchTiers do if draw<=tier.limit then return tier.name end end
+    error("Invalid rarity draw")
+end
+function Catalog.rollBatch(random)
+    local pool=pools[Catalog.batchTier(random:NextInteger(1,10000))]
+    local category=random:NextInteger(1,5)
+    return pool[random:NextInteger(1,#pool)].pieces[category][1]
+end
 function Catalog.get(equipped,category)
     local item=Catalog.byId[equipped and equipped[category]]
     return item and item.category==category and item or Catalog.byId[Catalog.defaults[category]]

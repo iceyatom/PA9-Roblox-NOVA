@@ -5,7 +5,19 @@ local Config = require(shared.Config)
 local Maps = require(shared.Map1)
 local map = Maps.active()
 local progression=require(script.Parent.ProgressionService).new()
-local lobbies = require(script.Parent.Lobbies).new(map,Config,Maps.choose,function(sim)
+local inventory=require(script.Parent.InventoryService).new()
+local lobbies
+lobbies = require(script.Parent.Lobbies).new(map,Config,Maps.choose,function(sim)
+    if sim.reason=="Elimination" and sim.winner~=0 and not sim.chestResult then
+        local winner=sim.seats[sim.winner]
+        local key=("%s/%d/%d/%d"):format(inventory.session,sim.roomId,sim.round,winner.UserId)
+        local result={key=key,status="Reward saving"}
+        sim.chestResult=result
+        inventory:awardWin(winner,key,os.time()+86400,function(status)
+            result.status=status
+            if sim.chestResult==result then lobbies.dirty[sim.roomId]=true end
+        end)
+    end
     for i,p in sim.seats do
         sim.rewards[i],sim.xpRecaps[i]=progression:award(p,sim.winner==i)
     end
@@ -15,7 +27,6 @@ local world = LobbyWorld.ensure()
 local practiceWorld=require(script.Parent.PracticeWorld).ensure(world)
 local practice=require(script.Parent.Practice).new()
 progression.canPrestige=function(p) return not lobbies.membership[p] and not practice.sessions[p] end
-local inventory=require(script.Parent.InventoryService).new()
 inventory.canUse=progression.canPrestige
 local leaderboard=require(script.Parent.PracticeLeaderboard).new(practiceWorld.Leaderboard)
 local signKicker = world:FindFirstChild("Kicker",true)
@@ -47,10 +58,10 @@ end
 local function broadcast(room)
     local sim=room.sim
     local snap = {lobby=room.id,phase=sim.phase,round=sim.round,mapId=sim.map.id,tick=sim.stepNumber,ends=workspace:GetServerTimeNow()+sim.count,
-        winner=sim.winner,reason=sim.reason,players={},shots={},maxHP=sim.cfg.Health}
+        winner=sim.winner,reason=sim.reason,chest=sim.chestResult,players={},shots={},maxHP=sim.cfg.Health}
     for i=1,2 do
         local p,b = sim.seats[i],sim.bodies[i]
-        snap.players[i] = {uid=p and p.UserId,name=p and p.DisplayName,x=b.x,y=b.y,hp=b.hp,vote=sim.votes[i] == true,
+        snap.players[i] = {uid=p and p.UserId,name=p and p.DisplayName,x=b.x,y=b.y,hp=b.hp,acceptedShots=b.acceptedShots or 0,vote=sim.votes[i] == true,
             progression=p and progression:view(p),cosmetics=p and inventory:view(p),xpAward=sim.rewards[i],xpRecap=sim.xpRecaps[i]}
     end
     for i,b in sim.bullets do snap.shots[i]={b.id,b.x,b.y,b.seat,b.vx,b.vy} end

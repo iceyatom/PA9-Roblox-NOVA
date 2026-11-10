@@ -62,7 +62,23 @@ function Menu.new(playerGui,settings,clear)
     self.status.TextWrapped=true
     self.status.TextTruncate=Enum.TextTruncate.None
     self.reset=W.button(panel,"ResetDefaults",28,466,180,36,"Reset defaults",false)
-    W.text(panel,"Footer",230,471,570,27,"Changes apply immediately. Done saves your controls.",14,C.muted)
+    local effects=W.button(panel,"ReducedEffects",230,466,290,36,"",false)
+    self.effects=effects
+    local player=game.Players.LocalPlayer
+    local function syncEffects()
+        effects.Text="Reduced Effects  /  "..(player:GetAttribute("ReducedEffects") and "On" or "Off")
+    end
+    player:GetAttributeChangedSignal("ReducedEffects"):Connect(syncEffects); syncEffects()
+    effects.Activated:Connect(function()
+        if not self:canActivate() or self.effectsBusy then return end
+        self.effectsBusy=true
+        local ok,response=pcall(function()
+            return game.ReplicatedStorage.NOVA.InventoryRequest:InvokeServer("effects",player:GetAttribute("ReducedEffects") and "off" or "on")
+        end)
+        self.effectsBusy=false
+        self.message=not ok and "Could not save. Try again." or not response.ok and response.message or nil
+        self:refresh()
+    end)
     self.launcher.Activated:Connect(function() self:setOpen(not settings.opened) end)
     self.done.Activated:Connect(function() if self:canActivate() then self:setOpen(false) end end)
     self.reset.Activated:Connect(function() if self:canActivate() then settings:reset() end end)
@@ -101,6 +117,7 @@ function Menu:buttonsActive(active)
     for _,button in self.buttons do button.Active=active end
     for _,button in self.tabs do button.Active=active end
     self.done.Active=active
+    self.effects.Active=active
     self.reset.Active=active
 end
 
@@ -120,7 +137,7 @@ function Menu:refresh()
     local rows=self.device=="pc" and {self.buttons.left,self.buttons.right,self.buttons.jump,self.buttons.fire} or {self.buttons.move,self.buttons.jump,self.buttons.fire}
     local chain={self.tabs.pc,self.tabs.console}
     for _,button in rows do table.insert(chain,button) end
-    table.insert(chain,self.reset); table.insert(chain,self.done)
+    table.insert(chain,self.effects); table.insert(chain,self.reset); table.insert(chain,self.done)
     for i,button in chain do
         button.NextSelectionUp=chain[i==1 and #chain or i-1]
         button.NextSelectionDown=chain[i==#chain and 1 or i+1]

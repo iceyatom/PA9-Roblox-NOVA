@@ -20,7 +20,7 @@ local function wrapped(parent,name,x,y,w,h,text,size,color)
     return label
 end
 function Menu.new(playerGui,clear,beforeOpen)
-    local self=setmetatable({clear=clear,beforeOpen=beforeOpen,category=1,rarity=0,sort=1,onlyFavorites=false,
+    local self=setmetatable({clear=clear,beforeOpen=beforeOpen,category=1,rarity=0,ownership=0,sort=1,onlyFavorites=false,
         available=true,cards={},query="",opened=false},Menu)
     self.remote=shared:WaitForChild("InventoryRequest")
     local gui=Instance.new("ScreenGui"); gui.Name="NOVAInventory"; gui.ResetOnSpawn=false; gui.DisplayOrder=8
@@ -65,7 +65,11 @@ function Menu.new(playerGui,clear,beforeOpen)
     self.rarityButton=Style.button(panel,"RarityFilter",386,152,174,44,"All rarities",false)
     self.sortButton=Style.button(panel,"Sort",572,152,222,44,"Sort: Equipped",false)
     self.favoriteFilter=Style.button(panel,"FavoritesFilter",806,152,210,44,"Favorites: All",false)
-    self.rarityButton.Activated:Connect(function() self.rarity=(self.rarity+1)%5; self:refresh() end)
+    self.ownershipFilter=Style.button(panel,"OwnershipFilter",826,152,190,44,"All items",false)
+    self.ownershipFilter.Activated:Connect(function()
+        self.ownership=(self.ownership+1)%3; self.scroll.CanvasPosition=Vector2.zero; self:refresh()
+    end)
+    self.rarityButton.Activated:Connect(function() self.rarity=(self.rarity+1)%(#Catalog.rarities+1); self:refresh() end)
     self.sortButton.Activated:Connect(function() self.sort=self.sort%3+1; self:refresh() end)
     self.favoriteFilter.Activated:Connect(function() self.onlyFavorites=not self.onlyFavorites; self:refresh() end)
     local scroll=Instance.new("ScrollingFrame"); scroll.Name="Items"; scroll.Position=UDim2.fromOffset(24,210)
@@ -83,15 +87,19 @@ function Menu.new(playerGui,clear,beforeOpen)
     self.description.Font=Enum.Font.Gotham
     self.previewButton=Style.button(details,"PreviewSound",18,300,304,40,"Play sound preview",false)
     self.previewButton.Activated:Connect(function()
-        local item=Catalog.byId[self.selected]; if item and item.category=="sounds" then Preview.sound(self.gui,item) end
+        local item=Catalog.byId[self.selected]
+        if item and not self.reveal.active then self.focus:show(item,self.data.equipped,Model.owns(self.data,item.id)) end
+    end)
+    self.focus=require(script.Parent.InventoryFocus).new(gui,function()
+        Gui.SelectedObject=gamepad() and self.previewButton or nil
     end)
     self.action=Style.button(details,"EquipOrOpen",18,344,196,44,"Equip",true)
     self.favorite=Style.button(details,"Favorite",226,344,96,44,"Favorite",false); self.favorite.TextSize=16
     self.action.Activated:Connect(function()
         local item=Catalog.byId[self.selected]
-        if item then self:request(item.category=="crates" and "open" or "equip",item.id) end
+        if item and self.action.Active then self:request(item.category=="crates" and "open" or "equip",item.id) end
     end)
-    self.favorite.Activated:Connect(function() if self.selected then self:request("favorite",self.selected) end end)
+    self.favorite.Activated:Connect(function() if self.favorite.Active and self.selected then self:request("favorite",self.selected) end end)
     self.status=W.text(panel,"Status",24,622,992,20,"Loading inventory…",14,C.muted,Enum.Font.Gotham)
     self.reveal=require(script.Parent.CrateReveal).new(panel,function()
         self:refresh(); Gui.SelectedObject=gamepad() and self.action or nil
@@ -107,8 +115,9 @@ function Menu.new(playerGui,clear,beforeOpen)
     Gui.MenuOpened:Connect(function() self:setOpen(false) end)
     Gui:GetPropertyChangedSignal("SelectedObject"):Connect(function()
         if not self.opened or not Gui.SelectedObject then return end
-        local boundary=self.reveal.active and self.reveal.overlay or self.overlay
+        local boundary=self.focus.root or (self.reveal.active and self.reveal.overlay or self.overlay)
         if boundary and not Gui.SelectedObject:IsDescendantOf(boundary) then
+            if self.focus.root then Gui.SelectedObject=self.focus.root.Panel.ClosePreview; return end
             local done=self.reveal.active and boundary:FindFirstChild("Continue")
             if self.reveal.active then Gui.SelectedObject=done and done.Visible and done or nil
             else Gui.SelectedObject=self.close end
@@ -118,14 +127,15 @@ function Menu.new(playerGui,clear,beforeOpen)
     CAS:BindActionAtPriority("NOVA_InventoryClose",function(_,state)
         if not self.opened then return Enum.ContextActionResult.Pass end
         if state==Enum.UserInputState.Begin then
-            if self.reveal.active then self.reveal:hide(); self:refresh(); Gui.SelectedObject=gamepad() and self.action or nil
+            if self.focus.root then self.focus:hide(); Gui.SelectedObject=gamepad() and self.previewButton or nil
+            elseif self.reveal.active then self.reveal:hide(); self:refresh(); Gui.SelectedObject=gamepad() and self.action or nil
             else self:setOpen(false) end
         end
         return Enum.ContextActionResult.Sink
     end,false,Enum.ContextActionPriority.High.Value+45,Enum.KeyCode.Escape,Enum.KeyCode.ButtonB)
     CAS:BindActionAtPriority("NOVA_InventoryTabs",function(_,state,input)
         if not self.opened then return Enum.ContextActionResult.Pass end
-        if state==Enum.UserInputState.Begin and not self.reveal.active then
+        if state==Enum.UserInputState.Begin and not self.reveal.active and not self.focus.root then
             self:setCategory((self.category-1+(input.KeyCode==Enum.KeyCode.ButtonR1 and 1 or -1))%6+1)
             Gui.SelectedObject=self.tabs[self.category]
         end
@@ -180,15 +190,18 @@ function Menu:resize()
         rect(self.rarityButton,24,filterY+54,fw,44); rect(self.sortButton,32+fw,filterY+54,fw,44)
         rect(self.favoriteFilter,40+fw*2,filterY+54,fw,44)
         self.rarityButton.TextSize=14; self.sortButton.TextSize=14; self.favoriteFilter.TextSize=14
-        self.gridY=filterY+112; self.detailsY=self.gridY+344
+        rect(self.ownershipFilter,24,filterY+108,panelWidth-48,40)
+        self.gridY=filterY+160; self.detailsY=self.gridY+344
         rect(self.scroll,24,self.gridY,panelWidth-48,312)
         rect(self.empty,40,self.gridY+72,panelWidth-80,92)
         rect(self.count,24,self.gridY+316,panelWidth-48,22)
         rect(self.details,24,self.detailsY,panelWidth-48,402)
         rect(self.status,24,self.detailsY+416,panelWidth-48,24)
     else
-        rect(self.search,24,152,350,44); rect(self.rarityButton,386,152,174,44)
-        rect(self.sortButton,572,152,222,44); rect(self.favoriteFilter,806,152,210,44)
+        rect(self.search,24,152,254,44); rect(self.rarityButton,290,152,150,44)
+        rect(self.sortButton,452,152,160,44); rect(self.favoriteFilter,624,152,190,44)
+        rect(self.ownershipFilter,826,152,190,44)
+        self.sortButton.TextSize=15; self.favoriteFilter.TextSize=15
         self.rarityButton.TextSize=18; self.sortButton.TextSize=18; self.favoriteFilter.TextSize=18
         rect(self.scroll,24,210,628,382); rect(self.empty,48,300,570,92)
         rect(self.count,24,594,628,22); rect(self.details,676,210,340,402); rect(self.status,24,622,992,20)
@@ -224,16 +237,19 @@ function Menu:refresh()
         self.sortButton.Text=({"Equipped","Rarity","Name"})[self.sort]
         self.favoriteFilter.Text=self.onlyFavorites and "Favorites" or "All items"
     end
+    self.ownershipFilter.Text=({"All items","Unlocked","Locked"})[self.ownership+1]
+    self.ownershipFilter.BackgroundColor3=self.ownership~=0 and C.purple or C.line
     self.favoriteFilter.BackgroundColor3=self.onlyFavorites and C.purple or C.line
     for i,tab in self.tabs do tab.BackgroundColor3=i==self.category and C.purple or C.line end
     local focusId=Gui.SelectedObject and Gui.SelectedObject:GetAttribute("ItemId")
     for _,card in self.cards do card:Destroy() end; self.cards={}
     local items={}
     if data then for _,item in Catalog.items do
-        if item.category==category and Model.owns(data,item.id)
+        if item.category==category and (item.setId or item.id=="crate_batch1" or (self.pendingOpen and self.pendingOpen.id==item.id) or Model.owns(data,item.id))
+            and (self.ownership==0 or Model.owns(data,item.id)==(self.ownership==1))
             and (self.rarity==0 or item.rarity==Catalog.rarities[self.rarity])
             and (not self.onlyFavorites or data.favorites[item.id])
-            and (self.query=="" or item.name:lower():find(self.query,1,true)) then table.insert(items,item) end
+            and (self.query=="" or (item.name.." "..(item.setName or "")):lower():find(self.query,1,true)) then table.insert(items,item) end
     end end
     table.sort(items,function(a,b)
         if self.sort==1 then
@@ -253,14 +269,21 @@ function Menu:refresh()
         card:SetAttribute("ItemId",item.id); card:SetAttribute("InventoryCard",true); card.BackgroundColor3=C.ink
         local border=card:FindFirstChildOfClass("UIStroke")
         border.Color=self.selected==item.id and C.mint or C.line; border.Transparency=0; border.Thickness=2
-        Preview.icon(card,category,7,1,84)
-        local accent=W.box(card,"Rarity",10,137,cw-20,3,W.rgb(Catalog.rarityColors[item.rarity])); Style.round(accent,2)
-        W.text(card,"Name",10,87,cw-20,25,item.name,self.compact and 17 or 18,C.white,Enum.Font.GothamBold)
+        local owned=Model.owns(data,item.id)
+        local icon=Preview.icon(card,item,7,1,84)
+        if not owned then
+            local assets=require(shared.BatchOneAssets)
+            local key=item.artIndex and (item.category.."-"..(math.floor(item.artIndex/16)+1).."-locked") or "chest-locked"
+            if assets[key] then icon.Image=assets[key] end
+            icon.ImageTransparency=.25
+        end
+        local accent=W.box(card,"Rarity",10,137,cw-20,3,owned and W.rgb(Catalog.rarityColors[item.rarity]) or C.muted); Style.round(accent,2)
+        W.text(card,"Name",10,87,cw-20,25,item.name,self.compact and 17 or 18,owned and C.white or C.muted,Enum.Font.GothamBold)
         local badge=category=="crates" and ("×%d"):format(data.owned[item.id] or 0)
-            or data.equipped[category]==item.id and "EQUIPPED" or item.default and "DEFAULT" or "OWNED"
-        W.text(card,"State",92,17,cw-98,22,badge,cw<170 and 11 or 12,C.mint,Enum.Font.GothamBold)
+            or data.equipped[category]==item.id and "EQUIPPED" or item.default and "DEFAULT" or Model.owns(data,item.id) and "OWNED" or "LOCKED"
+        W.text(card,"State",92,17,cw-98,22,badge,cw<170 and 11 or 12,owned and C.mint or C.muted,Enum.Font.GothamBold)
         if data.favorites[item.id] then W.text(card,"Favorite",cw-39,47,30,24,"★",22,W.rgb("ffc857")) end
-        W.text(card,"RarityLabel",10,114,cw-20,20,item.rarity,14,W.rgb(Catalog.rarityColors[item.rarity]),Enum.Font.Gotham)
+        W.text(card,"RarityLabel",10,114,cw-20,20,item.rarity,14,owned and W.rgb(Catalog.rarityColors[item.rarity]) or C.muted,Enum.Font.Gotham)
         card.Activated:Connect(function()
             self.selected=item.id; self:refresh()
             if self.compact then self.overlay.CanvasPosition=Vector2.new(0,(self.detailsY-12)*self.fit.Scale) end
@@ -271,29 +294,37 @@ function Menu:refresh()
     self.scroll.CanvasSize=UDim2.fromOffset(0,4+math.ceil(#items/(self.columns or 3))*156)
     self.empty.Visible=#items==0
     self.empty.Text=not data and (self.profile and self.profile.status or "Loading inventory…")
-        or (self.query~="" or self.rarity~=0 or self.onlyFavorites) and "No items match these filters."
+        or (self.query~="" or self.rarity~=0 or self.onlyFavorites or self.ownership~=0) and "No items match these filters."
         or category=="crates" and "No crates yet. Owned crates will appear here." or "No items in this category yet."
     self.count.Text=("%d ITEM%s"):format(#items,#items==1 and "" or "S")
     local item=Catalog.byId[self.selected]
     self.details.Visible=item~=nil
     if item then
         Preview.draw(self.preview,item,data.equipped)
-        self.itemName.Text=item.name; self.itemRarity.Text=item.rarity..(item.default and "  /  DEFAULT" or "")
+        self.itemName.TextScaled=true
+        if not self.itemName:FindFirstChildOfClass("UITextSizeConstraint") then
+            local limits=Instance.new("UITextSizeConstraint"); limits.MaxTextSize=24; limits.MinTextSize=14; limits.Parent=self.itemName
+        end
+        self.itemName.Text=item.name; self.itemRarity.Text=item.rarity..(item.setName and "  /  "..item.setName or "")..(item.default and "  /  DEFAULT" or "")
         self.itemRarity.TextColor3=W.rgb(Catalog.rarityColors[item.rarity]); self.description.Text=item.description
-        if item.rewards then
+        self.description.TextSize=item.id=="crate_batch1" and 14 or 17
+        if item.rewards and item.id~="crate_batch1" then
             local total=0; for _,r in item.rewards do total+=r.weight end
             local tiers={}; for _,r in item.rewards do local rarity=Catalog.byId[r.id].rarity; tiers[rarity]=(tiers[rarity] or 0)+r.weight end
             local odds={}; for _,rarity in Catalog.rarities do if tiers[rarity] then table.insert(odds,("%s %.1f%%"):format(rarity,100*tiers[rarity]/total)) end end
             self.description.Text="One test cosmetic. Duplicates become Shards.\n"..table.concat(odds," · ")
         end
-        self.previewButton.Visible=category=="sounds"; self.previewButton.Active=not self.reveal.active
-        self.action.Text=self.busy and "Working…" or category=="crates" and (self.pendingOpen and "Retry opening" or "Open crate")
+        self.previewButton.Text="Focused preview"
+        self.previewButton.Visible=true; self.previewButton.Active=not self.reveal.active
+        local retry=self.pendingOpen and self.pendingOpen.id==item.id
+        self.action.Text=self.busy and "Working…" or retry and "Retry opening" or not Model.owns(data,item.id) and (category=="crates" and "Earn in a duel" or "Locked") or category=="crates" and "Open crate"
             or data.equipped[category]==item.id and (item.default and "Default equipped" or "Unequip") or "Equip"
-        local active=self.profile.ready and not self.busy and not self.reveal.active and not (item.default and data.equipped[category]==item.id)
+        local active=(retry or Model.owns(data,item.id)) and self.profile.ready and not self.busy and not self.reveal.active and not (item.default and data.equipped[category]==item.id)
         self.action.Active=active; self.action.Selectable=active; self.action.AutoButtonColor=active
         self.action.BackgroundColor3=active and C.purple or C.line
         self.favorite.Text=data.favorites[item.id] and "★ Saved" or "☆ Favorite"
-        self.favorite.Active=self.profile.ready and not self.busy and not self.reveal.active
+        self.favorite.Selectable=Model.owns(data,item.id) and not self.reveal.active
+        self.favorite.Active=Model.owns(data,item.id) and self.profile.ready and not self.busy and not self.reveal.active
     end
     self.status.Text=self.message or self.profile and self.profile.status or "Loading inventory…"
 end
@@ -303,7 +334,7 @@ function Menu:request(action,id)
     self.busy=true; self.message=nil
     local key
     if action=="open" then
-        self.pendingOpen=self.pendingOpen or {id=id,key=game:GetService("HttpService"):GenerateGUID(false)}
+        self.pendingOpen=self.pendingOpen or {id=id,key="open:"..(self.data.openSequence+1)}
         key=self.pendingOpen.key
     end
     self:refresh()
@@ -314,7 +345,7 @@ function Menu:request(action,id)
         else
             if response.profile then self:accept(response.profile) end
             if action=="open" and (response.ok or response.message=="You do not own this crate."
-                or response.message=="Invalid item." or response.message=="Invalid request." or response.message=="Request already used.") then
+                or response.message=="Opening expired." or response.message=="Invalid item." or response.message=="Invalid request." or response.message=="Request already used.") then
                 self.pendingOpen=nil
             end
             self.message=response.ok and nil or response.message
@@ -326,6 +357,13 @@ function Menu:request(action,id)
         end
         self:refresh()
     end)
+end
+function Menu:openVictoryChest()
+    self:setOpen(true)
+    self.search.Text=""; self.rarity=0; self.ownership=0; self.onlyFavorites=false
+    self:setCategory(#Catalog.categories)
+    self.selected="crate_batch1"; self:refresh()
+    self:request("open","crate_batch1")
 end
 function Menu:setAvailable(available)
     self.available=available; self.gui.Enabled=available
@@ -364,7 +402,7 @@ function Menu:setOpen(open)
             if ok and response.profile then self:accept(response.profile) end
         end) end
     else
-        self.reveal:hide(); self.search:ReleaseFocus()
+        self.focus:hide(); self.reveal:hide(); self.search:ReleaseFocus(); Preview.stopSounds(self.gui)
         if self.playerListWasEnabled~=nil then game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList,self.playerListWasEnabled) end
         CAS:UnbindAction("NOVA_InventoryMovement"); Run:UnbindFromRenderStep("NOVA_InventoryMovement")
         if self.controls then self.controls:Enable() end

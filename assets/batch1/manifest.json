@@ -1,0 +1,228 @@
+{
+  "creatorUserId": 432115180,
+  "placeId": 102464433517469,
+  "source": "Original layered orthographic cel meshes, authored set insignia and oscillator/noise patches. No generative prompts or third-party samples.",
+  "icons": "512×512 RGBA; atlas cells 256×256; pivot center.",
+  "cards": "1024×512 source; atlas cells 512×256.",
+  "trails": "Frame cells 128×128, 4 columns; right-end emission pivot (110,64). 4/8/12/16/16 frames by rarity.",
+  "audio": "44.1 kHz mono PCM. Each master occupies its catalog-index second in the playback bank.",
+  "assets": {
+    "audio": {
+      "file": "shot-accents.wav",
+      "id": "71102824245904",
+      "operation": "c8df2f7c-a749-4bb3-a3ba-a342f1c341dd",
+      "moderation": "Approved"
+    },
+    "backgrounds-1": {
+      "file": "backgrounds-1.png",
+      "id": "118667517224071",
+      "operation": "3db38451-9acd-4dca-aae5-89c9572a3a41",
+      "moderation": "Approved",
+      "priorAssetId": "77225179241146"
+    },
+    "backgrounds-2": {
+      "file": "backgrounds-2.png",
+      "id": "118119727227452",
+      "operation": "e6b6b980-75d8-499c-9fdd-57d2bcf22d05",
+      "moderation": "Approved",
+      "priorAssetId": "78981421915503"
+    },
+    "bullets-1": {
+      "file": "bullets-1.png",
+      "id": "105964410312826",
+      "operation": "da7500ab-ec3a-4414-84f2-9c3657609c6c",
+      "moderation": "Approved"
+    },
+    "bullets-2": {
+      "file": "bullets-2.png",
+      "id": "111390509632268",
+      "operation": "f7fa5bce-8cad-4b13-8932-c1d343a8ae37",
+      "moderation": "Approved"
+    },
+    "card-1": {
+      "file": "card-1.png",
+      "id": "139837778100737",
+      "operation": "15eb9e5d-1ef9-4b22-9a15-0149bae4903b",
+      "moderation": "Approved",
+      "priorAssetId": "140655292059542"
+    },
+    "card-2": {
+      "file": "card-2.png",
+      "id": "100724283768711",
+      "operation": "99242581-29b0-4c1e-a0b9-52632274a929",
+      "moderation": "Approved",
+      "priorAssetId": "95863369867488"
+    },
+    "card-3": {
+      "file": "card-3.png",
+      "id": "85441869404511",
+      "operation": "bd7e2905-0af1-4a0a-ac0e-084b1912f96e",
+      "moderation": "Approved",
+      "priorAssetId": "81439937605540"
+    },
+    "card-4": {
+      "file": "card-4.png",
+      "id": "107647345994052",
+      "operation": "6c206619-bb38-447d-9c61-94a6e28129b6",
+      "moderation": "Approved",
+      "priorAssetId": "111290212935562"
+    },
+    "chest": {
+      "file": "chest.png",
+      "id": "120940373811212",
+      "operation": "8be1f570-3d45-45bd-b542-3ddbc881ba2c",
+      "moderation": "Approved"
+    },
+    "skins-1": {
+      "file": "skins-1.png",
+      "id": "114738685902199",
+      "operation": "198f5d56-6e92-4bef-9a75-c235682932f7",
+      "moderation": "Approved"
+    },
+    "skins-2": {
+      "file": "skins-2.png",
+      "id": "96809572678571",
+      "operation": "45c70e37-31fd-4982-af27-ebc25a522af2",
+      "moderation": "Approved"
+    },
+    "sounds-1": {
+      "file": "sounds-1.png",
+      "id": "79204810599822",
+      "operation": "703691ad-c756-4d85-bfd2-869cd70ca7da",
+      "moderation": "Approved"
+    },
+    "sounds-2": {
+      "file": "sounds-2.png",
+      "id": "135168243849278",
+      "operation": "50e679d6-e48f-49dd-933f-a4638ab5c963",
+      "moderation": "Approved"
+    },
+    "tracers-1": {
+      "file": "tracers-1.png",
+      "id": "72627195053794",
+      "operation": "b017e504-a627-41cf-884b-981be2af6cff",
+      "moderation": "Approved"
+    },
+    "tracers-2": {
+      "file": "tracers-2.png",
+      "id": "74682337467652",
+      "operation": "caf38b22-c16e-44eb-aa7c-7003651d224b",
+      "moderation": "Approved"
+    },
+    "wakes-1": {
+      "file": "wakes-1.png",
+      "id": "85343897932985",
+      "operation": "1d25c4b4-a5a0-4da3-8041-8b25261298d8",
+      "moderation": "Approved"
+    },
+    "wakes-2": {
+      "file": "wakes-2.png",
+      "id": "71702674146959",
+      "operation": "ecce390c-5116-4269-8b7f-5c5e1f057c7c",
+      "moderation": "Approved"
+    },
+    "wakes-3": {
+      "file": "wakes-3.png",
+      "id": "118330212819833",
+      "operation": "bc907bb9-8985-4a4c-90f8-1a07da0cb7d0",
+      "moderation": "Approved"
+    },
+    "wakes-4": {
+      "file": "wakes-4.png",
+      "id": "115381515063127",
+      "operation": "e001b938-4a6c-4a4f-8372-a922966a163f",
+      "moderation": "Approved"
+    },
+    "wakes-5": {
+      "file": "wakes-5.png",
+      "id": "120281629667769",
+      "operation": "67296fe4-3399-4ef7-9490-b38b4ee518c4",
+      "moderation": "Approved"
+    },
+    "wakes-6": {
+      "file": "wakes-6.png",
+      "id": "109737966383568",
+      "operation": "a05f1813-110f-4d14-86ad-90b9261d9d72",
+      "moderation": "Approved"
+    },
+    "wakes-7": {
+      "file": "wakes-7.png",
+      "id": "128981030803569",
+      "operation": "e7f48d1b-eec4-4318-b4e7-790147f1837b",
+      "moderation": "Approved"
+    },
+    "body-1": {
+      "file": "body-1.png",
+      "id": "131767641036043",
+      "operation": "a1424fe0-b508-455b-a877-ca2e1878e0c0",
+      "moderation": "Approved"
+    },
+    "skins-1-locked": {
+      "file": "skins-1-locked.png",
+      "id": "130205003770165",
+      "operation": "27de12fc-242f-4720-8e50-b6a1cff342d8",
+      "moderation": "Approved"
+    },
+    "skins-2-locked": {
+      "file": "skins-2-locked.png",
+      "id": "102055994458735",
+      "operation": "d1e4c0f7-778b-43c1-ba73-8cbc9d2b0e96",
+      "moderation": "Approved"
+    },
+    "bullets-1-locked": {
+      "file": "bullets-1-locked.png",
+      "id": "117877031636898",
+      "operation": "ee76636b-05cb-4432-a55d-0dd12d08df2e",
+      "moderation": "Approved"
+    },
+    "bullets-2-locked": {
+      "file": "bullets-2-locked.png",
+      "id": "81188941213093",
+      "operation": "861da82d-c4f0-4d68-8e13-7921dc199551",
+      "moderation": "Approved"
+    },
+    "tracers-1-locked": {
+      "file": "tracers-1-locked.png",
+      "id": "88478818863084",
+      "operation": "4be41fe3-4380-4abf-acc8-ca6678a5ae95",
+      "moderation": "Approved"
+    },
+    "tracers-2-locked": {
+      "file": "tracers-2-locked.png",
+      "id": "101432654534338",
+      "operation": "d45a848b-57d7-41ec-852d-1f75d5c8ac46",
+      "moderation": "Approved"
+    },
+    "backgrounds-1-locked": {
+      "file": "backgrounds-1-locked.png",
+      "id": "93291330382202",
+      "operation": "8479946b-9865-43e3-8818-96c3a24e4b0e",
+      "moderation": "Approved"
+    },
+    "backgrounds-2-locked": {
+      "file": "backgrounds-2-locked.png",
+      "id": "123919182628744",
+      "operation": "565ad4a4-b8bf-4dfb-8453-7c7408022354",
+      "moderation": "Approved"
+    },
+    "sounds-1-locked": {
+      "file": "sounds-1-locked.png",
+      "id": "94468531371372",
+      "operation": "4dda8e40-1c35-4521-8972-4b2e38c695da",
+      "moderation": "Approved"
+    },
+    "sounds-2-locked": {
+      "file": "sounds-2-locked.png",
+      "id": "72266171768819",
+      "operation": "26f99128-1231-4ed8-a95b-c3a329a1caa7",
+      "moderation": "Approved"
+    },
+    "chest-locked": {
+      "file": "chest-locked.png",
+      "id": "123197525159841",
+      "operation": "2c043d8c-59b7-4b38-9660-7b9ee378dfc4",
+      "moderation": "Approved"
+    }
+  },
+  "bodies": "25 square 256×256 body overlays; runtime atlas cells 128×128, aligned to authoritative body bounds."
+}

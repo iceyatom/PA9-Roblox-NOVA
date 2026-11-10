@@ -28,6 +28,7 @@ return function()
         if not gui or gui:FindFirstChild("NOVAProbe") then return end
         -- Lobby respawns clear loose PlayerGui scripts, so the probe lives in a persistent ScreenGui.
         local host=Instance.new("ScreenGui"); host.Name="NOVAProbe"; host.ResetOnSpawn=false
+        if test:GetTestArgs()=="NOVA/batch-stress" then script.Parent.BatchStress:Clone().Parent=host end
         local probe=script.Parent.Probe:Clone(); probe.Name="Probe"; probe.Parent=host
         host.Parent=gui
     end
@@ -37,7 +38,7 @@ return function()
         id+=1; local n=id
         results[n]={owner=p}
         channel:FireClient(p,n,cmd,arg)
-        local ans=untilTrue(function() return results[n].answer end,cmd=="settings" and 20 or 7,cmd.." from "..p.Name)
+        local ans=untilTrue(function() return results[n].answer end,cmd=="batchStress" and 90 or cmd=="batchDelivery" and 65 or cmd=="settings" and 20 or 7,cmd.." from "..p.Name)
         results[n]=nil
         assert(ans[1],tostring(ans[2])); return ans[2]
     end
@@ -55,6 +56,48 @@ return function()
             return phase=="Waiting" or phase=="Selecting" or phase=="Countdown"
         end,6,"queue for "..p.Name)
         assert(p.Character==nil,"Queued player keeps no 3D character")
+    end
+    local function batch()
+        local p1=untilTrue(function() return next(ready) end,45,"first client")
+        untilTrue(function() return p1:GetAttribute("InventoryReady") end,15,"inventory")
+        local grant=game.ServerScriptService.NOVA.GrantInventory
+        for _,category in {"skins","bullets","tracers","backgrounds","sounds"} do
+            grant:Invoke(p1,"b1_"..category.."_crimson_singularity",1)
+        end
+        assert(request(p1,"batchDelivery")==24)
+        note("All 23 texture sheets/images and the full 25-accent sound bank loaded on a real client")
+        assert(request(p1,"batchSetup"))
+        queue(p1)
+        test:AddPlayers(1)
+        local p2=untilTrue(function() for p in ready do if p~=p1 then return p end end end,55,"second client")
+        queue(p2)
+        for round=1,2 do
+            waitPhase(p1,"Playing"); waitPhase(p2,"Playing")
+            request(p1,"batchFire")
+            waitPhase(p1,"Results")
+            untilTrue(function()
+                local r=read(p1)
+                return r.chest and r.chest.status=="Chest earned"
+            end,10,"committed victory chest")
+            assert(request(p1,"batchProfile").owned.crate_batch1==round)
+            assert(not request(p2,"batchProfile").owned.crate_batch1)
+            if round==1 then
+                request(p1,"batchSave"); request(p1,"vote"); request(p2,"vote")
+            else
+                request(p1,"batchOpen")
+                untilTrue(function() return request(p1,"batchReveal")=="settled" end,12,"reduced reveal after lobby return")
+                local data=request(p1,"batchProfile")
+                assert(data.owned.crate_batch1==1 and data.openSequence==1 and data.receipts["open:1"])
+            end
+            note("Round "..round.." awarded exactly one winner chest and zero loser chests")
+        end
+        note("Save for later, rematch, Open now, lobby return and static receipt reveal passed")
+        queue(p1)
+        waitPhase(p1,"Playing"); waitPhase(p2,"Playing")
+        channel:FireClient(p1,-1,"disconnect")
+        local left=waitPhase(p2,"Results")
+        assert(left.title=="Victory" and not left.chest and not request(p2,"batchProfile").owned.crate_batch1)
+        note("A playing-phase disconnect produced Victory and zero chests")
     end
     local function exercise()
         local p1=untilTrue(function() return next(ready) end,35,"first client ready")
@@ -177,7 +220,12 @@ return function()
         assert(e1.p[otherSeat].hp==9 and e2.p[otherSeat].hp==9)
         note("The second lobby stayed live throughout the first lobby's rematch, Leave, replacement and disconnect")
     end
-    local ok,err=xpcall(exercise,debug.traceback)
+    local function stress()
+        local p=untilTrue(function() return next(ready) end,45,"stress client")
+        note(request(p,"batchStress"))
+    end
+    local driver=({["NOVA/batch1"]=batch,["NOVA/batch-stress"]=stress})[test:GetTestArgs()] or exercise
+    local ok,err=xpcall(driver,debug.traceback)
     if not ok then note(tostring(err)) end
     test:EndTest({passed=ok,observations=log})
 end
