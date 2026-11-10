@@ -5,9 +5,11 @@ local Players=game:GetService("Players")
 local Assets=require(script.Parent.PrismAssets)
 local Content=game:GetService("ContentProvider")
 local Dragon=require(script.Parent.DragonforgeVisuals)
+local Rift=require(script.Parent.RiftglassVisuals)
 local V={}
 local preloaded={}
 function V.preload(item)
+    Rift.preload(item)
     Dragon.preload(item)
     if not item or item.visual~="prism_veil" then return end
     local id=item.category=="skins" and Assets.skin or item.category=="bullets" and Assets.bullet or item.category=="backgrounds" and Assets.background
@@ -128,6 +130,7 @@ local function start()
     end)
 end
 function V.clear(root)
+    Rift.clear(root)
     Dragon.clear(root)
     if not root:GetAttribute("PrismVeil") then return end
     local old=entries[root]
@@ -139,8 +142,12 @@ function V.clear(root)
     root:SetAttribute("PrismVeil",nil)
 end
 function V.apply(root,item,kind)
+    if type(item)=="table" and item.visual=="riftglass" then
+        if root:GetAttribute("PrismVeil") or root:GetAttribute("Dragonforge") then V.clear(root) end
+        return Rift.apply(root,item)
+    end
     if type(item)=="table" and item.visual=="dragonforge" then
-        if root:GetAttribute("PrismVeil") then V.clear(root) end
+        if root:GetAttribute("PrismVeil") or root:GetAttribute("Riftglass") then V.clear(root) end
         return Dragon.apply(root,item)
     end
     if item.visual~="prism_veil" then return false end
