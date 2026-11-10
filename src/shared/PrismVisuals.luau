@@ -6,9 +6,11 @@ local Assets=require(script.Parent.PrismAssets)
 local Content=game:GetService("ContentProvider")
 local Dragon=require(script.Parent.DragonforgeVisuals)
 local Rift=require(script.Parent.RiftglassVisuals)
+local Cipher=require(script.Parent.CipherVisuals)
 local V={}
 local preloaded={}
 function V.preload(item)
+    Cipher.preload(item)
     Rift.preload(item)
     Dragon.preload(item)
     if not item or item.visual~="prism_veil" then return end
@@ -130,6 +132,7 @@ local function start()
     end)
 end
 function V.clear(root)
+    Cipher.clear(root)
     Rift.clear(root)
     Dragon.clear(root)
     if not root:GetAttribute("PrismVeil") then return end
@@ -142,6 +145,11 @@ function V.clear(root)
     root:SetAttribute("PrismVeil",nil)
 end
 function V.apply(root,item,kind)
+    if type(item)=="table" and item.visual=="cipher" then
+        if root:GetAttribute("PrismVeil") or root:GetAttribute("Dragonforge") or root:GetAttribute("Riftglass") then V.clear(root) end
+        return Cipher.apply(root,item)
+    end
+    if root:GetAttribute("Cipher") then Cipher.clear(root) end
     if type(item)=="table" and item.visual=="riftglass" then
         if root:GetAttribute("PrismVeil") or root:GetAttribute("Dragonforge") then V.clear(root) end
         return Rift.apply(root,item)

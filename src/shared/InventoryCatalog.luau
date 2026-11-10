@@ -90,6 +90,10 @@ if riftAssets.skin~="" and riftAssets.bullet~="" and riftAssets.background~="" t
         add(item.id,item.category,item.name,item.rarity,item.color,false,item)
     end
 end
+local cipherAssets=require(script.Parent.CipherAssets)
+if cipherAssets.skin~="" and cipherAssets.bullet~="" and cipherAssets.background~="" then
+    for _,item in require(script.Parent.CipherPack) do add(item.id,item.category,item.name,item.rarity,item.color,false,item) end
+end
 Catalog.editorBase=EditorModel.copy({items=Catalog.items,byId=Catalog.byId,defaults=Catalog.defaults,
     rarities=Catalog.rarities,categories=Catalog.categories})
 local edits=require(script.Parent.InventoryEdits)
