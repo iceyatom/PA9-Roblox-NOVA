@@ -73,11 +73,12 @@ local detail=stack(root,"Details"); detail.Position=UDim2.new(.52,8,0,284); deta
 local statusLabel=label(root,"Status","Open this editor in a NOVA place.",44); statusLabel.Position=UDim2.new(0,16,1,-48); statusLabel.Size=UDim2.new(1,-32,0,44)
 local function status(text,error) statusLabel.Text=text; statusLabel.TextColor3=error and C.red or C.muted end
 local S={dirty=false,selected=nil,filter=1,rarity=0,showDeleted=false,undo={},redo={},multi=false,selectedIds={}}
-local base,model,edits,module,loadedSource,art,assets,rarityColors,skinVisuals
+local base,model,edits,module,loadedSource,art,assets,rarityColors,skinVisuals,prismVisuals
 local renderList,renderDetail
 -- Share the square combat skins; other item types use inventory sprite cells.
 local function itemIcon(parent,item,x,y,size)
     local image=make("ImageLabel",{Name="Sprite",Position=UDim2.fromOffset(x,y),Size=UDim2.fromOffset(size,size),BackgroundTransparency=1,ScaleType=Enum.ScaleType.Fit,Image=art and art[type(item)=="table" and item.category or item] or ""},parent)
+    if type(item)=="table" and prismVisuals and prismVisuals.apply(image,item) then return image end
     if skinVisuals and skinVisuals.apply(image,item=="skins" and {category="skins",color="527eff"} or item) then return image end
     if type(item)=="table" and assets then
         if item.id=="crate_batch1" then image.Image=assets.chest
@@ -373,13 +374,14 @@ local function load()
     local copy=nova:Clone()
     local ok,result=pcall(function()
         local catalog=require(copy.InventoryCatalog)
-        return {catalog.editorBase,require(copy.InventoryEditorModel),require(copy.InventoryEdits),require(copy.InventoryArt),require(copy.BatchOneAssets),catalog.rarityColors,require(copy.SkinVisuals)}
+        return {catalog.editorBase,require(copy.InventoryEditorModel),require(copy.InventoryEdits),require(copy.InventoryArt),require(copy.BatchOneAssets),catalog.rarityColors,require(copy.SkinVisuals),require(copy.PrismVisuals)}
     end)
     copy:Destroy()
     if not ok then status("Cannot load inventory: "..tostring(result),true); return end
     base,model,edits=result[1],result[2],result[3]; edits=model.copy(edits)
     art,assets,rarityColors=result[4],result[5],result[6]
     skinVisuals=result[7]
+    prismVisuals=result[8]
     module=nova.InventoryEdits; loadedSource=Editor:GetEditorSource(module)
     S.dirty=false; S.undo={}; S.redo={}; S.armed=nil; S.selectedIds={}
     if not S.selected then

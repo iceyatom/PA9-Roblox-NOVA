@@ -62,7 +62,7 @@ function Preview.draw(parent,item,equipped,focused)
         local line=W.box(parent,"TracerPreview",w/2-95,h/2-3,90,6,Preview.color(tracer)); line.Visible=(tracer.length or 0)>0
         local core=W.box(parent,"BulletPreview",w/2-(focused and 20 or 8),h/2-(focused and 20 or 8),focused and 40 or 16,focused and 40 or 16,item.category=="bullets" and color or Preview.color(bullet)); W.round(core)
         Batch.overlay(core,item.category=="bullets" and item or bullet,"bullets")
-        if tracer.setId and not Batch.reduced() then line.BackgroundTransparency=1;Batch.overlay(line,tracer,"wakes") end
+        if (tracer.setId or tracer.visual=="prism_veil") and not Batch.reduced() then line.BackgroundTransparency=1;Batch.overlay(line,tracer,"wakes") end
     elseif item.category=="backgrounds" then
         local card=W.box(parent,"PlayerCardPreview",20,h/2-40,w-40,80,color)
         card.BackgroundColor3=Color3.new(1,1,1)

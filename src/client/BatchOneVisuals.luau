@@ -1,10 +1,13 @@
 local Assets=require(game.ReplicatedStorage.NOVA.BatchOneAssets)
 local Skins=require(game.ReplicatedStorage.NOVA.SkinVisuals)
+local Prism=require(game.ReplicatedStorage.NOVA.PrismVisuals)
 local Visuals={}
 function Visuals.reduced()
     return game.Players.LocalPlayer:GetAttribute("ReducedEffects")==true
 end
 function Visuals.apply(label,item,kind,frame)
+    if Prism.apply(label,item,kind) then return true end
+    Prism.clear(label)
     if item.category=="skins" and (kind==nil or kind=="skins" or kind=="body") then return Skins.apply(label,item) end
     local index=item.artIndex
     if item.id=="crate_batch1" then label.Image=Assets.chest; return true end
@@ -28,7 +31,7 @@ function Visuals.apply(label,item,kind,frame)
 end
 function Visuals.overlay(parent,item,kind)
     local image=parent:FindFirstChild("BatchArt")
-    if not item.setId then
+    if not item.setId and item.visual~="prism_veil" then
         if image then image:Destroy() end
         return
     end
@@ -40,7 +43,7 @@ function Visuals.overlay(parent,item,kind)
     end
     image:SetAttribute("Item",item.id)
     Visuals.apply(image,item,kind=="skins" and "body" or kind)
-    if kind=="bullets" then
+    if kind=="bullets" and item.setId then
         image.ImageRectOffset+=Vector2.new(35,35);image.ImageRectSize=Vector2.new(186,186)
     end
     return image
@@ -51,6 +54,7 @@ function Visuals.card(parent,item)
     local image=Visuals.overlay(parent,item,"card")
     if not image then return end
     image.ZIndex=1
+    if item.visual=="prism_veil" then return end
     if Visuals.reduced() or (item.rarity~="Epic" and item.rarity~="Legendary" and item.rarity~="Cosmic") then return end
     local sweep=Instance.new("UIGradient")
     local tint=Color3.fromRGB(160,170,190)
@@ -60,4 +64,6 @@ function Visuals.card(parent,item)
     tween:Play()
     image.Destroying:Once(function() tween:Cancel() end)
 end
+Visuals.clear=Prism.clear
+Visuals.preload=Prism.preload
 return Visuals

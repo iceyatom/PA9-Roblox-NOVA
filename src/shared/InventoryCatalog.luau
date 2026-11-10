@@ -71,6 +71,12 @@ for _,reward in rewards do
     reward.weight/= (#pools[item.rarity]*5)
 end
 local EditorModel=require(script.Parent.InventoryEditorModel)
+local prismAssets=require(script.Parent.PrismAssets)
+if prismAssets.skin~="" and prismAssets.bullet~="" and prismAssets.background~="" then
+    for _,item in require(script.Parent.PrismPack) do
+        add(item.id,item.category,item.name,item.rarity,item.color,false,item)
+    end
+end
 Catalog.editorBase=EditorModel.copy({items=Catalog.items,byId=Catalog.byId,defaults=Catalog.defaults,
     rarities=Catalog.rarities,categories=Catalog.categories})
 local edits=require(script.Parent.InventoryEdits)

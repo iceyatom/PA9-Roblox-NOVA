@@ -114,6 +114,7 @@ function Arena:tail(tracer)
         node.BorderSizePixel=0; node.ZIndex=4
     end
     node.BackgroundColor3=Preview.color(tracer); node.BackgroundTransparency=.2
+    Batch.clear(node)
     node.Image=""; node.Visible=false; node.Parent=self.field
     return node
 end
@@ -172,10 +173,13 @@ function Arena:update(snap,time)
             core.Name="Core"; core.Position=UDim2.fromOffset(diameter*.8,diameter*.8)
             core.Size=UDim2.fromOffset(diameter,diameter); core.BackgroundColor3=Preview.color(bullet)
             core.BorderSizePixel=0; core.ZIndex=5
-            if bullet.setId then
+            if bullet.setId or bullet.visual=="prism_veil" then
                 Batch.apply(core,bullet,"bullets")
-                core.ImageRectOffset+=Vector2.new(35,35); core.ImageRectSize=Vector2.new(186,186)
-                glow.BackgroundColor3=b[4]==1 and C.blue or C.red
+                if bullet.setId then
+                    core.ImageRectOffset+=Vector2.new(35,35); core.ImageRectSize=Vector2.new(186,186)
+                    glow.BackgroundColor3=b[4]==1 and C.blue or C.red
+                end
+                core.BackgroundTransparency=1
             end
             W.round(core); core.Parent=glow
             local trace=W.box(self.field,"Sweep",0,0,1,1,C.purple,6)
@@ -234,12 +238,14 @@ function Arena:draw(time,dt)
             active+=1
             local length=math.min(shot.tailLength*(simple and .65 or 1),(shot.draw-shot.origin).Magnitude)
             local mid=shot.draw-shot.direction*length/2
-            local animated=not simple and shot.tracer.setId~=nil
+            local dynamic=shot.tracer.visual=="prism_veil"
+            local animated=dynamic or not simple and shot.tracer.setId~=nil
             shot.tail.Visible=length>0 and active<=(simple and 64 or 128)
             shot.tail.Position=UDim2.fromOffset(mid.X*self.unit,mid.Y*self.unit)
             shot.tail.Size=UDim2.fromOffset(length*self.unit,animated and 3*cfg.BulletRadius*self.unit or 3)
             shot.tail.Rotation=math.deg(math.atan2(shot.direction.Y,shot.direction.X))
-            local frame=animated and math.floor(time*18)%shot.tracer.frames or -1
+            shot.tail:SetAttribute("ReducedPrism",simple)
+            local frame=dynamic and -2 or animated and math.floor(time*18)%shot.tracer.frames or -1
             if shot.frameIndex~=frame then
                 shot.frameIndex=frame
                 shot.tail.BackgroundTransparency=animated and 1 or .2

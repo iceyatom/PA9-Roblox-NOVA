@@ -190,3 +190,13 @@ Added `ServerScriptService.NOVA.TestXP`, a BindableFunction created only inside 
 - Opened a real server-selected test crate through the inventory controls. The received Quantum Circuit skin completed its normal reel/lift/stamp animation with a loaded square image. A temporary Studio-only crate pool ensured that reward and was restored immediately after the check.
 - Equipped Quantum Circuit and entered practice through its normal queue pad. The actual square player body loaded the same atlas crop as the preview and unlock. Play was then stopped; no live player profiles or published content were changed.
 - The installed Item Editor showed all 28 square skin cards and a visible loaded body texture. The source artwork generator now exports square bodies for the skin category instead of chestplate geometry. Historical originals remain as upload provenance.
+
+
+## Prism Veil integration — November 10, 2026
+
+- Original Blender component scenes, native mesh/keyframe animation, 48-frame review and 16-frame skin atlas are under `assets/prism-veil/`. The reference is packed into the editable .blend.
+- Skin `126807824700501`, bullet `108373091188666` and sky `93677618801522` uploaded to creator 432115180 and returned Approved moderation. Operation IDs and file hashes are recorded in the pack manifest.
+- The installed Item Editor loaded the skin atlas and advanced the image crop; the real inventory did likewise. The background loaded and moved its native glass shards.
+- Equipping all four items succeeded through the inventory request path. A real practice Fire click incremented the server score to one; the effect probe observed changing ribbon angles and shard positions with no trail image. An isolated Arena renderer loaded and rotated the circular bullet, animated the native tail and reused that tail through its pool.
+- A real crate request returned `skin_prism_veil`; the normal reveal settled with the approved texture loaded and still animating. The temporary Studio-only loot pool was restored immediately.
+- 114 local logic checks pass. Existing player profiles and production loot odds were not changed. The four items are available in the catalog/editor for deliberate crate configuration. Place publishing and production/physical-device checks remain separate.

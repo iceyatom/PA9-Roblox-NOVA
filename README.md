@@ -78,6 +78,8 @@ The six original transparent category/launcher sprites were made with the NOVA U
 
 Skin artwork is always the square combat body. `SkinVisuals` shares the same 128px atlas cells across duel/practice bodies, inventory cards (including locked items), focused previews, crate reels, reward stamps and the Item Editor. Classic and sample skins use solid squares in their catalog colors. The Skins tab also uses a square. Legacy chestplate mappings are removed; the original uploaded-asset records remain in the Batch 1 manifest as history. The artwork generator now uses the square body for skin exports too.
 
+The **Prism Veil** Blender pack adds four Legendary cosmetics: `skin_prism_veil`, `bullet_prism_pearl`, `tracer_prism_flow` and `card_prismatic_sky`. The square skin plays a 16-frame glass-panel loop; the circular pearl bullet rotates its highlight; the sky drifts crystals and a spectral sweep. Prism Flow uses continuously animated native ribbons, glass shards and sparks rather than a trail sprite sheet, with reduced object counts for Reduced Effects and high concurrency. These items are available in the inventory and Item Editor. Assign crate inclusion/odds in the editor; existing loot tables are unchanged. Editable Blender scenes, the animated review, original reference and approved upload records are in `assets/prism-veil/`.
+
 ## Developer controls
 Studio-only diagnostics and automated tests are gated by RunService:IsStudio(). Balance defaults are in ReplicatedStorage/NOVA/Config. The map and tile catalog are adjacent modules. Production has no configuration remote.
 

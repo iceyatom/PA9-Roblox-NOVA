@@ -1,8 +1,10 @@
 -- The square combat skin is also its inventory/editor/reveal icon.
 local Assets=require(script.Parent.BatchOneAssets)
+local Prism=require(script.Parent.PrismVisuals)
 local Skins={}
 function Skins.apply(image,item)
     if type(item)~="table" or item.category~="skins" then return false end
+    if Prism.apply(image,item) then return true end
     image.Image=""; image.ImageRectSize=Vector2.zero; image.ImageRectOffset=Vector2.zero
     image.BackgroundColor3=Color3.fromHex(item.color or "527eff")
     image.BackgroundTransparency=item.artIndex==nil and 0 or 1

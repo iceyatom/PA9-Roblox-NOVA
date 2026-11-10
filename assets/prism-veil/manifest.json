@@ -1,0 +1,77 @@
+{
+  "pack": "Prism Veil",
+  "creatorUserId": 432115180,
+  "placeId": 102464433517469,
+  "source": "Original Blender mesh/material/keyframe artwork and native procedural Luau UI VFX, guided by the supplied color/reference image. No image generation or third-party assets.",
+  "blenderVersion": "5.2.3 LTS",
+  "loop": {
+    "frames": 48,
+    "fps": 24,
+    "seconds": 2
+  },
+  "runtimeSkin": {
+    "frames": 16,
+    "fps": 8,
+    "cell": [
+      256,
+      256
+    ],
+    "columns": 4
+  },
+  "tracer": "Native continuously animated ribbons, shards and sparks. No tracer images sampled at runtime.",
+  "uploads": {
+    "status": "approved",
+    "directory": "C:\\Users\\Jonathan\\Documents\\Roblox\\NOVA\\nova-game\\assets\\prism-veil\\exports",
+    "files": {
+      "skin-atlas.png": {
+        "pixels": [
+          1024,
+          1024
+        ],
+        "mode": "RGBA",
+        "sha256": "ab68122169167f0f451d70f58611e62129937b4b511d7586b74dc014e749e425",
+        "assetId": "126807824700501",
+        "operation": "4dbc0a85-5dd1-4f96-80a4-661429462004",
+        "moderation": "Approved",
+        "creatorUserId": 432115180
+      },
+      "bullet.png": {
+        "pixels": [
+          256,
+          256
+        ],
+        "mode": "RGBA",
+        "sha256": "bb0815ab0a6b7c6644ada95f8ddd8a3963b5de2b3e3da7281f1257c58c672c1d",
+        "assetId": "108373091188666",
+        "operation": "a859b70b-b7da-4825-af17-c2333941ed55",
+        "moderation": "Approved",
+        "creatorUserId": 432115180
+      },
+      "background.png": {
+        "pixels": [
+          1024,
+          512
+        ],
+        "mode": "RGBA",
+        "sha256": "289eb8a23245075c1ac4af38c25a5f2f199c19114a73f8fe29b1da3617f92724",
+        "assetId": "93677618801522",
+        "operation": "a582293b-ac80-48e8-ac53-8d498b9ee315",
+        "moderation": "Approved",
+        "creatorUserId": 432115180
+      }
+    }
+  },
+  "verification": {
+    "textureDelivery": "All three approved textures loaded in Studio",
+    "editor": "Animated skin atlas loaded and advanced",
+    "inventory": "Animated skin and drifting background verified",
+    "actualShot": "Practice server accepted a Fire-button press; native ribbons and shards changed positions; tracer Image remained empty",
+    "arena": "Bullet loaded and rotated; trail pool reused cleanly",
+    "unlock": "Server-selected skin reward continued animating through the normal reveal",
+    "logicTests": {
+      "passed": 114,
+      "failed": 0
+    },
+    "publishing": "Place not published by this task"
+  }
+}

@@ -164,6 +164,9 @@ function Menu.new(playerGui,clear,beforeOpen)
 end
 function Menu:accept(profile)
     if not profile or self.profile and profile.version<self.profile.version then return end
+    for _,id in profile.data and profile.data.equipped or {} do
+        require(script.Parent.BatchOneVisuals).preload(Catalog.byId[id])
+    end
     self.profile=profile; self.data=profile.data; self:refresh()
     self:showRetirementNotice()
 end
@@ -263,7 +266,7 @@ function Menu:refresh()
     for _,card in self.cards do card:Destroy() end; self.cards={}
     local items={}
     if data then for _,item in Catalog.items do
-        if item.category==category and (item.setId or item.id=="crate_batch1" or (self.pendingOpen and self.pendingOpen.id==item.id) or Model.owns(data,item.id))
+        if item.category==category and (item.setId or item.visual=="prism_veil" or item.id=="crate_batch1" or (self.pendingOpen and self.pendingOpen.id==item.id) or Model.owns(data,item.id))
             and (self.ownership==0 or Model.owns(data,item.id)==(self.ownership==1))
             and (self.rarity==0 or item.rarity==Catalog.rarities[self.rarity])
             and (not self.onlyFavorites or data.favorites[item.id])
@@ -292,7 +295,7 @@ function Menu:refresh()
         if not owned then
             local assets=require(shared.BatchOneAssets)
             local key=item.artIndex and (item.category.."-"..(math.floor(item.artIndex/16)+1).."-locked") or "chest-locked"
-            if item.category~="skins" and assets[key] then icon.Image=assets[key] end
+            if item.visual~="prism_veil" and item.category~="skins" and assets[key] then icon.Image=assets[key] end
             icon.ImageTransparency=.25
             if icon:GetAttribute("SolidSkin") then icon.BackgroundTransparency=.25 end
         end
