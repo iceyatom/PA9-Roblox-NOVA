@@ -1,0 +1,6 @@
+return {
+    {id="skin_nova_heart",category="skins",name="Nova Heart",rarity="Cosmic",color="ff219e",visual="supernova",setName="Supernova",description="A square indigo shell with ruby crystal armor, counter-rotating light crescents and a white-hot star core. Broad pink radiance spills beyond its rim."},
+    {id="bullet_starburst_pearl",category="bullets",name="Starburst Pearl",rarity="Cosmic",color="ff3355",visual="supernova",setName="Supernova",description="A circular ruby pearl with orbiting crystal facets, white-hot ignition and layered pulsing magenta halos."},
+    {id="tracer_radiant_wake",category="tracers",name="Radiant Wake",rarity="Cosmic",color="ff219e",visual="supernova",setName="Supernova",length=4.4,lifetime=.44,frames=1,description="Flowing white-hot energy wrapped in broad saturated bloom, with drifting crystal particles, lingering afterimages and sharp star glints."},
+    {id="card_prismatic_nebula",category="backgrounds",name="Prismatic Nebula",rarity="Cosmic",color="b924ef",visual="supernova",setName="Supernova",description="Luminous ruby crystals float in an indigo nebula. Pulsing side radiance, flowing border light and travelling star glints frame your player identity."},
+}

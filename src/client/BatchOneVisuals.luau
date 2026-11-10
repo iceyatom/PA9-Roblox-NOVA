@@ -31,7 +31,7 @@ function Visuals.apply(label,item,kind,frame)
 end
 function Visuals.overlay(parent,item,kind)
     local image=parent:FindFirstChild("BatchArt")
-    if not item.setId and item.visual~="prism_veil" and item.visual~="dragonforge" and item.visual~="riftglass" and item.visual~="cipher" then
+    if not item.setId and item.visual~="prism_veil" and item.visual~="dragonforge" and item.visual~="riftglass" and item.visual~="cipher" and item.visual~="supernova" then
         if image then image:Destroy() end
         return
     end
@@ -54,7 +54,7 @@ function Visuals.card(parent,item)
     local image=Visuals.overlay(parent,item,"card")
     if not image then return end
     image.ZIndex=1
-    if (item.visual=="prism_veil" or item.visual=="dragonforge" or item.visual=="riftglass" or item.visual=="cipher") then return end
+    if (item.visual=="prism_veil" or item.visual=="dragonforge" or item.visual=="riftglass" or item.visual=="cipher" or item.visual=="supernova") then return end
     if Visuals.reduced() or (item.rarity~="Epic" and item.rarity~="Legendary" and item.rarity~="Cosmic") then return end
     local sweep=Instance.new("UIGradient")
     local tint=Color3.fromRGB(160,170,190)
