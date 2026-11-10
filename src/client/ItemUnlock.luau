@@ -97,6 +97,7 @@ function Unlock:render(t)
     self.holder.Size=UDim2.fromOffset(300*scale*(1+squash),300*scale*(1-squash))
     self.holder.Position=UDim2.fromOffset(290,y); self.holder.Rotation=rotation
     self.icon.ImageTransparency=1-enter
+    if self.icon:GetAttribute("SolidSkin") then self.icon.BackgroundTransparency=1-enter end
     self.glow.GroupTransparency=1-ease(phase(t,.2,1.3))*.96
     self.rays.Rotation=t*28; self.wideRays.Rotation=-t*17
     self.shadow.Size=UDim2.fromOffset(220*math.min(scale,1.15),24); self.shadow.BackgroundTransparency=1-.42*enter

@@ -172,3 +172,21 @@ Added `ServerScriptService.NOVA.TestXP`, a BindableFunction created only inside 
 - Exercised real two-click prestige requests in Studio. A client-only fake level-55 attempt was rejected without a reveal. Actual cap grants and confirmations unlocked Prestige 1 and then Prestige 2. Observed loaded grayscale with color fully hidden, colorization, an icon peak width of 401 logical pixels, stamp motion, settled full color, and rotating golden rays. The first reveal auto-dismissed and returned to Progress. Screenshot review covered the Silver Bullet and Emerald Dagger effects.
 - A third real unlock tested controller Back dismissal, which returned to Progress. An isolated Master preview verified both Master image passes loaded and displayed the correct crest and title without changing the player's actual rank. Removed the preview and all temporary QA render connections.
 - Left the session at Prestige 3, Level 55, with Unlock Prestige 4 ready for the user's next test. No publishing or live profile changes were performed.
+
+
+## Item retirement and editor selection — November 9, 2026
+
+- The local Luau logic suite passes 114 cases, including six retirement cases for ownership/equipment cleanup, duplicate-value credits, notice acknowledgment, repeated validation, UpdateAsync callback retries, failed loads, rejoining and the wallet cap.
+- Studio editor callbacks verified rarity + type filtering (eight Rare skins), selecting across three types/filters, protected defaults, confirmation before bulk deletion, hidden-selection reporting and undoing the batch.
+- A Studio Play session granted and equipped a Rare cosmetic, then retired it with an owned Epic cosmetic in a temporary server test. The actual inventory service removed both items, restored the default skin and credited 85 Shards. The client automatically opened a notice listing Mint Circuit +25 and Ember Core +60.
+- Clicking the actual Got it button acknowledged the notice through the server. It disappeared, and repeating the acknowledgment retained exactly 85 Shards. Catalog changes used by the smoke test were restored; Play was stopped. No live player profiles were accessed.
+- Published-server persistence is supported by the existing leased UpdateAsync path and was checked with retrying/failing store fixtures. A real published login after deployment is still needed to verify the production environment.
+
+
+## Square skin display — November 10, 2026
+
+- `SkinVisuals` reuses the approved square `body-1` atlas; no new bitmap assets or uploads were needed. All 28 existing skins resolve as squares (25 patterned, 3 solid colors). The former skin category, chestplate thumbnails and locked chestplate asset IDs have no runtime references.
+- Studio inventory showed loaded square textures on locked cards. Focused Quantum Circuit artwork and its body preview used identical image IDs, 128px crop sizes and offsets.
+- Opened a real server-selected test crate through the inventory controls. The received Quantum Circuit skin completed its normal reel/lift/stamp animation with a loaded square image. A temporary Studio-only crate pool ensured that reward and was restored immediately after the check.
+- Equipped Quantum Circuit and entered practice through its normal queue pad. The actual square player body loaded the same atlas crop as the preview and unlock. Play was then stopped; no live player profiles or published content were changed.
+- The installed Item Editor showed all 28 square skin cards and a visible loaded body texture. The source artwork generator now exports square bodies for the skin category instead of chestplate geometry. Historical originals remain as upload provenance.

@@ -104,6 +104,14 @@ function Menu.new(playerGui,clear,beforeOpen)
     self.reveal=require(script.Parent.CrateReveal).new(panel,function()
         self:refresh(); Gui.SelectedObject=gamepad() and self.action or nil
     end)
+    self.retirementNotice=require(script.Parent.InventoryRetirementNotice).new(gui,function(sequence,complete)
+        task.spawn(function()
+            local ok,response=pcall(function() return self.remote:InvokeServer("ackRetirements",tostring(sequence)) end)
+            if ok and response.profile then self:accept(response.profile) end
+            complete(ok and response.ok,ok and response.message or "Could not connect. Please try again.")
+            if ok and response.ok and gamepad() then Gui.SelectedObject=self.close end
+        end)
+    end)
     self.reveal.onReady=function()
         if self.compact then
             local height=self.reveal.overlay:GetAttribute("ContentHeight") or 650
@@ -115,8 +123,9 @@ function Menu.new(playerGui,clear,beforeOpen)
     Gui.MenuOpened:Connect(function() self:setOpen(false) end)
     Gui:GetPropertyChangedSignal("SelectedObject"):Connect(function()
         if not self.opened or not Gui.SelectedObject then return end
-        local boundary=self.focus.root or (self.reveal.active and self.reveal.overlay or self.overlay)
+        local boundary=self.retirementNotice.root.Visible and self.retirementNotice.root or self.focus.root or (self.reveal.active and self.reveal.overlay or self.overlay)
         if boundary and not Gui.SelectedObject:IsDescendantOf(boundary) then
+            if self.retirementNotice.root.Visible then Gui.SelectedObject=self.retirementNotice.button; return end
             if self.focus.root then Gui.SelectedObject=self.focus.root.Panel.ClosePreview; return end
             local done=self.reveal.active and boundary:FindFirstChild("Continue")
             if self.reveal.active then Gui.SelectedObject=done and done.Visible and done or nil
@@ -156,6 +165,15 @@ end
 function Menu:accept(profile)
     if not profile or self.profile and profile.version<self.profile.version then return end
     self.profile=profile; self.data=profile.data; self:refresh()
+    self:showRetirementNotice()
+end
+function Menu:showRetirementNotice()
+    local notice=self.profile and self.profile.ready and self.data and self.data.retirementNotice
+    if notice and self.available and self.retirementShownSequence~=notice.sequence then
+        self:setOpen(true)
+        if self.opened then self.retirementShownSequence=notice.sequence end
+    end
+    self.retirementNotice:update(notice,self.opened and self.available)
 end
 function Menu:resize()
     if not self.status then return end
@@ -274,8 +292,9 @@ function Menu:refresh()
         if not owned then
             local assets=require(shared.BatchOneAssets)
             local key=item.artIndex and (item.category.."-"..(math.floor(item.artIndex/16)+1).."-locked") or "chest-locked"
-            if assets[key] then icon.Image=assets[key] end
+            if item.category~="skins" and assets[key] then icon.Image=assets[key] end
             icon.ImageTransparency=.25
+            if icon:GetAttribute("SolidSkin") then icon.BackgroundTransparency=.25 end
         end
         local accent=W.box(card,"Rarity",10,137,cw-20,3,owned and W.rgb(Catalog.rarityColors[item.rarity]) or C.muted); Style.round(accent,2)
         W.text(card,"Name",10,87,cw-20,25,item.name,self.compact and 17 or 18,owned and C.white or C.muted,Enum.Font.GothamBold)
@@ -308,11 +327,11 @@ function Menu:refresh()
         self.itemName.Text=item.name; self.itemRarity.Text=item.rarity..(item.setName and "  /  "..item.setName or "")..(item.default and "  /  DEFAULT" or "")
         self.itemRarity.TextColor3=W.rgb(Catalog.rarityColors[item.rarity]); self.description.Text=item.description
         self.description.TextSize=item.id=="crate_batch1" and 14 or 17
-        if item.rewards and item.id~="crate_batch1" then
+        if item.rewards then
             local total=0; for _,r in item.rewards do total+=r.weight end
             local tiers={}; for _,r in item.rewards do local rarity=Catalog.byId[r.id].rarity; tiers[rarity]=(tiers[rarity] or 0)+r.weight end
             local odds={}; for _,rarity in Catalog.rarities do if tiers[rarity] then table.insert(odds,("%s %.1f%%"):format(rarity,100*tiers[rarity]/total)) end end
-            self.description.Text="One test cosmetic. Duplicates become Shards.\n"..table.concat(odds," · ")
+            self.description.Text="One cosmetic. Duplicates become Shards.\n"..table.concat(odds," · ")
         end
         self.previewButton.Text="Focused preview"
         self.previewButton.Visible=true; self.previewButton.Active=not self.reveal.active
@@ -368,6 +387,7 @@ end
 function Menu:setAvailable(available)
     self.available=available; self.gui.Enabled=available
     if not available then self:setOpen(false) end
+    self:showRetirementNotice()
 end
 function Menu:setOpen(open)
     if open and (not self.available or Gui.MenuIsOpen) then return end
@@ -409,5 +429,6 @@ function Menu:setOpen(open)
         Gui.SelectedObject=gamepad() and self.available and self.launcher or nil
     end
     self:refresh()
+    self.retirementNotice:update(self.profile and self.profile.ready and self.data and self.data.retirementNotice,open and self.available)
 end
 return Menu

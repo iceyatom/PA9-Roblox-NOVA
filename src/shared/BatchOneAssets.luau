@@ -1,7 +1,5 @@
 -- Creator-owned, approved Roblox assets. See assets/batch1/manifest.json.
 return {
-    ["skins-1-locked"]="rbxassetid://130205003770165",
-    ["skins-2-locked"]="rbxassetid://102055994458735",
     ["bullets-1-locked"]="rbxassetid://117877031636898",
     ["bullets-2-locked"]="rbxassetid://81188941213093",
     ["tracers-1-locked"]="rbxassetid://88478818863084",
@@ -23,8 +21,6 @@ return {
     ["card-3"]="rbxassetid://85441869404511",
     ["card-4"]="rbxassetid://107647345994052",
     ["chest"]="rbxassetid://120940373811212",
-    ["skins-1"]="rbxassetid://114738685902199",
-    ["skins-2"]="rbxassetid://96809572678571",
     ["sounds-1"]="rbxassetid://79204810599822",
     ["sounds-2"]="rbxassetid://135168243849278",
     ["tracers-1"]="rbxassetid://72627195053794",

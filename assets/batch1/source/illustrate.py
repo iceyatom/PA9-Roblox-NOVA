@@ -93,14 +93,8 @@ def asset(n,category,phase=0):
             mark(52,52,2.0,blend(accent,shine,.44))
         poly([(15,88),(31,75),(49,78),(40,87),(25,92)],blend(main,INK,.27))
     elif category=='skins':
-        plate([(13,23),(29,14),(43,19),(58,19),(71,14),(87,22),(83,44),(74,48),(71,76),(53,86),(30,77),(25,48),(17,44)],shadow)
-        plate([(15,25),(30,18),(42,24),(36,36),(20,39)],main)
-        plate([(60,24),(72,18),(84,25),(79,39),(64,35)],main)
-        plate([(31,37),(42,29),(58,29),(70,38),(66,68),(51,77),(35,68)],main)
-        poly([(34,40),(44,32),(56,32),(51,36),(40,41)],shine)
-        poly([(34,60),(50,66),(68,57),(65,69),(51,76),(36,69)],shadow)
-        mark(51,49,1.12,blend(accent,LIGHT,.19))
-        poly([(19,26),(29,21),(32,22),(22,29)],LIGHT)
+        # Inventory/export artwork is the square combat body, never armor.
+        return asset(n,'body',phase)
     elif category=='bullets':
         oval(50,50,36,36,INK);oval(50,50,32.8,32.8,shadow)
         oval(48,47,29,29,main)

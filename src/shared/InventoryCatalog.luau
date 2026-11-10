@@ -6,7 +6,7 @@ Catalog.categories={
 }
 Catalog.rarities={"Common","Uncommon","Rare","Epic","Legendary","Cosmic"}
 Catalog.rarityColors={Chest="59e0aa",Uncommon="49c976",Cosmic="f05252",Common="9ca8bc",Rare="527eff",Epic="b56dff",Legendary="ffc857"}
-Catalog.duplicateValues={Uncommon=10,Cosmic=500,Common=10,Rare=25,Epic=60,Legendary=150}
+Catalog.duplicateValues={Uncommon=10,Cosmic=500,Common=10,Rare=25,Epic=60,Legendary=150,Chest=60}
 Catalog.items={}; Catalog.byId={}; Catalog.defaults={}
 local function add(id,category,name,rarity,color,default,extra)
     local item={id=id,category=category,name=name,rarity=rarity,color=color,default=default==true,
@@ -55,7 +55,9 @@ for index,set in require(script.Parent.BatchOneSets) do
             extra.frames=tier.frames; extra.lifetime=tier.tail; extra.length=tier.tail*10; extra.layers=tier.layers
         end
         add(piece[1],category,piece[2],set.rarity,set.color,false,extra)
-        table.insert(rewards,{id=piece[1]})
+        local tierIndex=table.find(Catalog.batchTiers,tier)
+        local previous=tierIndex>1 and Catalog.batchTiers[tierIndex-1].limit or 0
+        table.insert(rewards,{id=piece[1],weight=(tier.limit-previous)/100})
     end
     table.insert(pools[set.rarity],set)
 end
@@ -63,11 +65,38 @@ add("crate_batch1","crates","Items Batch 1 Chest","Chest","59e0aa",false,{
     rewards=rewards,
     description="1 item · No pity. Duplicates pay Shards.\nUncommon 60% / 10 · Rare 25% / 25\nEpic 10% / 60 · Legendary 4% / 150\nCosmic 1% / 500",
 })
+-- Expand the original tier/set/category draw into equivalent per-item percentages.
+for _,reward in rewards do
+    local item=Catalog.byId[reward.id]
+    reward.weight/= (#pools[item.rarity]*5)
+end
+local EditorModel=require(script.Parent.InventoryEditorModel)
+Catalog.editorBase=EditorModel.copy({items=Catalog.items,byId=Catalog.byId,defaults=Catalog.defaults,
+    rarities=Catalog.rarities,categories=Catalog.categories})
+local edits=require(script.Parent.InventoryEdits)
+local effective=EditorModel.apply(Catalog.editorBase,edits)
+Catalog.items,Catalog.byId,Catalog.defaults=effective.items,effective.byId,effective.defaults
+Catalog.retired=effective.retired
+local editedBatch=edits.crates.crate_batch1~=nil
+for id,edit in edits.items do
+    if edit.deleted and Catalog.editorBase.byId[id].category~="crates" then editedBatch=true end
+end
+function Catalog.roll(crate,value)
+    local total=0
+    for _,reward in crate.rewards do total+=reward.weight end
+    value=math.clamp(value,0,.999999999)*total
+    for _,reward in crate.rewards do
+        value-=reward.weight
+        if value<0 then return reward.id end
+    end
+    return crate.rewards[#crate.rewards].id
+end
 function Catalog.batchTier(draw)
     for _,tier in Catalog.batchTiers do if draw<=tier.limit then return tier.name end end
     error("Invalid rarity draw")
 end
 function Catalog.rollBatch(random)
+    if editedBatch then return Catalog.roll(Catalog.byId.crate_batch1,random:NextNumber()) end
     local pool=pools[Catalog.batchTier(random:NextInteger(1,10000))]
     local category=random:NextInteger(1,5)
     return pool[random:NextInteger(1,#pool)].pieces[category][1]

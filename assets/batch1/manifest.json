@@ -224,5 +224,15 @@
       "moderation": "Approved"
     }
   },
-  "bodies": "25 square 256×256 body overlays; runtime atlas cells 128×128, aligned to authoritative body bounds."
+  "bodies": "25 square 256×256 body overlays; runtime atlas cells 128×128, aligned to authoritative body bounds.",
+  "skinDisplay": {
+    "renderer": "src/shared/SkinVisuals.luau",
+    "atlas": "body-1",
+    "cellPixels": [
+      128,
+      128
+    ],
+    "columns": 8,
+    "note": "All skin thumbnails, previews, reveals and gameplay use the existing square combat bodies. Legacy chestplate thumbnail and locked atlas records below are retained only as upload history; their runtime mappings were removed."
+  }
 }

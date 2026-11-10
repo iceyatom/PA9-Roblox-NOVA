@@ -4,6 +4,7 @@ local Catalog=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
 local Art=require(game.ReplicatedStorage.NOVA.InventoryArt)
 local Batch=require(script.Parent.BatchOneVisuals)
 local Assets=require(game.ReplicatedStorage.NOVA.BatchOneAssets)
+local Skins=require(game.ReplicatedStorage.NOVA.SkinVisuals)
 local voices={}
 local Preview={}
 local colors={}
@@ -13,6 +14,7 @@ function Preview.icon(parent,category,x,y,size)
     image.Position=UDim2.fromOffset(x,y)
     if type(category)=="table" then
         if not Batch.apply(image,category) then image.Image=Art[category.category] or "" end
+    elseif category=="skins" then Skins.apply(image,{category="skins",color="527eff"})
     else image.Image=Art[category] or "" end
     image.ScaleType=Enum.ScaleType.Fit
     image.ZIndex=3; image.Parent=parent
@@ -51,11 +53,9 @@ function Preview.draw(parent,item,equipped,focused)
     if not item then return end
     local w,h=parent.Size.X.Offset,parent.Size.Y.Offset
     local color=Preview.color(item)
-    if item.category=="skins" and item.setId then
-        local body=W.box(parent,"BodyPreview",w/2-(focused and 62 or 22),h/2-(focused and 62 or 22),focused and 124 or 44,focused and 124 or 44,color); Batch.overlay(body,item,"skins")
-    elseif item.category=="skins" then
-        local body=W.box(parent,"BodyPreview",w/2-(focused and 62 or 25),h/2-(focused and 62 or 25),focused and 124 or 50,focused and 124 or 50,color); W.stroke(body,C.white,2)
-        W.box(body,"Highlight",6,6,38,5,C.white).BackgroundTransparency=.65
+    if item.category=="skins" then
+        local body=W.box(parent,"BodyPreview",w/2-(focused and 62 or 25),h/2-(focused and 62 or 25),focused and 124 or 50,focused and 124 or 50,color)
+        Batch.overlay(body,item,"skins")
     elseif item.category=="bullets" or item.category=="tracers" then
         local bullet=Catalog.get(equipped,"bullets")
         local tracer=item.category=="tracers" and item or Catalog.get(equipped,"tracers")

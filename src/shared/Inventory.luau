@@ -3,7 +3,7 @@ local Catalog=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
 local Inventory={}
 local function integer(n,max) return type(n)=="number" and n==n and n>=0 and n<=max and n%1==0 end
 function Inventory.new()
-    return {owned={},equipped=table.clone(Catalog.defaults),favorites={},shards=0,receipts={},receiptOrder={},wins={},openSequence=0,reducedEffects=false}
+    return {owned={},equipped=table.clone(Catalog.defaults),favorites={},shards=0,receipts={},receiptOrder={},wins={},openSequence=0,reducedEffects=false,retirementSequence=0}
 end
 function Inventory.owns(data,id)
     local item=Catalog.byId[id]
@@ -13,6 +13,25 @@ function Inventory.validate(raw)
     if type(raw)~="table" or type(raw.owned)~="table" or type(raw.equipped)~="table"
         or type(raw.favorites)~="table" or not integer(raw.shards,1000000000) then return nil end
     local data=Inventory.new(); data.shards=raw.shards
+    if raw.retirementSequence~=nil and not integer(raw.retirementSequence,2^52) then return nil end
+    data.retirementSequence=raw.retirementSequence or 0
+    if raw.retirementNotice~=nil then
+        local notice=raw.retirementNotice
+        if type(notice)~="table" or not integer(notice.sequence,2^52) or notice.sequence<1
+            or notice.sequence~=data.retirementSequence or type(notice.items)~="table" or #notice.items<1 or #notice.items>1000
+            or not integer(notice.totalShards,2^52) then return nil end
+        local rows,total,seen={},0,{}
+        for index,row in notice.items do
+            if type(index)~="number" or index%1~=0 or index<1 or index>#notice.items or type(row)~="table"
+                or type(row.id)~="string" or #row.id>64 or seen[row.id]
+                or type(row.name)~="string" or #row.name>80 or type(row.rarity)~="string" or #row.rarity>32
+                or not integer(row.quantity,2^52) or row.quantity<1 or not integer(row.shards,2^52) then return nil end
+            seen[row.id]=true; total+=row.shards
+            table.insert(rows,{id=row.id,name=row.name,rarity=row.rarity,quantity=row.quantity,shards=row.shards})
+        end
+        if total~=notice.totalShards then return nil end
+        data.retirementNotice={sequence=notice.sequence,items=rows,totalShards=total}
+    end
     if raw.openSequence~=nil and not integer(raw.openSequence,2^52) then return nil end
     data.openSequence=raw.openSequence or 0
     data.reducedEffects=raw.reducedEffects==true
@@ -23,7 +42,8 @@ function Inventory.validate(raw)
     end
     for id,count in raw.owned do
         if type(id)~="string" or not integer(count,1000000) then return nil end
-        if Catalog.byId[id] and count>0 then data.owned[id]=count end
+        -- Preserve unknown IDs for saves written by a newer catalog/server.
+        if not Catalog.retired[id] and count>0 then data.owned[id]=count end
     end
     for category,id in raw.equipped do
         local item=Catalog.byId[id]
@@ -41,7 +61,43 @@ function Inventory.validate(raw)
             end
         end
     end
+    -- Reconciliation is pure and deterministic so UpdateAsync can retry safely.
+    -- Removed ownership and the credit/notice are saved in the same leased write.
+    local removals={}
+    for id,item in Catalog.retired do
+        local count=raw.owned[id] or 0
+        if count>0 then removals[id]=item.category=="crates" and count or 1 end
+    end
+    for category,id in raw.equipped do
+        local item=Catalog.retired[id]
+        if item and item.category==category and not removals[id] then removals[id]=1 end
+    end
+    if next(removals) then
+        if data.retirementSequence>=2^52 then return nil end
+        data.retirementSequence+=1
+        local notice=data.retirementNotice or {items={},totalShards=0}
+        notice.sequence=data.retirementSequence
+        local ids={}; for id in removals do table.insert(ids,id) end; table.sort(ids)
+        for _,id in ids do
+            local item=Catalog.retired[id]; local quantity=removals[id]
+            local credit=math.min(1000000000-data.shards,(Catalog.duplicateValues[item.rarity] or Catalog.duplicateValues.Common)*quantity)
+            data.shards+=credit; notice.totalShards+=credit
+            local entry
+            for _,row in notice.items do if row.id==id then entry=row; break end end
+            if entry then
+                entry.quantity+=quantity; entry.shards+=credit
+            else table.insert(notice.items,{id=id,name=item.name,rarity=item.rarity,quantity=quantity,shards=credit}) end
+        end
+        data.retirementNotice=notice
+    end
     return data
+end
+function Inventory.ackRetirements(data,sequence)
+    local notice=data.retirementNotice
+    if not notice and sequence==tostring(data.retirementSequence) then return true,nil,true end
+    if not notice or sequence~=tostring(notice.sequence) then return false,"The item notice changed. Please review the latest list." end
+    data.retirementNotice=nil
+    return true
 end
 function Inventory.equip(data,id)
     local item=Catalog.byId[id]
@@ -83,14 +139,7 @@ function Inventory.open(data,id,key,roll)
     if id=="crate_batch1" then
         selected=Catalog.rollBatch(roll)
     else
-        local total=0
-        for _,reward in crate.rewards do total+=reward.weight end
-        local value=math.clamp(roll,0,.999999999)*total
-        selected=crate.rewards[#crate.rewards].id
-        for _,reward in crate.rewards do
-            value-=reward.weight
-            if value<0 then selected=reward.id; break end
-        end
+        selected=Catalog.roll(crate,roll)
     end
     if sequence then data.openSequence=sequence end
     local item=Catalog.byId[selected]

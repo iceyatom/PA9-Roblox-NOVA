@@ -1,4 +1,4 @@
-"""Receive maps from the NOVA Level Editor plugin and write or delete them in src/shared/maps.
+"""Receive map and inventory exports from the NOVA Studio editor plugins.
 
 Run `python tools/map_bridge.py` and keep it open, then click "Export to repo" in the editor.
 It listens on 127.0.0.1 only, so nothing outside this PC can reach it.
@@ -16,6 +16,75 @@ NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 MAX_SOURCE = 256 * 1024
 # The game falls back to this map, so it can never be deleted.
 PROTECTED = {"SplitCircuit"}
+
+
+def inventory_source(data):
+    """Accept data only; never accept executable source from inventory requests."""
+    if not isinstance(data, dict) or set(data) != {"version", "items", "crates"} or data["version"] != 1:
+        raise ValueError("Invalid inventory edits format")
+    rarities = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Cosmic", "Chest"}
+    # Roblox JSONEncode represents an empty Lua table as an array.
+    for key in ("items", "crates"):
+        if data[key] == []:
+            data[key] = {}
+        if not isinstance(data[key], dict):
+            raise ValueError(f"Invalid {key} table")
+    for item_id, edit in data["items"].items():
+        check_id(item_id)
+        if edit == []:
+            edit = data["items"][item_id] = {}
+        if not isinstance(edit, dict) or set(edit) - {"name", "rarity", "deleted"}:
+            raise ValueError("Invalid item edit")
+        if "name" in edit and (not isinstance(edit["name"], str) or not edit["name"].strip()
+                               or len(edit["name"].encode("utf-8")) > 80 or any(ord(c) < 32 or ord(c) == 127 for c in edit["name"])):
+            raise ValueError("Invalid display name")
+        if "rarity" in edit and edit["rarity"] not in rarities:
+            raise ValueError("Invalid rarity")
+        if "deleted" in edit and not isinstance(edit["deleted"], bool):
+            raise ValueError("Invalid deletion flag")
+    for crate_id, rewards in data["crates"].items():
+        check_id(crate_id)
+        if not isinstance(rewards, list) or not rewards:
+            raise ValueError("Crates require rewards")
+        total, seen = 0, set()
+        for reward in rewards:
+            if not isinstance(reward, dict) or set(reward) != {"id", "weight"}:
+                raise ValueError("Invalid reward")
+            check_id(reward["id"])
+            weight = reward["weight"]
+            if isinstance(weight, bool) or not isinstance(weight, (int, float)) or not 0 < weight <= 100:
+                raise ValueError("Invalid reward percentage")
+            if reward["id"] in seen or data["items"].get(reward["id"], {}).get("deleted"):
+                raise ValueError("Deleted or duplicate reward")
+            seen.add(reward["id"])
+            total += weight
+        if abs(total - 100) > .0001:
+            raise ValueError("Crate percentages must total 100%")
+
+    def literal(value, indent=""):
+        if isinstance(value, str):
+            # Byte escapes are valid Luau, including Unicode and embedded quotes.
+            return '"' + ''.join(chr(b) if 32 <= b < 127 and b not in (34, 92) else f"\\{b:03d}"
+                                 for b in value.encode("utf-8")) + '"'
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, (int, float)):
+            return repr(value)
+        entries = enumerate(value, 1) if isinstance(value, list) else sorted(value.items())
+        lines = ["{"]
+        for key, entry in entries:
+            lines.append(f"{indent}    [{literal(key)}] = {literal(entry, indent + '    ')},")
+        return "\n".join(lines + [indent + "}"])
+    return "-- Data exported by the NOVA Item Editor. Stable item IDs remain unchanged.\nreturn " + literal(data) + "\n"
+
+
+def write_inventory(data):
+    source = inventory_source(data)
+    destination = ROOT / "src" / "shared" / "InventoryEdits.luau"
+    temporary = destination.with_suffix(".luau.tmp")
+    temporary.write_text(source, encoding="utf-8", newline="\n")
+    temporary.replace(destination)
+    return destination
 
 
 def check_id(map_id):
@@ -67,14 +136,17 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(404, {"ok": False, "error": "Not found"})
 
     def do_POST(self):
-        if self.path not in ("/maps", "/maps/delete"):
+        if self.path not in ("/maps", "/maps/delete", "/inventory"):
             return self.reply(404, {"ok": False, "error": "Not found"})
         try:
             length = int(self.headers.get("Content-Length", 0))
-            if length > MAX_SOURCE + 1024:
+            if length <= 0 or length > MAX_SOURCE + 1024:
                 raise ValueError("Request is too large")
             body = json.loads(self.rfile.read(length))
-            if self.path == "/maps/delete":
+            if self.path == "/inventory":
+                path = write_inventory(body)
+                print(f"Wrote {path.relative_to(ROOT)}")
+            elif self.path == "/maps/delete":
                 path = delete_map(body.get("id"))
                 if path is None:
                     return self.reply(200, {"ok": True, "path": None})
@@ -82,7 +154,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 path = write_map(body.get("id"), body.get("source"))
                 print(f"Wrote {path.relative_to(ROOT)}")
-        except (ValueError, json.JSONDecodeError) as error:
+        except (ValueError, TypeError, OSError, json.JSONDecodeError) as error:
             return self.reply(400, {"ok": False, "error": str(error)})
         self.reply(200, {"ok": True, "path": str(path.relative_to(ROOT)).replace("\\", "/")})
 
@@ -90,9 +162,9 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
-if __name__ == "__main__":
+def main(default_port=PORT):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--port", type=int, default=PORT)
+    parser.add_argument("--port", type=int, default=default_port)
     args = parser.parse_args()
     # Without this, Windows lets a second bridge share the port and silently split requests.
     ThreadingHTTPServer.allow_reuse_address = False
@@ -100,9 +172,13 @@ if __name__ == "__main__":
         server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     except OSError:
         raise SystemExit(f"Port {args.port} is busy. Another map bridge is probably running; close it first.")
-    print(f"NOVA map bridge on http://127.0.0.1:{args.port}  ->  {MAPS}")
-    print("Click 'Export to repo' in the Studio level editor. Ctrl+C stops the bridge.")
+    print(f"NOVA editor bridge on http://127.0.0.1:{args.port}  ->  {ROOT / 'src' / 'shared'}")
+    print("Click 'Export to repo' in the NOVA Level Editor or Item Editor. Ctrl+C stops the bridge.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
+
+
+if __name__ == "__main__":
+    main()

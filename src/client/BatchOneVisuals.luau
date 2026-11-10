@@ -1,9 +1,11 @@
 local Assets=require(game.ReplicatedStorage.NOVA.BatchOneAssets)
+local Skins=require(game.ReplicatedStorage.NOVA.SkinVisuals)
 local Visuals={}
 function Visuals.reduced()
     return game.Players.LocalPlayer:GetAttribute("ReducedEffects")==true
 end
 function Visuals.apply(label,item,kind,frame)
+    if item.category=="skins" and (kind==nil or kind=="skins" or kind=="body") then return Skins.apply(label,item) end
     local index=item.artIndex
     if item.id=="crate_batch1" then label.Image=Assets.chest; return true end
     if index==nil then return false end

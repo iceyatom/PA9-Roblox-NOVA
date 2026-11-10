@@ -76,6 +76,8 @@ Published servers use `NOVA_Inventory_v1` with atomic UpdateAsync writes and a p
 
 The six original transparent category/launcher sprites were made with the NOVA UI Sprites skill and built-in image generation. Sources, exact prompts, asset IDs, moderation results, and a dark-background review sheet are under `assets/inventory/`; runtime IDs are in `InventoryArt`. Crate animation uses native UI transforms and TweenService.
 
+Skin artwork is always the square combat body. `SkinVisuals` shares the same 128px atlas cells across duel/practice bodies, inventory cards (including locked items), focused previews, crate reels, reward stamps and the Item Editor. Classic and sample skins use solid squares in their catalog colors. The Skins tab also uses a square. Legacy chestplate mappings are removed; the original uploaded-asset records remain in the Batch 1 manifest as history. The artwork generator now uses the square body for skin exports too.
+
 ## Developer controls
 Studio-only diagnostics and automated tests are gated by RunService:IsStudio(). Balance defaults are in ReplicatedStorage/NOVA/Config. The map and tile catalog are adjacent modules. Production has no configuration remote.
 
@@ -119,14 +121,29 @@ Then open the map in the editor, Save it, and click **Export to repo**. The firs
 
 **Delete map** removes the open map from Studio and deletes `src/shared/maps/<MapName>.luau`. Click it twice within five seconds to confirm. The bridge must be running; the repo file is deleted first, so a failed request leaves both copies in place. Studio's Undo restores the Studio copy only; restore a committed repo copy with `git checkout -- src/shared/maps/<MapName>.luau`. If the map was active, the game returns to Split Circuit. Split Circuit cannot be deleted.
 
+## Item editor
+
+`plugin/NOVAItemEditor.lua` is a companion Studio plugin for managing existing cosmetics and crates. Copy it beside the Level Editor in `$LOCALAPPDATA/Roblox/Plugins/` and restart Studio. Open **Plugins → NOVA → Item Editor**.
+
+- Browse the same six type tabs as the inventory: Skins, Bullet Skins, Tracers, Backgrounds, Sound Effects and Crates. Large item cards show the existing inventory artwork, name and rarity; the selected item opens in the details panel. Text and inputs use 18–26px type, with 16px secondary metadata. Search names or stable IDs within the active type. IDs remain fixed so renaming preserves player ownership and equipment.
+- **Rarity: All → …** cycles the rarity filter, including Chest. It combines with the active type and search. Turn on **Multi-select**, click item cards or **Select visible**, then click **Delete selected** twice within five seconds. Selections span types and filters; the editor reports hidden selections. **Clear selection** resets them. Bulk deletion is one undoable change, protects required items, and rejects the whole operation if it would empty a crate.
+- In **Sound Effects**, select an item and use **Play sound preview** beneath its artwork. The same button stops playback or cancels loading. Previews use the inventory's clip and pitch settings, stop when switching items or closing the editor, and work in Studio Edit mode. The silent default is labeled **Silent / no sound**.
+- **Delete item** requires two clicks within five seconds. It removes the definition from the runtime catalog and all crate pools when saved. Defaults and the duel reward chest are protected. Use **Show deleted → Restore item** to restore a definition, or **Undo / Redo** before saving.
+- After deploying the saved catalog, players receive duplicate-value Shards for retired items on their next profile load. Owned/equipped cosmetics refund once; stacked crates refund per remaining copy. Equipped items fall back to defaults and retired favorites are removed. The login notice lists removed names, quantities, per-item refunds and the total; **Got it** acknowledges it durably. Shards, item removal and the notice commit together in the leased inventory load, so load retries and repeated logins cannot pay twice. Rates are Common/Uncommon 10, Rare 25, Epic 60, Legendary 150 and Cosmic 500 (Chest uses 60). The existing wallet cap applies; the notice reports the amount actually credited. Restoring a definition does not re-grant compensated ownership. Studio previews use session data only.
+- Select a crate to include/exclude cosmetics, enter each item's percentage, or set rarity totals across included items. The contents list groups rewards by type and shows each item's icon. Excluded items have no chance of being drawn. **Normalize chances to 100%** rescales the included percentages proportionally. Saving rejects empty crates, invalid rewards and configured totals other than 100%. Deleting an item removes it from every pool and rescales the remainder.
+- **Check changes** validates all edits. **Save to place** writes `ReplicatedStorage.NOVA.InventoryEdits` with Studio Undo support. Start a new Play session to load the updated catalog. Save the place normally to keep changes between Studio sessions. Reload refuses to discard staged changes until clicked twice, and Save detects changes made outside the editor.
+- For repository persistence, run `python tools/item_bridge.py`, then click **Export to repo** after saving. It listens only on this PC at port 34873 and writes only data to `src/shared/InventoryEdits.luau`. The first export may ask you to allow localhost access. The Level Editor's bridge stays on port 34872. Run `python tools/build.py` for an updated generated place.
+
+Both the client and the server read the edited catalog. Crate details calculate the current odds, including the duel reward chest. An unedited Batch 1 chest retains its original rarity/set/category draw; customized contents use the configured item chances. Renaming or changing rarity alone preserves existing per-item probabilities. Cosmetic art and effect metadata remain intact. This editor changes catalog definitions; it does not grant items or edit live player profiles.
+
 ## Source-to-Studio mapping
 
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
-| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, ProgressionInfo, ProgressionArt, PrestigeRevealArt, XPRewards, RankIcons, InventoryCatalog, Inventory and InventoryArt |
+| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, ProgressionInfo, ProgressionArt, PrestigeRevealArt, XPRewards, RankIcons, InventoryCatalog, Inventory, InventoryEdits, InventoryEditorModel, SkinVisuals and InventoryArt |
 | `src/shared/maps` | `ReplicatedStorage.NOVA.Maps` | Map data modules for all five arenas |
 | `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences, ProgressionService, ProgressionStore, InventoryService, InventoryStore and StudioTest |
-| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, ProgressionMenu, PrestigeReveal, XPRecap, RankIcon, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu, InventoryMenu, InventoryPreview, InventoryStyle, CrateReveal, ItemUnlock, ReelAudio and Diagnostics |
+| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, ProgressionMenu, PrestigeReveal, XPRecap, RankIcon, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu, InventoryMenu, InventoryRetirementNotice, InventoryPreview, InventoryStyle, CrateReveal, ItemUnlock, ReelAudio and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |
 
