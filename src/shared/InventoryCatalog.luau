@@ -77,6 +77,13 @@ if prismAssets.skin~="" and prismAssets.bullet~="" and prismAssets.background~="
         add(item.id,item.category,item.name,item.rarity,item.color,false,item)
     end
 end
+local dragonAssets=require(script.Parent.DragonforgeAssets)
+if dragonAssets.skin~="" and dragonAssets.bullet~="" then
+    for _,item in require(script.Parent.DragonforgePack) do
+        if item.category=="backgrounds" and (not dragonAssets.background or dragonAssets.background=="") then continue end
+        add(item.id,item.category,item.name,item.rarity,item.color,false,item)
+    end
+end
 Catalog.editorBase=EditorModel.copy({items=Catalog.items,byId=Catalog.byId,defaults=Catalog.defaults,
     rarities=Catalog.rarities,categories=Catalog.categories})
 local edits=require(script.Parent.InventoryEdits)

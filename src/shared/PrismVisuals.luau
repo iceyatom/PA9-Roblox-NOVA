@@ -4,9 +4,11 @@ local Run=game:GetService("RunService")
 local Players=game:GetService("Players")
 local Assets=require(script.Parent.PrismAssets)
 local Content=game:GetService("ContentProvider")
+local Dragon=require(script.Parent.DragonforgeVisuals)
 local V={}
 local preloaded={}
 function V.preload(item)
+    Dragon.preload(item)
     if not item or item.visual~="prism_veil" then return end
     local id=item.category=="skins" and Assets.skin or item.category=="bullets" and Assets.bullet or item.category=="backgrounds" and Assets.background
     if not id or id=="" or preloaded[id] then return end
@@ -126,6 +128,7 @@ local function start()
     end)
 end
 function V.clear(root)
+    Dragon.clear(root)
     if not root:GetAttribute("PrismVeil") then return end
     local old=entries[root]
     if old and old.destroyConnection then old.destroyConnection:Disconnect() end
@@ -136,6 +139,10 @@ function V.clear(root)
     root:SetAttribute("PrismVeil",nil)
 end
 function V.apply(root,item,kind)
+    if type(item)=="table" and item.visual=="dragonforge" then
+        if root:GetAttribute("PrismVeil") then V.clear(root) end
+        return Dragon.apply(root,item)
+    end
     if item.visual~="prism_veil" then return false end
     kind=kind or item.category
     if root:GetAttribute("PrismVeil")==kind then return true end

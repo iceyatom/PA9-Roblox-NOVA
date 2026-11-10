@@ -32,8 +32,10 @@ function Focus:show(item,equipped,owned)
     name.TextScaled=true
     local limit=Instance.new("UITextSizeConstraint"); limit.MaxTextSize=28; limit.MinTextSize=14; limit.Parent=name
     W.text(panel,"Ownership",24,65,620,24,(owned and "Unlocked" or "Locked").."  /  "..item.rarity..(item.setName and "  /  "..item.setName or ""),16,W.colors.muted)
-    Preview.icon(panel,item,24,110,224)
-    local context=W.box(panel,"Context",264,110,392,224,W.colors.ink)
+    local trailPreview=item.category=="tracers"
+    if not trailPreview then Preview.icon(panel,item,24,110,224) end
+    local context=W.box(panel,"Context",trailPreview and 24 or 264,110,trailPreview and 632 or 392,224,W.colors.ink)
+    context.ClipsDescendants=true
     Style.round(context,10)
     Preview.draw(context,item,equipped,true)
     local description=W.text(panel,"Description",24,356,632,88,item.description,19,W.colors.white)

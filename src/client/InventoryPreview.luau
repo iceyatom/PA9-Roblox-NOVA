@@ -57,12 +57,20 @@ function Preview.draw(parent,item,equipped,focused)
         local body=W.box(parent,"BodyPreview",w/2-(focused and 62 or 25),h/2-(focused and 62 or 25),focused and 124 or 50,focused and 124 or 50,color)
         Batch.overlay(body,item,"skins")
     elseif item.category=="bullets" or item.category=="tracers" then
-        local bullet=Catalog.get(equipped,"bullets")
         local tracer=item.category=="tracers" and item or Catalog.get(equipped,"tracers")
-        local line=W.box(parent,"TracerPreview",w/2-95,h/2-3,90,6,Preview.color(tracer)); line.Visible=(tracer.length or 0)>0
-        local core=W.box(parent,"BulletPreview",w/2-(focused and 20 or 8),h/2-(focused and 20 or 8),focused and 40 or 16,focused and 40 or 16,item.category=="bullets" and color or Preview.color(bullet)); W.round(core)
-        Batch.overlay(core,item.category=="bullets" and item or bullet,"bullets")
-        if (tracer.setId or tracer.visual=="prism_veil") and not Batch.reduced() then line.BackgroundTransparency=1;Batch.overlay(line,tracer,"wakes") end
+        local diameter=focused and 40 or 16
+        local hasTrail=(tracer.length or 0)>0
+        local length=hasTrail and math.min(focused and 300 or 90,w*.58) or 0
+        local tracerOnly=item.category=="tracers"
+        -- Tracer previews show just the centered effect, without a projectile.
+        local headX=tracerOnly and (w+length)/2 or hasTrail and (w+length-diameter/2)/2 or w/2
+        local thickness=focused and 24 or 6
+        local line=W.box(parent,"TracerPreview",headX-length,h/2-thickness/2,length,thickness,Preview.color(tracer),1); line.Visible=hasTrail
+        if not tracerOnly then
+            local core=W.box(parent,"BulletPreview",headX-diameter/2,h/2-diameter/2,diameter,diameter,color,3); W.round(core)
+            Batch.overlay(core,item,"bullets")
+        end
+        if (tracer.setId or (tracer.visual=="prism_veil" or tracer.visual=="dragonforge")) and not Batch.reduced() then line.BackgroundTransparency=1;Batch.overlay(line,tracer,"wakes") end
     elseif item.category=="backgrounds" then
         local card=W.box(parent,"PlayerCardPreview",20,h/2-40,w-40,80,color)
         card.BackgroundColor3=Color3.new(1,1,1)

@@ -173,7 +173,7 @@ function Arena:update(snap,time)
             core.Name="Core"; core.Position=UDim2.fromOffset(diameter*.8,diameter*.8)
             core.Size=UDim2.fromOffset(diameter,diameter); core.BackgroundColor3=Preview.color(bullet)
             core.BorderSizePixel=0; core.ZIndex=5
-            if bullet.setId or bullet.visual=="prism_veil" then
+            if bullet.setId or (bullet.visual=="prism_veil" or bullet.visual=="dragonforge") then
                 Batch.apply(core,bullet,"bullets")
                 if bullet.setId then
                     core.ImageRectOffset+=Vector2.new(35,35); core.ImageRectSize=Vector2.new(186,186)
@@ -238,7 +238,7 @@ function Arena:draw(time,dt)
             active+=1
             local length=math.min(shot.tailLength*(simple and .65 or 1),(shot.draw-shot.origin).Magnitude)
             local mid=shot.draw-shot.direction*length/2
-            local dynamic=shot.tracer.visual=="prism_veil"
+            local dynamic=(shot.tracer.visual=="prism_veil" or shot.tracer.visual=="dragonforge")
             local animated=dynamic or not simple and shot.tracer.setId~=nil
             shot.tail.Visible=length>0 and active<=(simple and 64 or 128)
             shot.tail.Position=UDim2.fromOffset(mid.X*self.unit,mid.Y*self.unit)
