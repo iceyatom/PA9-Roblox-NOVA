@@ -9,9 +9,11 @@ local Rift=require(script.Parent.RiftglassVisuals)
 local Cipher=require(script.Parent.CipherVisuals)
 local Supernova=require(script.Parent.SupernovaVisuals)
 local Starfade=require(script.Parent.StarfadeVisuals)
+local Armory=require(script.Parent.ArmoryVisuals)
 local V={}
 local preloaded={}
 function V.preload(item)
+    Armory.preload(item)
     Starfade.preload(item)
     Supernova.preload(item)
     Cipher.preload(item)
@@ -136,6 +138,7 @@ local function start()
     end)
 end
 function V.clear(root)
+    Armory.clear(root)
     Starfade.clear(root)
     Supernova.clear(root)
     Cipher.clear(root)
@@ -151,6 +154,11 @@ function V.clear(root)
     root:SetAttribute("PrismVeil",nil)
 end
 function V.apply(root,item,kind)
+    if type(item)=="table" and item.visual=="armory" then
+        if root:GetAttribute("PrismVeil") or root:GetAttribute("Dragonforge") or root:GetAttribute("Riftglass") or root:GetAttribute("Cipher") or root:GetAttribute("Supernova") or root:GetAttribute("Starfade") then V.clear(root) end
+        return Armory.apply(root,item)
+    end
+    if root:GetAttribute("Armory") then Armory.clear(root) end
     if type(item)=="table" and item.visual=="starfade" then
         if root:GetAttribute("PrismVeil") or root:GetAttribute("Dragonforge") or root:GetAttribute("Riftglass") or root:GetAttribute("Cipher") or root:GetAttribute("Supernova") then V.clear(root) end
         return Starfade.apply(root,item)

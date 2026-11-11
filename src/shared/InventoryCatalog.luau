@@ -102,6 +102,13 @@ local starAssets=require(script.Parent.StarfadeAssets)
 if starAssets.skin~="" and starAssets.bullet~="" and starAssets.background~="" and starAssets.star~="" then
     for _,item in require(script.Parent.StarfadePack) do add(item.id,item.category,item.name,item.rarity,item.color,false,item) end
 end
+local armoryAssets=require(script.Parent.ArmoryAssets)
+if armoryAssets.halo~="" then
+    for _,item in require(script.Parent.ArmoryPack) do
+        local set=armoryAssets[item.theme]
+        if set and set.skin~="" and set.bullet~="" and set.background~="" and set.sprite~="" then add(item.id,item.category,item.name,item.rarity,item.color,false,item) end
+    end
+end
 Catalog.editorBase=EditorModel.copy({items=Catalog.items,byId=Catalog.byId,defaults=Catalog.defaults,
     rarities=Catalog.rarities,categories=Catalog.categories})
 local edits=require(script.Parent.InventoryEdits)

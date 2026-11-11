@@ -3,6 +3,7 @@ local Run=game:GetService("RunService")
 local Players=game:GetService("Players")
 local Content=game:GetService("ContentProvider")
 local Assets=require(script.Parent.RiftglassAssets)
+local Radiance=require(script.Parent.CosmeticRadiance)
 local V={};local entries={};local connection;local preloaded={}
 local colors={Color3.fromHex("b389ff"),Color3.fromHex("7764b0"),Color3.fromHex("ded5ff")}
 local white=Color3.fromHex("ecf7ff")
@@ -114,7 +115,9 @@ local function start()
         for root,e in entries do
             if visible(root) then
                 if e.kind=="tracers" then count+=1 end
-                update(e,t,reduced(root) or e.compact or e.kind=="tracers" and count>10)
+                local simple=reduced(root) or e.compact or e.kind=="tracers" and count>10
+                update(e,t,simple)
+                Radiance.update(e.radiance,t,simple)
             end
         end
         if not next(entries) then connection:Disconnect();connection=nil end
@@ -123,6 +126,7 @@ end
 function V.clear(root)
     if not root:GetAttribute("Riftglass") then return end
     local e=entries[root];if e and e.destroyConnection then e.destroyConnection:Disconnect() end
+    Radiance.clear(e and e.radiance)
     entries[root]=nil
     for _,name in {"RiftglassEffects","RiftglassSweep"} do local old=root:FindFirstChild(name);if old then old:Destroy() end end
     root:SetAttribute("Riftglass",nil)
@@ -162,6 +166,7 @@ function V.apply(root,item)
         end
     end
     entries[root]=e;e.destroyConnection=root.Destroying:Once(function()entries[root]=nil end)
-    update(e,os.clock(),reduced(root) or e.compact);start();return true
+    e.radiance=Radiance.new(root,e,"riftglass")
+    update(e,os.clock(),reduced(root) or e.compact);Radiance.update(e.radiance,os.clock(),reduced(root) or e.compact);start();return true
 end
 return V

@@ -3,6 +3,7 @@ local Run=game:GetService("RunService")
 local Players=game:GetService("Players")
 local Content=game:GetService("ContentProvider")
 local Assets=require(script.Parent.DragonforgeAssets)
+local Radiance=require(script.Parent.CosmeticRadiance)
 local V={};local entries={};local connection;local preloaded={}
 local colors={Color3.fromHex("ff3044"),Color3.fromHex("368fff"),Color3.fromHex("ffc900")}
 local white=Color3.fromHex("ecf7ff")
@@ -145,6 +146,7 @@ local function start()
                 local simple=reduced(root) or e.compact
                 if e.kind=="tracers" then trails+=1;simple=simple or trails>10 end
                 update(e,t,simple)
+                Radiance.update(e.radiance,t,simple)
             end
         end
         if not next(entries) then connection:Disconnect();connection=nil end
@@ -153,6 +155,7 @@ end
 function V.clear(root)
     if not root:GetAttribute("Dragonforge") then return end
     local e=entries[root];if e and e.destroyConnection then e.destroyConnection:Disconnect() end
+    Radiance.clear(e and e.radiance)
     entries[root]=nil
     local old=root:FindFirstChild("DragonforgeEffects");if old then old:Destroy() end
     local sweep=root:FindFirstChild("DragonforgeSweep");if sweep then sweep:Destroy() end
@@ -210,6 +213,7 @@ function V.apply(root,item)
         end
     end
     entries[root]=e;e.destroyConnection=root.Destroying:Once(function() entries[root]=nil end)
-    update(e,os.clock(),reduced(root) or e.compact);start();return true
+    e.radiance=Radiance.new(root,e,"dragonforge")
+    update(e,os.clock(),reduced(root) or e.compact);Radiance.update(e.radiance,os.clock(),reduced(root) or e.compact);start();return true
 end
 return V
