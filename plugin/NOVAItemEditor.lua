@@ -48,7 +48,7 @@ local undo=button(actions,"Undo","Undo",76)
 local redo=button(actions,"Redo","Redo",76)
 for i,b in {save,export,reload,check,undo,redo} do b.LayoutOrder=i end
 local tabs=make("Frame",{Name="TypeTabs",Position=UDim2.fromOffset(16,104),Size=UDim2.new(1,-32,0,60),BackgroundTransparency=1},root)
-make("UIGridLayout",{CellSize=UDim2.new(1/6,-7,1,0),CellPadding=UDim2.fromOffset(8,0),SortOrder=Enum.SortOrder.LayoutOrder},tabs)
+make("UIGridLayout",{CellSize=UDim2.new(1/7,-7,1,0),CellPadding=UDim2.fromOffset(8,0),SortOrder=Enum.SortOrder.LayoutOrder},tabs)
 local search=field(root,"Search",""); search.Position=UDim2.fromOffset(16,176); search.Size=UDim2.new(.52,-24,0,40); search.PlaceholderText="Search this type by name or ID"
 local rarityFilter=button(root,"RarityFilter","Rarity: All   ›"); rarityFilter.Position=UDim2.new(.52,8,0,176); rarityFilter.Size=UDim2.new(.24,-16,0,40)
 local deleted=button(root,"Deleted","Show deleted: off"); deleted.Position=UDim2.new(.76,0,0,176); deleted.Size=UDim2.new(.24,-16,0,40)
@@ -59,6 +59,7 @@ local selectVisible=button(bulkBar,"SelectVisible","Select visible",156); select
 local clearSelection=button(bulkBar,"ClearSelection","Clear selection",168); clearSelection.LayoutOrder=3
 local deleteSelected=button(bulkBar,"DeleteSelected","Delete selected (0)",230); deleteSelected.LayoutOrder=4; deleteSelected.TextColor3=C.red
 local selectionCount=label(bulkBar,"Count","",28); selectionCount.Size=UDim2.fromOffset(200,40); selectionCount.LayoutOrder=5; selectionCount.TextSize=16
+local newCollection=button(bulkBar,"NewCollection","New collection",184); newCollection.LayoutOrder=1; newCollection.Visible=false
 local browser=make("Frame",{Name="Browser",Position=UDim2.fromOffset(16,284),Size=UDim2.new(.52,-24,1,-340),BackgroundColor3=C.panel,BorderSizePixel=0},root)
 local groupTitle=label(browser,"GroupTitle","Skins"); groupTitle.Position=UDim2.fromOffset(12,6); groupTitle.Size=UDim2.new(1,-24,0,32); groupTitle.TextColor3=C.white; groupTitle.TextSize=22; groupTitle.Font=Enum.Font.GothamBold
 local list=make("ScrollingFrame",{Name="Items",Position=UDim2.fromOffset(12,46),Size=UDim2.new(1,-24,1,-58),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=6,ScrollBarImageColor3=C.purple,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollingDirection=Enum.ScrollingDirection.Y},browser)
@@ -72,9 +73,10 @@ list:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutGrid)
 local detail=stack(root,"Details"); detail.Position=UDim2.new(.52,8,0,284); detail.Size=UDim2.new(.48,-24,1,-340)
 local statusLabel=label(root,"Status","Open this editor in a NOVA place.",44); statusLabel.Position=UDim2.new(0,16,1,-48); statusLabel.Size=UDim2.new(1,-32,0,44)
 local function status(text,error) statusLabel.Text=text; statusLabel.TextColor3=error and C.red or C.muted end
-local S={dirty=false,selected=nil,filter=1,rarity=0,showDeleted=false,undo={},redo={},multi=false,selectedIds={}}
+local S={dirty=false,selected=nil,filter=1,rarity=0,showDeleted=false,undo={},redo={},multi=false,selectedIds={},collections=false,selectedCollection=nil,collectionMode="members"}
 local base,model,edits,module,loadedSource,art,assets,rarityColors,skinVisuals,prismVisuals
 local renderList,renderDetail
+local renderCollections,renderCollectionDetail
 -- Share the square combat skins; other item types use inventory sprite cells.
 local function itemIcon(parent,item,x,y,size)
     local image=make("ImageLabel",{Name="Sprite",Position=UDim2.fromOffset(x,y),Size=UDim2.fromOffset(size,size),BackgroundTransparency=1,ScaleType=Enum.ScaleType.Fit,Image=art and art[type(item)=="table" and item.category or item] or ""},parent)
@@ -159,6 +161,14 @@ local function push()
     table.insert(S.undo,model.copy(edits)); if #S.undo>60 then table.remove(S.undo,1) end; S.redo={}; dirty()
 end
 local function itemEdit(id) edits.items[id]=edits.items[id] or {}; return edits.items[id] end
+local function cycleRarity(item)
+    if isDeleted(item.id) then status("Restore this item before changing its rarity.",true);return end
+    local options=table.clone(base.rarities)
+    if item.category=="crates" then table.insert(options,"Chest") end
+    local index=table.find(options,rarity(item)) or 0
+    push();itemEdit(item.id).rarity=options[index%#options+1]
+    renderList();renderDetail()
+end
 local function rewardsFor(crate)
     local result={}; local total=0
     for _,r in edits.crates[crate.id] or crate.rewards do
@@ -197,16 +207,141 @@ end
 local function updateCrate(id,fn)
     local rewards=rewardsFor(base.byId[id]); push(); fn(rewards); edits.crates[id]=rewards; renderDetail()
 end
+local function collectionData()
+    local groups,byId,unassigned=model.collectionGroups(base,edits,S.showDeleted)
+    local group={id="__unassigned",name="Unassigned items",items=unassigned,unassigned=true}
+    table.insert(groups,group);byId[group.id]=group
+    return groups,byId
+end
+local function updateCollections(fn,message)
+    local candidate=model.copy(edits);candidate.collections=candidate.collections or {}
+    fn(candidate)
+    local ok,err=model.validate(candidate,base)
+    if not ok then status(err,true);return false end
+    push();edits=candidate;renderList();renderDetail();status(message or "Collection changes staged. Save to place to keep them.");return true
+end
+local function assignCollection(id,collectionId)
+    return updateCollections(function(candidate)
+        candidate.items[id]=candidate.items[id] or {};candidate.items[id].collectionId=collectionId
+    end)
+end
+renderCollections=function()
+    local groups=collectionData();local count=0;local query=search.Text:lower()
+    for _,group in groups do
+        local found=group.name:lower():find(query,1,true)~=nil
+        local tier=S.rarity==0
+        for _,item in group.items do
+            found=found or (name(item).." "..item.id):lower():find(query,1,true)~=nil
+            tier=tier or rarity(item)==(S.rarity==7 and "Chest" or base.rarities[S.rarity])
+        end
+        if found and tier then
+            count+=1
+            local b=button(list,"Collection_"..group.id,"");b.LayoutOrder=count;b.BackgroundColor3=C.ink
+            make("UIStroke",{Color=S.selectedCollection==group.id and C.purple or C.line,Thickness=S.selectedCollection==group.id and 2 or 1},b)
+            for i=1,math.min(4,#group.items) do itemIcon(b,group.items[i],12+(i-1)%2*48,8+math.floor((i-1)/2)*44,40) end
+            local n=label(b,"Count",#group.items.." items");n.Position=UDim2.new(0,108,0,14);n.Size=UDim2.new(1,-116,0,60);n.TextSize=16
+            local caption=label(b,"Name",group.name,70);caption.Position=UDim2.fromOffset(12,100);caption.Size=UDim2.new(1,-24,0,70);caption.TextColor3=C.white;caption.Font=Enum.Font.GothamBold
+            b.Activated:Connect(function()S.selectedCollection=group.id;S.collectionMode="members";S.collectionQuery="";S.armed=nil;detail.CanvasPosition=Vector2.zero;renderList();renderDetail()end)
+        end
+    end
+    groupTitle.Text="Collections  ·  "..count.." groups";layoutGrid()
+    if count==0 then label(list,"Empty","No matching collections. Create one with New collection.",80) end
+end
+renderCollectionDetail=function()
+    local _,byId=collectionData();local group=byId[S.selectedCollection]
+    local order=0
+    local function add(o)order+=1;o.LayoutOrder=order;return o end
+    if not group then
+        add(label(detail,"CreateTitle","CREATE COLLECTION",36)).TextColor3=C.purple
+        add(label(detail,"CreateHelp","Create a collection, then add individual items from any type. Existing themed sets are grouped automatically.",84))
+        local input=add(field(detail,"CollectionName",""));input.PlaceholderText="Collection name"
+        local create=add(button(detail,"CreateCollection","Create collection"))
+        create.Activated:Connect(function()
+            local value=input.Text:match("^%s*(.-)%s*$");local id="collection_"..Http:GenerateGUID(false):gsub("-","")
+            local previous=S.selectedCollection;S.selectedCollection=id;S.collectionMode="add";S.collectionQuery=""
+            if not updateCollections(function(candidate)candidate.collections[id]={name=value}end,"Collection created. Choose items below, then Save to place.") then S.selectedCollection=previous end
+        end)
+        return
+    end
+    add(label(detail,"CollectionTitle",group.name,48)).TextColor3=C.white
+    add(label(detail,"CollectionCount",#group.items.." items across all types",32))
+    if not group.unassigned then
+        local input=add(field(detail,"RenameCollection",group.name))
+        input.FocusLost:Connect(function()
+            local value=input.Text:match("^%s*(.-)%s*$");if value==group.name then return end
+            if not updateCollections(function(candidate)
+                candidate.collections[group.id]=candidate.collections[group.id] or {};candidate.collections[group.id].name=value
+            end) then input.Text=group.name end
+        end)
+        local mode=add(button(detail,"CollectionMode",S.collectionMode=="add" and "Show members" or "Add / move individual items"))
+        mode.Activated:Connect(function()S.collectionMode=S.collectionMode=="add" and "members" or "add";S.collectionQuery="";renderDetail()end)
+        add(label(detail,"CollectionHelp",S.collectionMode=="add" and "Add unassigned items or move items from another collection. Item IDs, crate chances and artwork stay the same." or "Remove items to leave them unassigned, or open an item to edit its details.",76))
+    else
+        add(label(detail,"CollectionHelp","These items are not in a collection. Create or select a collection, then choose Add / move individual items.",76))
+    end
+    local query=add(field(detail,"CollectionItemSearch",S.collectionQuery or ""));query.PlaceholderText="Search items by name, ID, type or rarity"
+    local rows=add(make("Frame",{Name="CollectionItems",Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},detail))
+    make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},rows)
+    local function drawRows()
+        clear(rows);local count=0;local definitions=model.collectionDefinitions(base,edits)
+        local candidates=table.clone((not group.unassigned and S.collectionMode=="add") and base.items or group.items)
+        table.sort(candidates,function(a,b)if a.category~=b.category then return a.category<b.category end;return name(a)<name(b)end)
+        for _,item in candidates do
+            local assigned=model.collectionFor(item,edits,definitions)
+            local adding=not group.unassigned and S.collectionMode=="add"
+            if (not adding or assigned~=group.id) and not (adding and isDeleted(item.id))
+                and (name(item).." "..item.id.." "..item.category.." "..rarity(item)):lower():find((S.collectionQuery or ""):lower(),1,true) then
+                count+=1;local row=make("Frame",{Name=item.id,LayoutOrder=count,Size=UDim2.new(1,0,0,136),BackgroundColor3=C.ink,BorderSizePixel=0},rows)
+                itemIcon(row,item,6,12,56)
+                local title=label(row,"Name",name(item),42);title.Position=UDim2.fromOffset(72,4);title.Size=UDim2.new(1,-190,0,42);title.TextColor3=C.white;title.TextSize=17
+                local from=assigned and definitions[assigned].name or "Unassigned"
+                local sub=label(row,"Type",item.category.." / "..rarity(item)..(adding and (" / "..from) or ""),42);sub.Position=UDim2.fromOffset(72,46);sub.Size=UDim2.new(1,-190,0,42);sub.TextSize=14
+                local tier=button(row,"ItemRarity","Rarity: "..rarity(item).."   ›");tier.Position=UDim2.fromOffset(72,94);tier.Size=UDim2.new(1,-84,0,32);tier.TextSize=16
+                tier.TextColor3=isDeleted(item.id) and C.muted or rarityColor(item)
+                tier.Active=not isDeleted(item.id);tier.AutoButtonColor=tier.Active
+                tier.Activated:Connect(function()cycleRarity(item)end)
+                local action=button(row,"Membership",adding and (assigned and "Move here" or "Add") or "Edit item",104);action.Position=UDim2.new(1,-110,0,4);action.TextSize=15
+                action.Activated:Connect(function()
+                    if adding then assignCollection(item.id,group.id)
+                    else
+                        S.collections=false;S.selected=item.id
+                        for i,kind in base.categories do if kind.id==item.category then S.filter=i;break end end
+                        search.Text="";renderList();renderDetail()
+                    end
+                end)
+                if not adding and not group.unassigned then
+                    local remove=button(row,"RemoveMember","Remove",104);remove.Position=UDim2.new(1,-110,0,48);remove.TextSize=15
+                    remove.Activated:Connect(function()assignCollection(item.id,false)end)
+                end
+            end
+        end
+        if count==0 then label(rows,"Empty","No matching items. Use Add / move individual items to build this collection.",80) end
+    end
+    query:GetPropertyChangedSignal("Text"):Connect(function()S.collectionQuery=query.Text;drawRows()end);drawRows()
+    if not group.unassigned then
+        local dissolve=add(button(detail,"DissolveCollection","Remove collection / keep its items"));dissolve.TextColor3=C.red
+        dissolve.Activated:Connect(function()
+            if S.armed~="collection:"..group.id or os.clock()-(S.armedAt or 0)>5 then S.armed="collection:"..group.id;S.armedAt=os.clock();status("Click again within five seconds to remove this collection. Its items will remain available and become unassigned.",true);return end
+            updateCollections(function(candidate)
+                local definitions=model.collectionDefinitions(base,candidate)
+                for _,item in base.items do if model.collectionFor(item,candidate,definitions)==group.id then
+                    candidate.items[item.id]=candidate.items[item.id] or {};candidate.items[item.id].collectionId=false
+                end end
+                candidate.collections[group.id]=candidate.collections[group.id] or {};candidate.collections[group.id].deleted=true
+            end,"Collection removed; all items were kept. Save to place to keep this change.")
+        end)
+    end
+end
 renderList=function()
     clear(list); if not base then return end
     clear(tabs)
     for index,kind in base.categories do
         local tab=button(tabs,"Tab_"..kind.id,""); tab.LayoutOrder=index
-        tab.BackgroundColor3=S.filter==index and Color3.fromHex("563098") or C.raised
+        tab.BackgroundColor3=not S.collections and S.filter==index and Color3.fromHex("563098") or C.raised
         itemIcon(tab,kind.id,8,12,36)
         local text=label(tab,"Label",kind.name); text.Position=UDim2.fromOffset(50,0); text.Size=UDim2.new(1,-54,1,0); text.TextColor3=C.white; text.Font=Enum.Font.GothamBold
         tab.Activated:Connect(function()
-            S.filter=index; S.armed=nil; list.CanvasPosition=Vector2.zero
+            S.collections=false;S.filter=index; S.armed=nil; list.CanvasPosition=Vector2.zero
             local selected=base.byId[S.selected]
             if not selected or selected.category~=kind.id then
                 S.selected=nil
@@ -215,6 +350,16 @@ renderList=function()
             detail.CanvasPosition=Vector2.zero; renderList(); renderDetail()
         end)
     end
+    local collectionTab=button(tabs,"Tab_collections","Collections");collectionTab.LayoutOrder=#base.categories+1;collectionTab.TextSize=17
+    collectionTab.BackgroundColor3=S.collections and Color3.fromHex("563098") or C.raised
+    collectionTab.Activated:Connect(function()S.collections=true;S.armed=nil;list.CanvasPosition=Vector2.zero;search.Text="";detail.CanvasPosition=Vector2.zero;renderList();renderDetail()end)
+    newCollection.Visible=S.collections;multiSelect.Visible=not S.collections
+    search.PlaceholderText=S.collections and "Search collections or their items" or "Search this type by name or ID"
+    if S.collections then
+        for _,control in {selectVisible,clearSelection,deleteSelected,selectionCount} do control.Visible=false end
+        renderCollections();return
+    end
+    selectionCount.Visible=true
     local selectedCount,hiddenCount=0,0
     for id in S.selectedIds do
         local item=base.byId[id]
@@ -250,6 +395,7 @@ end
 renderDetail=function()
     stopSoundPreview()
     clear(detail)
+    if S.collections and base then renderCollectionDetail();return end
     local item=base and base.byId[S.selected]; if not item then label(detail,"Empty","Select an item card to edit it."); return end
     local order=0
     local function add(object) order+=1; object.LayoutOrder=order; return object end
@@ -280,11 +426,11 @@ renderDetail=function()
         if value~=name(item) then push(); itemEdit(item.id).name=value; heading.Text=value; renderList() end
     end)
     local rarityButton=add(button(detail,"Rarity","Rarity: "..rarity(item).."   ›"))
-    rarityButton.Activated:Connect(function()
-        local options=table.clone(base.rarities); if item.category=="crates" then table.insert(options,"Chest") end
-        local index=table.find(options,rarity(item)) or 0
-        push(); itemEdit(item.id).rarity=options[index%#options+1]; renderList(); renderDetail()
-    end)
+    rarityButton.Activated:Connect(function()cycleRarity(item)end)
+    local definitions=model.collectionDefinitions(base,edits);local collectionId=model.collectionFor(item,edits,definitions)
+    local collection=add(button(detail,"ItemCollection","Collection: "..(collectionId and definitions[collectionId].name or "Unassigned").."   ›"))
+    collection.TextTruncate=Enum.TextTruncate.AtEnd
+    collection.Activated:Connect(function()S.collections=true;S.selectedCollection=collectionId or "__unassigned";S.collectionMode="members";search.Text="";renderList();renderDetail()end)
     if item.rewards then
         add(label(detail,"PoolHeading","CRATE CONTENTS / ITEM CHANCES",52)).TextColor3=C.purple
         add(label(detail,"PoolHelp","Include items and edit their %. Normalize scales chances to 100%. Save, then start a new Play session to use changes.",76))
@@ -378,7 +524,7 @@ local function load()
     end)
     copy:Destroy()
     if not ok then status("Cannot load inventory: "..tostring(result),true); return end
-    base,model,edits=result[1],result[2],result[3]; edits=model.copy(edits)
+    base,model,edits=result[1],result[2],result[3]; edits=model.copy(edits);edits.collections=edits.collections or {}
     art,assets,rarityColors=result[4],result[5],result[6]
     skinVisuals=result[7]
     prismVisuals=result[8]
@@ -392,7 +538,7 @@ end
 local function validate()
     if not model then status("Load a NOVA place first.",true); return false end
     local ok,message=model.validate(edits,base); if not ok then status(message,true); return false end
-    status("Valid: every available crate has rewards and configured percentages total 100%."); return true
+    status("Valid: collection membership and crate percentages are consistent."); return true
 end
 local function serialize(value,indent)
     if type(value)=="string" then return string.format("%q",value) end
@@ -433,7 +579,7 @@ check.Activated:Connect(validate)
 undo.Activated:Connect(function() if not model then return end; local previous=table.remove(S.undo); if previous then table.insert(S.redo,model.copy(edits)); edits=previous; dirty(); renderList(); renderDetail() end end)
 redo.Activated:Connect(function() if not model then return end; local nextEdit=table.remove(S.redo); if nextEdit then table.insert(S.undo,model.copy(edits)); edits=nextEdit; dirty(); renderList(); renderDetail() end end)
 search:GetPropertyChangedSignal("Text"):Connect(renderList)
-deleted.Activated:Connect(function() S.showDeleted=not S.showDeleted; deleted.Text="Show deleted: "..(S.showDeleted and "on" or "off"); renderList() end)
+deleted.Activated:Connect(function() S.showDeleted=not S.showDeleted; deleted.Text="Show deleted: "..(S.showDeleted and "on" or "off"); renderList();if S.collections then renderDetail() end end)
 rarityFilter.Activated:Connect(function()
     if not base then return end
     S.rarity=(S.rarity+1)%8; S.armed=nil; list.CanvasPosition=Vector2.zero
@@ -462,6 +608,7 @@ deleteSelected.Activated:Connect(function()
     stageDelete(S.selectedIds)
 end)
 toggle.Click:Connect(function() widget.Enabled=not widget.Enabled end)
+newCollection.Activated:Connect(function()S.selectedCollection=nil;S.collectionMode="members";S.armed=nil;detail.CanvasPosition=Vector2.zero;renderDetail()end)
 widget:GetPropertyChangedSignal("Enabled"):Connect(function()
     toggle:SetActive(widget.Enabled)
     if not widget.Enabled then stopSoundPreview() elseif not base then load() end

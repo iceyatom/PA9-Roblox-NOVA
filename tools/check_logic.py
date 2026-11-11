@@ -60,7 +60,7 @@ math.randomseed(1234)
 '''
 
 
-def run(executable):
+def run(executable, stock_inventory=False):
     sources = []
     for folder, parent in (("src/shared", "game.ReplicatedStorage.NOVA"),
                            ("src/shared/maps", "game.ReplicatedStorage.NOVA.Maps"),
@@ -75,7 +75,9 @@ def run(executable):
         code.append(f'node({json.dumps(path)},"ModuleScript")\n')
     for path, file in sources:
         code.append(f'modules[nodes[{json.dumps(path)}]]=function()\nlocal script=nodes[{json.dumps(path)}]\n')
-        code.append(file.read_text(encoding="utf-8") + "\nend\n")
+        source = ('return {version=1,items={},crates={}}' if stock_inventory and file.name == "InventoryEdits.luau"
+                  else file.read_text(encoding="utf-8"))
+        code.append(source + "\nend\n")
     code.append('local passed,failed=0,0\nlocal t={}\nfunction t.test(name,fn)\n'
                 'local ok,err=pcall(fn)\nif ok then passed+=1; print("PASS",name)\n'
                 'else failed+=1; print("FAIL",name,err) end\nend\n')
@@ -91,4 +93,6 @@ def run(executable):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--luau", required=True)
-    run(parser.parse_args().luau)
+    parser.add_argument("--stock-inventory", action="store_true", help="Test stock catalog assumptions without changing saved InventoryEdits")
+    args=parser.parse_args()
+    run(args.luau,args.stock_inventory)

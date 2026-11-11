@@ -127,6 +127,10 @@ Then open the map in the editor, Save it, and click **Export to repo**. The firs
 
 `plugin/NOVAItemEditor.lua` is a companion Studio plugin for managing existing cosmetics and crates. Copy it beside the Level Editor in `$LOCALAPPDATA/Roblox/Plugins/` and restart Studio. Open **Plugins → NOVA → Item Editor**.
 
+The **Collections** tab groups existing themed sets automatically and lists other items under **Unassigned items**. Choose **New collection**, enter a name, then use **Add / move individual items** to search all item types and add members. Items already in another collection can be moved with **Move here**. **Show members** provides **Edit item** and **Remove** controls; removing a member leaves it unassigned. Each item row has a **Rarity** button that cycles through its valid rarities, including **Chest** for crates. This works in member lists, Unassigned items, and the add/move picker, with the same Undo/Redo and Save behavior as the item details editor. Deleted items must be restored before changing rarity. Collection names can be edited, and **Remove collection / keep its items** dissolves the group without deleting its cosmetics. Empty custom collections are retained. Search and rarity filters also work on collection cards.
+
+Collection edits share the editor's Undo/Redo, **Save to place**, **Reload / discard**, and **Export to repo** flow. Membership is stored separately from artwork/set metadata, crate pools and player ownership. Existing version-1 inventory edits remain compatible; optional `collections` definitions and per-item `collectionId` overrides persist the new groups. No inventory edits are changed just by opening the tab. Restart an existing `tools/item_bridge.py` process after upgrading so it accepts the new export fields.
+
 - Browse the same six type tabs as the inventory: Skins, Bullet Skins, Tracers, Backgrounds, Sound Effects and Crates. Large item cards show the existing inventory artwork, name and rarity; the selected item opens in the details panel. Text and inputs use 18–26px type, with 16px secondary metadata. Search names or stable IDs within the active type. IDs remain fixed so renaming preserves player ownership and equipment.
 - **Rarity: All → …** cycles the rarity filter, including Chest. It combines with the active type and search. Turn on **Multi-select**, click item cards or **Select visible**, then click **Delete selected** twice within five seconds. Selections span types and filters; the editor reports hidden selections. **Clear selection** resets them. Bulk deletion is one undoable change, protects required items, and rejects the whole operation if it would empty a crate.
 - In **Sound Effects**, select an item and use **Play sound preview** beneath its artwork. The same button stops playback or cancels loading. Previews use the inventory's clip and pitch settings, stop when switching items or closing the editor, and work in Studio Edit mode. The silent default is labeled **Silent / no sound**.
@@ -161,6 +165,8 @@ LobbyWorld builds `Workspace.NOVALobby` and the night lighting at server start u
 ## Run the acceptance checks
 
 For local logic checks without Studio, install the official [Luau CLI](https://github.com/luau-lang/luau/releases) and run `python tools/check_logic.py --luau <path-to-luau>`. This runs the progression, profile storage, match rewards, match, lobby, movement, combat, practice, and map rotation cases with a minimal module/Vector2 environment. It does not emulate Roblox UI, networking, or real DataStores.
+
+Use `--stock-inventory` when checking tests that assume the original item rarities and loot pools; this substitutes an empty inventory-edit fixture in memory without touching saved `InventoryEdits.luau`. Collection validation/grouping tests are included. Run `python tools/test_item_bridge.py` for the collection export contract checks.
 
 In a running Studio **server** data model, execute each line separately.
 

@@ -20,11 +20,14 @@ PROTECTED = {"SplitCircuit"}
 
 def inventory_source(data):
     """Accept data only; never accept executable source from inventory requests."""
-    if not isinstance(data, dict) or set(data) != {"version", "items", "crates"} or data["version"] != 1:
+    if (not isinstance(data, dict) or not {"version", "items", "crates"} <= set(data)
+            or set(data) - {"version", "items", "crates", "collections"} or data["version"] != 1):
         raise ValueError("Invalid inventory edits format")
     rarities = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Cosmic", "Chest"}
     # Roblox JSONEncode represents an empty Lua table as an array.
-    for key in ("items", "crates"):
+    for key in ("items", "crates", "collections"):
+        if key not in data:
+            continue
         if data[key] == []:
             data[key] = {}
         if not isinstance(data[key], dict):
@@ -33,7 +36,7 @@ def inventory_source(data):
         check_id(item_id)
         if edit == []:
             edit = data["items"][item_id] = {}
-        if not isinstance(edit, dict) or set(edit) - {"name", "rarity", "deleted"}:
+        if not isinstance(edit, dict) or set(edit) - {"name", "rarity", "deleted", "collectionId"}:
             raise ValueError("Invalid item edit")
         if "name" in edit and (not isinstance(edit["name"], str) or not edit["name"].strip()
                                or len(edit["name"].encode("utf-8")) > 80 or any(ord(c) < 32 or ord(c) == 127 for c in edit["name"])):
@@ -42,6 +45,16 @@ def inventory_source(data):
             raise ValueError("Invalid rarity")
         if "deleted" in edit and not isinstance(edit["deleted"], bool):
             raise ValueError("Invalid deletion flag")
+        if "collectionId" in edit and edit["collectionId"] is not False:
+            check_collection_text(edit["collectionId"], 160)
+    for collection_id, edit in data.get("collections", {}).items():
+        check_collection_text(collection_id, 160)
+        if not isinstance(edit, dict) or set(edit) - {"name", "deleted"}:
+            raise ValueError("Invalid collection edit")
+        if "name" in edit:
+            check_collection_text(edit["name"], 80)
+        if "deleted" in edit and not isinstance(edit["deleted"], bool):
+            raise ValueError("Invalid collection deletion flag")
     for crate_id, rewards in data["crates"].items():
         check_id(crate_id)
         if not isinstance(rewards, list) or not rewards:
@@ -85,6 +98,12 @@ def write_inventory(data):
     temporary.write_text(source, encoding="utf-8", newline="\n")
     temporary.replace(destination)
     return destination
+
+
+def check_collection_text(value, limit):
+    if (not isinstance(value, str) or not value.strip() or len(value.encode("utf-8")) > limit
+            or any(ord(c) < 32 or ord(c) == 127 for c in value)):
+        raise ValueError("Invalid collection ID or name")
 
 
 def check_id(map_id):

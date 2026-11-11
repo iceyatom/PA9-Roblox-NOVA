@@ -115,6 +115,7 @@ local edits=require(script.Parent.InventoryEdits)
 local effective=EditorModel.apply(Catalog.editorBase,edits)
 Catalog.items,Catalog.byId,Catalog.defaults=effective.items,effective.byId,effective.defaults
 Catalog.retired=effective.retired
+Catalog.collections=effective.collections
 local editedBatch=edits.crates.crate_batch1~=nil
 for id,edit in edits.items do
     if edit.deleted and Catalog.editorBase.byId[id].category~="crates" then editedBatch=true end
