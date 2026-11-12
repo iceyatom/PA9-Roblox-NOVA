@@ -179,7 +179,8 @@ function Service:request(player,action,id,key)
     local ok,result=self:mutate(player,function(data)
         if action=="ackRetirements" then return Model.ackRetirements(data,id) end
         if self.canUse and not self.canUse(player) then return false,"Return to the lobby to manage your inventory." end
-        if action=="useToken" then return Model.useToken(data,id)
+        if action=="checkIn" then return Model.checkIn(data,id,os.time())
+        elseif action=="useToken" then return Model.useToken(data,id)
         elseif action=="equip" then return Model.equip(data,id)
         elseif action=="favorite" then return Model.favorite(data,id)
         elseif action=="effects" and (id=="on" or id=="off") then
@@ -201,6 +202,6 @@ function Service:request(player,action,id,key)
         end
         return false,"Unknown inventory action."
     end)
-    return {ok=ok,message=not ok and result or nil,profile=self:snapshot(player),receipt=ok and openCount==1 and result or nil,receipts=ok and openCount and openCount>1 and result or nil}
+    return {ok=ok,message=not ok and result or nil,profile=self:snapshot(player),dailyReward=ok and action=="checkIn" and result or nil,receipt=ok and openCount==1 and result or nil,receipts=ok and openCount and openCount>1 and result or nil}
 end
 return Service

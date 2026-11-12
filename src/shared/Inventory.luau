@@ -2,11 +2,12 @@
 local Catalog=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
 local Drop=require(script.Parent.CrateDrop)
 local Shop=require(script.Parent.ShopCatalog)
+local Daily=require(script.Parent.DailyRewards)
 local Inventory={}
 local function integer(n,max) return type(n)=="number" and n==n and n>=0 and n<=max and n%1==0 end
 function Inventory.new()
     return {owned={},equipped=table.clone(Catalog.defaults),favorites={},shards=0,receipts={},receiptOrder={},wins={},openSequence=0,reducedEffects=false,retirementSequence=0,
-        crateChance=Drop.BaseChance,dropReceipts={},dropOrder={},boosts={xp=0,crate=0},purchases={},purchaseOrder={}}
+        crateChance=Drop.BaseChance,dropReceipts={},dropOrder={},boosts={xp=0,crate=0},purchases={},purchaseOrder={},daily=Daily.new()}
 end
 -- Boosts are wall-clock expiry timestamps (os.time); 0 means never purchased.
 function Inventory.boostActive(data,kind,now)
@@ -20,6 +21,8 @@ function Inventory.validate(raw)
     if type(raw)~="table" or type(raw.owned)~="table" or type(raw.equipped)~="table"
         or type(raw.favorites)~="table" or not integer(raw.shards,1000000000) then return nil end
     local data=Inventory.new(); data.shards=raw.shards
+    data.daily=Daily.validate(raw.daily)
+    if not data.daily then return nil end
     if raw.retirementSequence~=nil and not integer(raw.retirementSequence,2^52) then return nil end
     data.retirementSequence=raw.retirementSequence or 0
     if raw.retirementNotice~=nil then
@@ -145,7 +148,40 @@ function Inventory.validate(raw)
         end
         data.retirementNotice=notice
     end
+    Inventory.deliverDailyPack(data)
     return data
+end
+-- Validate the entire coming pack before delivering any part of the entitlement.
+function Inventory.deliverDailyPack(data)
+    if not data.daily.packEarned or data.daily.packDelivered or #Daily.PackItems==0 then return end
+    for _,id in Daily.PackItems do
+        local item=Catalog.byId[id]
+        if not item or item.default or item.category=="crates" or item.category=="tokens" then return end
+    end
+    for _,id in Daily.PackItems do data.owned[id]=1 end
+    data.daily.packDelivered=true
+end
+function Inventory.checkIn(data,key,now)
+    now=now or os.time()
+    if not integer(now,2^52) or type(key)~="string" then return false,"Invalid check-in." end
+    local state=data.daily
+    -- A durable monotonically increasing key rejects stale and replayed requests,
+    -- including a delayed request arriving after tomorrow's reward unlocks.
+    if key~="daily:"..(state.sequence+1) then return false,"Check-in already recorded. Refresh to see your reward." end
+    local status=Daily.status(data,now)
+    if not status.claimable then return false,status.complete and "All 30 days completed." or "Your next check-in is not ready yet." end
+    if state.sequence>=2^52 then return false,"Check-in unavailable." end
+    local reward=Daily.reward(status.day)
+    if reward.id then
+        local item=Catalog.byId[reward.id]
+        if not item or Catalog.retired[reward.id] then return false,"Today's reward is temporarily unavailable." end
+        local count=(data.owned[reward.id] or 0)+reward.quantity
+        if count>(reward.kind=="crates" and 3000000 or 1000000) then return false,"Inventory full. Use some rewards before checking in." end
+        data.owned[reward.id]=count
+    else state.packEarned=true end
+    state.day=status.day;state.lastClaim=now;state.sequence+=1
+    Inventory.deliverDailyPack(data)
+    return true,reward
 end
 function Inventory.ackRetirements(data,sequence)
     local notice=data.retirementNotice
