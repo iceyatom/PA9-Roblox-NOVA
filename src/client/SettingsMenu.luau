@@ -1,6 +1,7 @@
 local UIS=game:GetService("UserInputService")
 local CAS=game:GetService("ContextActionService")
 local Gui=game:GetService("GuiService")
+local Gamepad=game:GetService("GamepadService")
 local W=require(script.Parent.Widgets)
 local C=W.colors
 local Menu={}
@@ -15,8 +16,8 @@ function Menu.new(playerGui,settings,clear)
     gui.Name="NOVASettings"; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true; gui.DisplayOrder=30
     gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.Parent=playerGui
     self.gui=gui
-    -- View opens this menu in the main lobby; selection is assigned explicitly.
-    Gui.AutoSelectGuiEnabled=false
+    -- Leave View/Touchpad and automatic navigation to Roblox's native cursor/GUI mode.
+    Gui.AutoSelectGuiEnabled=true
     local root=W.box(gui,"Root",0,0,0,0)
     root.Size=UDim2.fromScale(1,1)
     local origin=W.box(root,"Origin",0,0,0,0); origin.Position=UDim2.fromScale(.5,.5)
@@ -83,13 +84,6 @@ function Menu.new(playerGui,settings,clear)
     self.done.Activated:Connect(function() if self:canActivate() then self:setOpen(false) end end)
     self.reset.Activated:Connect(function() if self:canActivate() then settings:reset() end end)
     settings.changed.Event:Connect(function() self:refresh() end)
-    CAS:BindActionAtPriority("NOVA_SettingsShortcut",function(_,state)
-        if not self.available or UIS:GetFocusedTextBox() or Gui.MenuIsOpen then return Enum.ContextActionResult.Pass end
-        if state==Enum.UserInputState.Begin then
-            if self.capture then self:endCapture() else self:setOpen(not settings.opened) end
-        end
-        return Enum.ContextActionResult.Sink
-    end,false,Enum.ContextActionPriority.High.Value+30,Enum.KeyCode.ButtonSelect)
     CAS:BindActionAtPriority("NOVA_SettingsBack",function(_,state)
         if not settings.opened or self.capture then return Enum.ContextActionResult.Pass end
         if state==Enum.UserInputState.Begin then self:setOpen(false) end
@@ -104,6 +98,9 @@ function Menu.new(playerGui,settings,clear)
     UIS.InputEnded:Connect(captureInput)
     UIS.WindowFocusReleased:Connect(function() if self.capture then self:endCapture() end end)
     UIS.GamepadDisconnected:Connect(function() if self.capture then self:endCapture() end end)
+    Gamepad:GetPropertyChangedSignal("GamepadCursorEnabled"):Connect(function()
+        if Gamepad.GamepadCursorEnabled and self.capture then self:endCapture(false) end
+    end)
     Gui.MenuOpened:Connect(function() if settings.opened then self:setOpen(false) end end)
     self:refresh()
     return self
@@ -180,7 +177,7 @@ function Menu:setOpen(open)
     self:refresh()
 end
 
-function Menu:endCapture()
+function Menu:endCapture(restoreCursor)
     if not self.capture then return end
     local capture=self.capture
     local button=capture.button
@@ -196,7 +193,12 @@ function Menu:endCapture()
         game:GetService("RunService").Heartbeat:Wait()
         if self.capture then return end
         self:buttonsActive(true)
-        if self.settings.opened then Gui.SelectedObject=button end
+        if self.settings.opened then
+            if capture.cursor and restoreCursor~=false and not Gui.MenuIsOpen and not Gamepad.GamepadCursorEnabled then
+                Gamepad:EnableGamepadCursor(button)
+            end
+            if not Gamepad.GamepadCursorEnabled then Gui.SelectedObject=button end
+        end
     end)
     self:refresh()
 end
@@ -204,15 +206,20 @@ end
 function Menu:startCapture(action,button)
     if not self.settings.opened or self.capture then return end
     self.clear()
-    local capture={action=action,device=self.device,button=button,navigation=Gui.GuiNavigationEnabled}
+    local capture={action=action,device=self.device,button=button,navigation=Gui.GuiNavigationEnabled,cursor=Gamepad.GamepadCursorEnabled}
     self.capture=capture
     self:buttonsActive(false)
+    if capture.cursor then Gamepad:DisableGamepadCursor() end
     Gui.GuiNavigationEnabled=false
     Gui.SelectedObject=nil
-    self.message=action=="move" and "Tilt either stick, or press the D-pad. Esc closes; View cancels." or self.device=="pc" and "Press a key or mouse button. Esc closes settings." or "Press a controller button. View cancels."
+    self.message=action=="move" and "Tilt either stick, or press the D-pad. Touchpad / View returns to Roblox navigation." or self.device=="pc" and "Press a key or mouse button. Esc closes settings." or "Press a controller button. Touchpad / View returns to Roblox navigation."
     self:refresh()
     button.Text="Listening..."
     self.captureInput=function(state,key)
+        if key.KeyCode==Enum.KeyCode.ButtonSelect or key.KeyCode==Enum.KeyCode.ButtonStart or key.KeyCode==Enum.KeyCode.BackSlash or key.KeyCode==Enum.KeyCode.Escape then
+            if state==Enum.UserInputState.Begin then self:endCapture(false) end
+            return Enum.ContextActionResult.Pass
+        end
         local ended=state==Enum.UserInputState.End or state==Enum.UserInputState.Cancel
         if capture.completed then
             local name=key.UserInputType.Name:sub(1,11)=="MouseButton" and key.UserInputType.Name or key.KeyCode.Name
@@ -242,7 +249,11 @@ function Menu:startCapture(action,button)
         end
         return Enum.ContextActionResult.Sink
     end
-    CAS:BindActionAtPriority("NOVA_RebindCapture",function()
+    CAS:BindActionAtPriority("NOVA_RebindCapture",function(_,state,key)
+        if key.KeyCode==Enum.KeyCode.ButtonSelect or key.KeyCode==Enum.KeyCode.ButtonStart or key.KeyCode==Enum.KeyCode.BackSlash or key.KeyCode==Enum.KeyCode.Escape then
+            if state==Enum.UserInputState.Begin then self:endCapture(false) end
+            return Enum.ContextActionResult.Pass
+        end
         return Enum.ContextActionResult.Sink
     end,false,Enum.ContextActionPriority.High.Value+20,Enum.UserInputType.Keyboard,Enum.UserInputType.MouseButton1,Enum.UserInputType.MouseButton2,Enum.UserInputType.MouseButton3,
         Enum.UserInputType.Gamepad1,Enum.UserInputType.Gamepad2,Enum.UserInputType.Gamepad3,Enum.UserInputType.Gamepad4,Enum.UserInputType.Gamepad5,Enum.UserInputType.Gamepad6,Enum.UserInputType.Gamepad7,Enum.UserInputType.Gamepad8)

@@ -52,4 +52,33 @@ return function(t)
         assert(storage.saved.equipped[require(item).byId[id].category]==id)
         assert(not storage.saved.owned.crate_season1)
     end)
+    t.test("ambiguous match-drop save replays the same miss without another boost or reroll",function()
+        local service,player,record,storage=fixture()
+        storage.available=false
+        local function miss(data) return Model.matchReward(data,"match/miss",os.time()+86400,"win",.9) end
+        assert(not service:mutate(player,miss))
+        assert(record.pending.crateChance==37.5 and record.data.crateChance==25)
+        assert(storage.saved.dropReceipts["match/miss"].landing==.9)
+        record.expires=os.time()-1;storage.available=true;service:maintain(player,record)
+        local ok,r,replay=service:mutate(player,function(data)
+            return Model.matchReward(data,"match/miss",os.time()+86400,"win",0)
+        end)
+        assert(ok and replay and not r.awarded and r.landing==.9 and record.data.crateChance==37.5)
+        assert(record.data.owned.crate_season1==1)
+    end)
+
+    t.test("match delivery samples once and waits for the committed receipt before reporting",function()
+        local service,player,record,storage=fixture();local draws=0;local final
+        service.random={NextNumber=function() draws+=1;return .8 end}
+        storage.available=false
+        service:awardMatch(player,"delivery/miss",os.time()+86400,"win",function(status,r) if r then final={status=status,receipt=r} end end)
+        local deadline=os.clock()+3
+        repeat task.wait() until record.pending or os.clock()>deadline
+        assert(record.pending and record.data.crateChance==25 and not final)
+        storage.available=true;deadline=os.clock()+5
+        repeat task.wait() until final or os.clock()>deadline
+        assert(final and final.status=="No crate this time" and not final.receipt.awarded)
+        assert(draws==1 and record.data.crateChance==37.5 and record.data.owned.crate_season1==1)
+    end)
+
 end

@@ -132,12 +132,21 @@ function Service:mutate(player,change)
     r.busy=false; self:publish(player)
     return ok,result,replay
 end
-function Service:awardWin(player,result,expires,report)
+function Service:crateChance(player)
+    local r=self.records[player]
+    return r and r.data and r.data.crateChance or require(shared.CrateDrop).BaseChance
+end
+function Service:awardMatch(player,result,expires,outcome,report)
+    -- Sample once per match delivery, never once per save/retry attempt.
+    local roll=outcome=="win" and self.random:NextNumber() or nil
     task.spawn(function()
         local delaySeconds=1
         while self.records[player] and not self.records[player].leaving and os.time()<expires do
-            local ok=self:mutate(player,function(data) return Model.win(data,result,expires) end)
-            if ok then report("Chest earned"); return end
+            local ok,receipt=self:mutate(player,function(data) return Model.matchReward(data,result,expires,outcome,roll) end)
+            if ok then
+                report(not receipt and "Reward recorded" or receipt.awarded and "Chest earned" or outcome=="loss" and "Chance increased" or "No crate this time",receipt)
+                return
+            end
             report("Reward unavailable")
             task.wait(delaySeconds)
             delaySeconds=math.min(delaySeconds*2,25)

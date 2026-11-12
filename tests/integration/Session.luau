@@ -58,40 +58,62 @@ return function()
         assert(p.Character==nil,"Queued player keeps no 3D character")
     end
     local function batch()
+        -- Deterministic test-only draws exercise a miss, then an earned crate/open.
+        local Service=require(game.ServerScriptService.NOVA.InventoryService)
+        local originalAward=Service.awardMatch;local draws={.8,.1}
+        Service.awardMatch=function(self,p,key,expires,outcome,report)
+            if outcome~="win" then return originalAward(self,p,key,expires,outcome,report) end
+            local random=self.random;local roll=table.remove(draws,1)
+            assert(roll~=nil,"Unexpected extra win reward")
+            self.random={NextNumber=function() return roll end}
+            local ok,err=pcall(originalAward,self,p,key,expires,outcome,report)
+            self.random=random;assert(ok,err)
+        end
         local p1=untilTrue(function() return next(ready) end,45,"first client")
         untilTrue(function() return p1:GetAttribute("InventoryReady") end,15,"inventory")
         local grant=game.ServerScriptService.NOVA.GrantInventory
         for _,category in {"skins","bullets","tracers","backgrounds","sounds"} do
             grant:Invoke(p1,"b1_"..category.."_crimson_singularity",1)
         end
-        assert(request(p1,"batchDelivery")==24)
-        note("All 23 texture sheets/images and the full 25-accent sound bank loaded on a real client")
+        local assets=0;for _ in require(shared.BatchOneAssets) do assets+=1 end
+        assert(request(p1,"batchDelivery")==assets)
+        note("All "..assets.." current cosmetic textures and audio assets loaded on a real client")
         assert(request(p1,"batchSetup"))
         queue(p1)
         test:AddPlayers(1)
         local p2=untilTrue(function() for p in ready do if p~=p1 then return p end end end,55,"second client")
         queue(p2)
+        local wonCrates=0;local expectedChance=25
         for round=1,2 do
-            waitPhase(p1,"Playing"); waitPhase(p2,"Playing")
-            request(p1,"batchFire")
-            waitPhase(p1,"Results")
-            untilTrue(function()
+            waitPhase(p1,"Playing");waitPhase(p2,"Playing")
+            request(p1,"batchFire");waitPhase(p1,"Results")
+            local settled=untilTrue(function()
                 local r=read(p1)
-                return r.chest and r.chest.status=="Chest earned"
-            end,10,"committed victory chest")
-            assert(request(p1,"batchProfile").owned.crate_season1==round)
-            assert(not request(p2,"batchProfile").owned.crate_season1)
-            if round==1 then
-                request(p1,"batchSave"); request(p1,"vote"); request(p2,"vote")
-            else
+                return r.chest and r.chest.receipt and r.dropSettled and r
+            end,25,"saved and animated crate chance")
+            local receipt=settled.chest.receipt
+            assert(receipt.chance==expectedChance)
+            if receipt.awarded then wonCrates+=1 end
+            expectedChance=receipt.nextChance
+            local data=request(p1,"batchProfile")
+            assert((data.owned.crate_season1 or 0)==wonCrates and data.crateChance==expectedChance)
+            local loser=request(p2,"batchProfile")
+            assert(not loser.owned.crate_season1 and math.abs(loser.crateChance-25*1.2^round)<.00001)
+            untilTrue(function() local r=read(p2);return r.chest and r.chest.receipt and r.dropSettled end,25,"loser chance increase")
+            request(p2,"batchSave")
+            if round==2 and receipt.awarded then
                 request(p1,"batchOpen")
-                untilTrue(function() return request(p1,"batchReveal")=="settled" end,12,"reduced reveal after lobby return")
-                local data=request(p1,"batchProfile")
-                assert(data.owned.crate_season1==1 and data.openSequence==1 and data.receipts["open:1"])
+                untilTrue(function() return request(p1,"batchReveal")=="settled" end,12,"crate reveal after lobby return")
+                wonCrates-=1
+                assert((request(p1,"batchProfile").owned.crate_season1 or 0)==wonCrates)
+            else
+                request(p1,"batchSave")
+                if round==1 then request(p1,"vote");request(p2,"vote")
+                else request(p1,"leave") end
             end
-            note("Round "..round.." awarded exactly one winner chest and zero loser chests")
+            note(("Round %d: %s at %.1f%%; next chance %.1f%%; loser boosted without a crate"):format(round,receipt.awarded and "crate earned/opened" or "miss",receipt.chance,receipt.nextChance))
         end
-        note("Save for later, rematch, Open now, lobby return and static receipt reveal passed")
+        note("Chance receipts, animated results, dismissal and conditional crate opening passed")
         queue(p1)
         waitPhase(p1,"Playing"); waitPhase(p2,"Playing")
         channel:FireClient(p1,-1,"disconnect")

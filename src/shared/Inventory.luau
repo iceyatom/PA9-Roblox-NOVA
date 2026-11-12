@@ -1,9 +1,11 @@
 -- Pure ownership/equipment/reward transactions. No client-provided rewards or quantities.
 local Catalog=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
+local Drop=require(script.Parent.CrateDrop)
 local Inventory={}
 local function integer(n,max) return type(n)=="number" and n==n and n>=0 and n<=max and n%1==0 end
 function Inventory.new()
-    return {owned={},equipped=table.clone(Catalog.defaults),favorites={},shards=0,receipts={},receiptOrder={},wins={},openSequence=0,reducedEffects=false,retirementSequence=0}
+    return {owned={},equipped=table.clone(Catalog.defaults),favorites={},shards=0,receipts={},receiptOrder={},wins={},openSequence=0,reducedEffects=false,retirementSequence=0,
+        crateChance=Drop.BaseChance,dropReceipts={},dropOrder={}}
 end
 function Inventory.owns(data,id)
     local item=Catalog.byId[id]
@@ -39,6 +41,30 @@ function Inventory.validate(raw)
     for key,expires in raw.wins or {} do
         if type(key)~="string" or not integer(expires,2^52) then return nil end
         if expires>os.time() then data.wins[key]=expires end
+    end
+    if raw.crateChance~=nil then
+        if not Drop.validChance(raw.crateChance) then return nil end
+        data.crateChance=raw.crateChance
+    end
+    if raw.dropReceipts~=nil or raw.dropOrder~=nil then
+        if type(raw.dropReceipts)~="table" or type(raw.dropOrder)~="table" or #raw.dropOrder>Drop.ReceiptLimit then return nil end
+        local seen={}
+        for index,key in raw.dropOrder do
+            if not integer(index,#raw.dropOrder) or index<1 or type(key)~="string" or #key<1 or #key>160 or seen[key] then return nil end
+            seen[key]=true;local r=raw.dropReceipts[key]
+            if type(r)~="table" or r.key~=key or not integer(r.expires,2^52)
+                or (r.outcome~="win" and r.outcome~="loss") or not Drop.validChance(r.chance) or not Drop.validChance(r.nextChance)
+                or type(r.awarded)~="boolean" then return nil end
+            if r.outcome=="win" then
+                if type(r.landing)~="number" or r.landing~=r.landing or r.landing<0 or r.landing>=1
+                    or r.awarded~=(r.landing<r.chance/100) then return nil end
+            elseif r.landing~=nil or r.awarded then return nil end
+            if r.expires>os.time() then
+                if data.wins[key]~=r.expires then return nil end
+                data.dropReceipts[key]=table.clone(r);table.insert(data.dropOrder,key)
+            end
+        end
+        for key in raw.dropReceipts do if not seen[key] then return nil end end
     end
     for id,count in raw.owned do
         if type(id)~="string" or not integer(count,id=="crate_season1" and 3000000 or 1000000) then return nil end
@@ -122,13 +148,26 @@ function Inventory.grant(data,id,amount)
     elseif not item.default then data.owned[id]=1 end
     return true
 end
-function Inventory.win(data,key,expires)
+function Inventory.matchReward(data,key,expires,outcome,roll)
+    if type(key)~="string" or #key<1 or #key>160 or not integer(expires,2^52) then return false,"Invalid match reward." end
     if expires<=os.time() then return false,"Reward expired." end
-    if data.wins[key] then return true,key,true end
-    if (data.owned.crate_season1 or 0)>=1000000 then return false,"Chest inventory full." end
+    if outcome~="win" and outcome~="loss" then return false,"Invalid match outcome." end
+    -- Retain the legacy expiry ledger even after the bounded display receipt is evicted.
+    if data.wins[key] then
+        local receipt=data.dropReceipts[key]
+        if receipt and receipt.outcome~=outcome then return false,"Match result already recorded." end
+        return true,receipt and table.clone(receipt),true
+    end
+    if outcome=="win" and (type(roll)~="number" or roll~=roll or roll<0 or roll>1) then return false,"Invalid crate roll." end
+    local receipt=Drop.resolve(data.crateChance,outcome,roll)
+    if receipt.awarded and (data.owned.crate_season1 or 0)>=1000000 then return false,"Chest inventory full." end
+    receipt.key=key;receipt.expires=expires
     data.wins[key]=expires
-    Inventory.grant(data,"crate_season1",1)
-    return true,key
+    data.crateChance=receipt.nextChance
+    if receipt.awarded then Inventory.grant(data,"crate_season1",1) end
+    data.dropReceipts[key]=receipt;table.insert(data.dropOrder,key)
+    if #data.dropOrder>Drop.ReceiptLimit then data.dropReceipts[table.remove(data.dropOrder,1)]=nil end
+    return true,table.clone(receipt)
 end
 function Inventory.open(data,id,key,roll)
     id=(Catalog.crateAliases or {})[id] or id

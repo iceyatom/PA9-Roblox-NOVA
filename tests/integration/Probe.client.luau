@@ -118,8 +118,9 @@ local function handle(cmd,arg)
         task.wait(.2)
         return player:GetAttribute("ReducedEffects")
     elseif cmd=="batchSave" or cmd=="batchOpen" then
-        local button=cmd=="batchSave" and notice.VictoryChest.SaveLater or notice.VictoryChest.OpenNow
-        assert(notice.VictoryChest.Visible and button.Visible,"Chest control missing")
+        local chance=player.PlayerGui.NOVA.CrateChance
+        local button=cmd=="batchSave" and chance.Origin.Panel.SaveLater or chance.Origin.Panel.OpenNow
+        assert(chance.Visible and chance:GetAttribute("AnimationComplete") and button.Visible,"Chest control missing")
         click(center(button),.1)
         return true
     elseif cmd=="batchFire" then
@@ -131,7 +132,7 @@ local function handle(cmd,arg)
         return overlay and overlay:GetAttribute("Phase")
     elseif cmd=="read" then
         local seat=stage.Seat1.Text:find("YOU",1,true) and 1 or 2
-        return {chest=latest and latest.chest,seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
+        return {dropSettled=player.PlayerGui.NOVA.CrateChance.Visible and latest and latest.chest and player.PlayerGui.NOVA.CrateChance:GetAttribute("ResultKey")==latest.chest.key and player.PlayerGui.NOVA.CrateChance:GetAttribute("AnimationComplete"),chest=latest and latest.chest,seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
             hp=stage.Vitals2.Text,seen=seen,round=latest and latest.round or 0,lobby=latest and latest.lobby,mapId=latest and latest.mapId,
             rollVisible=stage.MapShuffle.Visible,rollHeading=stage.MapShuffle.Heading.Text,
             p=latest and latest.players or {},vote=notice.Rematch.Text,
@@ -224,6 +225,7 @@ local function handle(cmd,arg)
     elseif cmd=="hold" then
         click(center(stage.Map1),.55)
     elseif cmd=="vote" then
+        if gui.CrateChance.Visible then click(center(gui.CrateChance.Origin.Panel.Close),.08);task.wait(.1) end
         local pos=center(notice.Rematch)
         local under={}
         for _,widget in player.PlayerGui:GetGuiObjectsAtPosition(pos.X,pos.Y) do table.insert(under,widget.Name) end
@@ -232,6 +234,7 @@ local function handle(cmd,arg)
     elseif cmd=="disconnect" then
         task.defer(function() game:GetService("StudioTestService"):LeaveTest() end)
     elseif cmd=="leave" then
+        if gui.CrateChance.Visible then click(center(gui.CrateChance.Origin.Panel.Close),.08);task.wait(.1) end
         click(center(notice.Leave),.1)
     elseif cmd=="forged" then
         local round=latest.round

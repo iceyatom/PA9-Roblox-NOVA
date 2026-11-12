@@ -6,19 +6,21 @@ local Maps = require(shared.Map1)
 local map = Maps.active()
 local progression=require(script.Parent.ProgressionService).new()
 local inventory=require(script.Parent.InventoryService).new()
+local CrateDrop=require(shared.CrateDrop)
 local lobbies
 lobbies = require(script.Parent.Lobbies).new(map,Config,Maps.choose,function(sim)
-    if sim.reason=="Elimination" and sim.winner~=0 and not sim.chestResult then
-        local winner=sim.seats[sim.winner]
-        local key=("%s/%d/%d/%d"):format(inventory.session,sim.roomId,sim.round,winner.UserId)
-        local result={key=key,status="Reward saving"}
-        sim.chestResult=result
-        inventory:awardWin(winner,key,os.time()+86400,function(status)
-            result.status=status
-            if sim.chestResult==result then lobbies.dirty[sim.roomId]=true end
-        end)
-    end
     for i,p in sim.seats do
+        local outcome=CrateDrop.outcome(sim.winner,sim.reason,i)
+        local results=sim.chestResults
+        if outcome and not results[i] then
+            local key=("%s/%d/%d/%d"):format(inventory.session,sim.roomId,sim.round,p.UserId)
+            local result={key=key,status="Reward saving",outcome=outcome,chance=inventory:crateChance(p)}
+            results[i]=result
+            inventory:awardMatch(p,key,os.time()+86400,outcome,function(status,receipt)
+                result.status=status;result.receipt=receipt
+                if sim.chestResults==results then lobbies.dirty[sim.roomId]=true end
+            end)
+        end
         sim.rewards[i],sim.xpRecaps[i]=progression:award(p,sim.winner==i)
     end
 end)
@@ -58,15 +60,18 @@ end
 local function broadcast(room)
     local sim=room.sim
     local snap = {lobby=room.id,phase=sim.phase,round=sim.round,mapId=sim.map.id,tick=sim.stepNumber,ends=workspace:GetServerTimeNow()+sim.count,
-        winner=sim.winner,reason=sim.reason,chest=sim.chestResult,players={},shots={},maxHP=sim.cfg.Health}
+        winner=sim.winner,reason=sim.reason,players={},shots={},maxHP=sim.cfg.Health}
     for i=1,2 do
         local p,b = sim.seats[i],sim.bodies[i]
         snap.players[i] = {uid=p and p.UserId,name=p and p.DisplayName,x=b.x,y=b.y,hp=b.hp,acceptedShots=b.acceptedShots or 0,vote=sim.votes[i] == true,
             progression=p and progression:view(p),cosmetics=p and inventory:view(p),xpAward=sim.rewards[i],xpRecap=sim.xpRecaps[i]}
     end
     for i,b in sim.bullets do snap.shots[i]={b.id,b.x,b.y,b.seat,b.vx,b.vy} end
-    for _,p in sim.seats do
-        if p.Parent==Players then state:FireClient(p,snap) end
+    for seat,p in sim.seats do
+        if p.Parent==Players then
+            local personal=table.clone(snap);personal.chest=sim.chestResults[seat]
+            state:FireClient(p,personal)
+        end
     end
     if Run:IsStudio() and sim.phase ~= room.lastPhase then
         room.lastPhase = sim.phase

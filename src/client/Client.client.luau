@@ -1,6 +1,8 @@
 local Players=game:GetService("Players")
 local Run=game:GetService("RunService")
 local core=game:GetService("StarterGui")
+-- Cursor opt-in is exposed on some engine channels; otherwise CoreScripts own the default.
+pcall(function() core.VirtualCursorMode=Enum.VirtualCursorMode.Enabled end)
 local player=Players.LocalPlayer
 local shared=game.ReplicatedStorage:WaitForChild("NOVA")
 local input=shared:WaitForChild("Input")
@@ -51,8 +53,8 @@ hud.rematch.Activated:Connect(function() fire("rematch") end)
 hud.leave.Activated:Connect(function() fire("leave") end)
 local openAfterLobby=false
 hud.openChest.Activated:Connect(function()
-    if snapshot and snapshot.phase=="Results" and snapshot.winner==seat and snapshot.chest and snapshot.chest.status=="Chest earned" then
-        openAfterLobby=true; fire("leave")
+    if snapshot and snapshot.phase=="Results" and snapshot.winner==seat and snapshot.chest and snapshot.chest.status=="Chest earned" and snapshot.chest.receipt and snapshot.chest.receipt.awarded and hud.chestRoll.settled then
+        hud.chestRoll:dismiss();openAfterLobby=true; fire("leave")
     end
 end)
 local record

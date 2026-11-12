@@ -1,3 +1,5 @@
+local Gui=game:GetService("GuiService")
+local UIS=game:GetService("UserInputService")
 local W=require(script.Parent.Widgets)
 local C=W.colors
 local P=require(game.ReplicatedStorage.NOVA.Progression)
@@ -81,21 +83,15 @@ function Hud.new(playerGui)
     self.note=W.text(self.notice,"Detail",23,77,360,23,"The duel starts with two players.",16,C.muted)
     self.xpRecap=require(script.Parent.XPRecap).new(self.notice)
     gui:GetPropertyChangedSignal("Enabled"):Connect(function()
-        if not gui.Enabled then self.xpRecap:hide() end
+        if not gui.Enabled then self.xpRecap:hide();if self.chestRoll then self.chestRoll:hide() end end
     end)
     self.rematch=W.button(self.notice,"Rematch",23,109,209,37,"Rematch",true)
     self.leave=W.button(self.notice,"Leave",244,109,130,37,"Leave",false)
-    self.chest=W.box(self.notice,"VictoryChest",12,164,376,128,C.ink)
-    self.chestStatus=W.text(self.chest,"Status",9,2,360,24,"Reward saving",16,C.mint,Enum.Font.GothamBold)
-    local odds=W.text(self.chest,"Odds",9,27,358,52,
-        Cosmetics.byId.crate_season1.description,13,C.muted,Enum.Font.Gotham)
-    odds.TextWrapped=true; odds.TextTruncate=Enum.TextTruncate.None
-    self.openChest=W.button(self.chest,"OpenNow",9,84,173,36,"Open now",true)
-    self.saveChest=W.button(self.chest,"SaveLater",190,84,175,36,"Save for later",false)
-    self.saveChest.Activated:Connect(function()
-        if self.snap.chest then self.dismissed=self.snap.chest.key; self:update(self.snap,self.seat) end
+    self.chestRoll=require(script.Parent.ChestChance).new(gui,function()
+        if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" then Gui.SelectedObject=self.rematch end
     end)
-    self.chest.Visible=false
+    self.openChest=self.chestRoll.openButton
+    self.saveChest=self.chestRoll.continueButton
     self.rematch.Visible=false
     self.leave.Visible=false
     return self
@@ -149,17 +145,7 @@ function Hud:update(snap,seat)
     else
         self.rematch.Position=UDim2.fromOffset(23,109)
     end
-    local chest=phase=="Results" and snap.winner==seat and snap.chest
-    self.chest.Visible=chest and self.dismissed~=chest.key or false
-    if self.chest.Visible then
-        local size=self.notice.Size
-        self.chest.Position=UDim2.fromOffset((size.X.Offset-376)/2,size.Y.Offset)
-        self.notice.Size=UDim2.fromOffset(size.X.Offset,size.Y.Offset+133)
-        self.notice.Position-=UDim2.fromOffset(0,66)
-        self.chestStatus.Text="Season 1 Crate  /  "..chest.status
-        self.openChest.Visible=chest.status=="Chest earned"
-        self.saveChest.Visible=self.openChest.Visible
-    end
+    self.chestRoll:update(phase=="Results" and snap.chest or nil,not self.xpRecap.events)
     self.leave.Text=phase=="Waiting" and "Leave queue" or "Lobby"
     if phase=="Waiting" then
         self.kicker.Text,self.title.Text,self.note.Text="IN QUEUE","Waiting for a rival","The duel starts with two players."
@@ -178,6 +164,7 @@ function Hud:update(snap,seat)
 end
 function Hud:tick()
     self.xpRecap:tick()
+    self.chestRoll:update(self.gui.Enabled and self.snap and self.snap.phase=="Results" and self.snap.chest or nil,not self.xpRecap.events)
     if self.snap and self.snap.phase=="Countdown" then
         self.title.Text="Duel in "..math.clamp(math.ceil(self.snap.ends-workspace:GetServerTimeNow()),1,3)
     end
