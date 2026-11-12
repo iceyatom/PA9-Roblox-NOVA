@@ -116,7 +116,21 @@ function Menu.new(playerGui,clear,beforeOpen)
     self.status=W.text(panel,"Status",24,622,992,20,"Loading inventory…",14,C.muted,Enum.Font.Gotham)
     self.reveal=require(script.Parent.CrateReveal).new(panel,function()
         self:refresh(); Gui.SelectedObject=gamepad() and self.action or nil
-    end)
+    end,{
+        isEquipped=function(item) return self.data and self.data.equipped[item.category]==item.id end,
+        equip=function(item)
+            -- Model.equip toggles existing equipment, so never resend an equipped reward.
+            if self.data and self.data.equipped[item.category]==item.id then return true end
+            if self.busy or not self.profile or not self.profile.ready then return false,"Inventory is busy. Please try again." end
+            self.busy=true
+            local ok,response=pcall(function() return self.remote:InvokeServer("equip",item.id) end)
+            self.busy=false
+            if ok and response.profile then self:accept(response.profile) end
+            self:refresh()
+            if self.data and self.data.equipped[item.category]==item.id then return true end
+            return false,ok and response.message or "Connection interrupted. Please try again."
+        end,
+    })
     self.retirementNotice=require(script.Parent.InventoryRetirementNotice).new(gui,function(sequence,complete)
         task.spawn(function()
             local ok,response=pcall(function() return self.remote:InvokeServer("ackRetirements",tostring(sequence)) end)
