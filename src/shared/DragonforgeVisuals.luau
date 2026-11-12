@@ -1,3 +1,4 @@
+local Geometry=require(script.Parent.CosmeticGeometry)
 -- Blender sprite loops + continuously moving native UI VFX for NOVA's 2D arena.
 local Run=game:GetService("RunService")
 local Players=game:GetService("Players")
@@ -47,10 +48,11 @@ local function line(f,x1,y1,x2,y2,width)
     f.Size=UDim2.fromOffset(math.sqrt(dx*dx+dy*dy)+.5,width);f.Rotation=math.deg(math.atan2(dy,dx))
 end
 local function update(e,t,simple)
+    local guiSize=Geometry.size(e.root)
     local root=e.root
     if e.kind=="backgrounds" then
-        if simple then t=0 end
-        local w,h=root.AbsoluteSize.X,root.AbsoluteSize.Y
+        if reduced(root) then t=0 end
+        local w,h=guiSize.X,guiSize.Y
         -- Match the native decoration to the same 2:1 source rectangle as Crop.
         local iw=math.max(w,h*2);local ih=iw/2;local ox,oy=(w-iw)/2,(h-ih)/2
         local function point(u,v) return ox+u*iw,oy+v*ih end
@@ -87,12 +89,12 @@ local function update(e,t,simple)
         return
     end
     if e.kind~="tracers" then
-        local frame=simple and 0 or math.floor(t*8)%16
+        local frame=reduced(root) and 0 or math.floor(t*8)%16
         if frame~=e.frame then root.ImageRectOffset=Vector2.new(frame%4*256,math.floor(frame/4)*256);e.frame=frame end
         return
     end
     t+=e.seed
-    local w,h=root.AbsoluteSize.X,root.AbsoluteSize.Y
+    local w,h=guiSize.X,guiSize.Y
     local spread=math.min(w*.2,math.clamp(math.max(h*1.6,w*.075),8,50))
     local unit=math.clamp(w/160,.6,2)
     local n=simple and 4 or 8
@@ -143,7 +145,7 @@ local function start()
         local t=os.clock();local trails=0
         for root,e in entries do
             if visible(root) then
-                local simple=reduced(root) or e.compact
+                local simple=reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact
                 if e.kind=="tracers" then trails+=1;simple=simple or trails>10 end
                 update(e,t,simple)
                 Radiance.update(e.radiance,t,simple)
@@ -191,7 +193,7 @@ function V.apply(root,item)
         sweep.Parent=root;e.sweep=sweep
     else
         local count=0;for other,entry in entries do if entry.kind=="tracers" and visible(other) then count+=1 end end
-        e.compact=reduced(root) or count>=10
+        e.compact=reduced(root) or root:GetAttribute("CompactPrism")==true or count>=10
         local effects=box(root,"DragonforgeEffects",white,1);effects.AnchorPoint=Vector2.zero;effects.Size=UDim2.fromScale(1,1)
         for _,r in e.compact and {3} or {1,2,3} do
             e.ribbons[r]={}
@@ -214,6 +216,6 @@ function V.apply(root,item)
     end
     entries[root]=e;e.destroyConnection=root.Destroying:Once(function() entries[root]=nil end)
     e.radiance=Radiance.new(root,e,"dragonforge")
-    update(e,os.clock(),reduced(root) or e.compact);Radiance.update(e.radiance,os.clock(),reduced(root) or e.compact);start();return true
+    update(e,os.clock(),reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact);Radiance.update(e.radiance,os.clock(),reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact);start();return true
 end
 return V

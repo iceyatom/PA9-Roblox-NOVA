@@ -1,3 +1,4 @@
+local Geometry=require(script.Parent.CosmeticGeometry)
 -- Armory: five Blender sprite sets (item.theme) sharing one native 2D VFX engine.
 -- Skins/bullets play 16-frame atlases; tracers and backgrounds are live geometry + theme sprites.
 local Run=game:GetService("RunService")
@@ -84,12 +85,13 @@ local function travel(style,i,n,t,w,h,spread)
     return w*u,h/2+math.sin(u*5-t)*spread*.08*(1-u),math.sqrt(math.sin(u*math.pi)),0,1.5,i%2==0 and 1.5 or .55
 end
 local function update(e,t,simple)
-    local root,th=e.root,e.theme;local w,h=root.AbsoluteSize.X,root.AbsoluteSize.Y
-    t=(simple and 0 or t)+e.seed
+    local guiSize=Geometry.size(e.root)
+    local root,th=e.root,e.theme;local w,h=guiSize.X,guiSize.Y
+    t=(reduced(root) and 0 or t)+e.seed
     local pulse=.5+.5*math.sin(t*2)
     local bg=e.kind=="backgrounds";local trail=e.kind=="tracers"
     if e.kind=="skins" or e.kind=="bullets" then
-        local frame=simple and 0 or math.floor((t-e.seed)*8)%16
+        local frame=reduced(root) and 0 or math.floor((t-e.seed)*8)%16
         if e.frame~=frame then root.ImageRectOffset=Vector2.new(frame%4*256,math.floor(frame/4)*256);e.frame=frame end
         for i,f in e.aura do
             local scale=(i==1 and 2.3 or 1.6)*(1+.07*pulse)
@@ -154,7 +156,7 @@ local function start()
         local t=os.clock();local count=0
         for root,e in entries do if visible(root) then
             if e.kind=="tracers" then count+=1 end
-            update(e,t,reduced(root) or e.compact or e.kind=="tracers" and count>8)
+            update(e,t,reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact or e.kind=="tracers" and count>8)
         end end
         if not next(entries) then connection:Disconnect();connection=nil end
     end)
@@ -181,7 +183,7 @@ function V.apply(root,item)
     end
     local fx=box(root,"ArmoryEffects",th.hot,1);fx.AnchorPoint=Vector2.zero;fx.Size=UDim2.fromScale(1,1);fx.ClipsDescendants=bg
     local count=0;for other,old in entries do if old.kind=="tracers" and visible(other) then count+=1 end end
-    e.compact=trail and (reduced(root) or count>=8)
+    e.compact=trail and (reduced(root) or root:GetAttribute("CompactPrism")==true or count>=8)
     if e.compact then e.lanes=1 end
     if not trail then
         for i=1,2 do e.aura[i]=image(fx,"PulsingRadiance",Assets.halo,th.colors[i],.7) end
@@ -203,6 +205,6 @@ function V.apply(root,item)
         sweep.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,th.dim),ColorSequenceKeypoint.new(.5,Color3.new(1,1,1)),ColorSequenceKeypoint.new(1,th.dim)});sweep.Parent=root;e.sweep=sweep
     end
     entries[root]=e;e.destroyConnection=root.Destroying:Once(function()entries[root]=nil end)
-    update(e,os.clock(),reduced(root) or e.compact);start();return true
+    update(e,os.clock(),reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact);start();return true
 end
 return V
