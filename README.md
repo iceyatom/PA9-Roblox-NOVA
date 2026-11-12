@@ -30,6 +30,25 @@ The wall beside the beacon shows the global top 10, one best completed score per
 ## Duel rules
 A/D move, Space jumps from a surface, and gravity brings the player down. Each left mouse press launches one shot at the opponent's authoritative center when the request arrives. Direction is frozen for the flight. The server accepts increasing integer shot IDs for the current round only. Impacts in the same simulation step are applied together; simultaneous lethal impacts draw. Both players must vote for a rematch. Lobby returns the player to the 3D lobby. A combat disconnect gives the remaining player a win, and they may choose to wait for a new opponent. New arrivals cannot enter an active duel.
 
+## Daily check-in
+
+The lobby's **Daily check-in** menu opens on login when a reward is ready. Players claim once per **UTC calendar day**; the next reward unlocks at 00:00 UTC. Missing a full UTC date resets the next claim to day 1. Claiming just before and just after midnight is valid. Remaining online through midnight also allows the next claim. The menu previews each week's rewards, shows claimed days and the next unlock countdown, and supports touch scrolling and controller navigation. Check-ins are available in the 3D lobby.
+
+| Days | Crate days (1, 4, 7 of each week) | Double XP days (2, 5) | Double Crates days (3, 6) |
+| --- | --- | --- | --- |
+| 1–7 | 1 crate | 1 × 15-minute token | 1 / 2 × 15-minute tokens |
+| 8–14 | 2 crates | 1 × 30-minute token | 1 / 2 × 30-minute tokens |
+| 15–21 | 4 crates | 1 × 60-minute token | 1 / 2 × 60-minute tokens |
+| 22–28 | 8 crates; day 28 gives 10 | 2 × 60-minute tokens | 2 / 4 × 60-minute tokens |
+
+Day 29 gives **10 crates**. Day 30 earns the **coming exclusive skin pack**. Day 31 and every following consecutive day give **10 crates**. A missed day still resets the streak after day 30. Tokens enter inventory and can be activated from **Class setup**; claiming does not start their timer.
+
+`src/shared/DailyRewards.luau` defines the schedule. Its `PackItems` list is intentionally empty until the skin pack is available. Add all of that pack's non-default cosmetic IDs there when releasing it. Day 30 stores a permanent entitlement, even if the streak later resets. Once every configured item exists, the next profile load grants the complete pack once and records delivery in the same inventory write. No placeholder cosmetic is granted while the list is empty.
+
+The streak, monotonic claim sequence, rewards and pack entitlement share the existing leased `NOVA_Inventory_v1` profile. The server chooses the date and reward, rejects stale or replayed request keys, and only confirms successful saves. Save retries retain the exact pending candidate. Older profiles migrate to an unclaimed streak without changing existing inventory. Studio uses session data and never writes live player inventories.
+
+After a successful saved claim, the reward uses the shop's token flip/lift/stamp animation, counter-rotating golden rays, impact rings, sparks and stamp sound. The celebration shows the awarded quantity, keeps boost tokens stored until activation, and returns to the check-in menu with Continue. It appears above the scrolling forecast on phones and respects Reduced Effects. Failed or duplicate claims do not play it; closing the menu, entering a challenge or resizing clears the effect.
+
 ## Levels and prestige
 
 Players start at level 1 and reach level 55 before choosing a prestige. Click the compact top-left level card to open progression, then use the **Requirements** tab to unlock the next prestige. The first click explains the reset; **Confirm Prestige** performs it. Each of the ten prestiges resets level to 1 and current XP to zero. After reaching Prestige 10 level 55, **Become Prestige Master** keeps level 55 and unlocks levels 56–1,000. Prestige Master level 1,000 is the final cap. Prestige is available only in the 3D lobby, outside matchmaking and practice.

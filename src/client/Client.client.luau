@@ -46,14 +46,20 @@ end,{
     crates=function() inventory:showCrates() end,
     contents=function() inventory:showCrateContents() end,
 })
-inventory.beforeOpen=function() settingsMenu:setOpen(false); progressionMenu:setOpen(false); shop:setOpen(false) end
+local daily=require(script.Parent.DailyRewardsMenu).new(player.PlayerGui,clear,function()
+    settingsMenu:setOpen(false);progressionMenu:setOpen(false);inventory:setOpen(false);shop:setOpen(false)
+end,function() return inventory.profile end)
+daily.canAutoOpen=function() return not settings.opened and not progressionMenu.opened and not inventory.opened and not shop.opened end
+inventory.beforeOpen=function() settingsMenu:setOpen(false); progressionMenu:setOpen(false); shop:setOpen(false);daily:setOpen(false) end
+shop.beforeOpen=function() settingsMenu:setOpen(false); progressionMenu:setOpen(false); inventory:setOpen(false);daily:setOpen(false) end
 local function syncSettingsLauncher()
-    settingsMenu.launcher.Visible=settingsMenu.available and not settings.opened and not inventory.opened and not shop.opened
+    settingsMenu.launcher.Visible=settingsMenu.available and not settings.opened and not inventory.opened and not shop.opened and not daily.opened
 end
 inventory.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
 shop.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
-progressionMenu.beforeOpen=function() settingsMenu:setOpen(false); inventory:setOpen(false); shop:setOpen(false) end
-settingsMenu.beforeOpen=function() progressionMenu:setOpen(false); inventory:setOpen(false); shop:setOpen(false) end
+daily.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
+progressionMenu.beforeOpen=function() settingsMenu:setOpen(false); inventory:setOpen(false); shop:setOpen(false);daily:setOpen(false) end
+settingsMenu.beforeOpen=function() progressionMenu:setOpen(false); inventory:setOpen(false); shop:setOpen(false);daily:setOpen(false) end
 settingsMenu.selectionOnClose=function()
     if practiceSnapshot then return practiceSnapshot.phase=="Results" and practice.retry or practice.leave end
     if not snapshot then return nil end
@@ -81,6 +87,7 @@ local function setMode(duel)
     progressionHud.Enabled=not duel
     inventory:setAvailable(not duel)
     shop:setAvailable(not duel)
+    daily:setAvailable(not duel)
     local camera=workspace.CurrentCamera
     if camera then
         camera.CameraType=duel and Enum.CameraType.Scriptable or Enum.CameraType.Custom
