@@ -6,22 +6,39 @@ return function(t)
     local now=1800000000
     local function price(id) local p=Shop.byId[id];return p.price,p.listPrice end
     t.test("shop offers match the published prices and markdowns",function()
-        local expected={xp_15={99},xp_30={178,198},xp_60={317,396},
-            crate2x_15={149},crate2x_30={268,298},crate2x_60={477,596},
-            crates_1={49},crates_5={221,245},crates_10={392,490},crates_50={1715,2450},crates_100={2940,4900}}
+        local expected={xp_15={99},xp_30={159,198},xp_60={316,396},
+            crate2x_15={149},crate2x_30={238,298},crate2x_60={476,596},
+            crates_1={49},crates_5={196,245},crates_10={392,490},crates_50={1960,2450},crates_100={3200,4900}}
         local count=0
         for id,row in expected do
             local sale,list=price(id);count+=1
             assert(sale==row[1] and list==row[2],id)
         end
         assert(count==#Shop.products)
-        assert(Shop.savings(Shop.byId.xp_15)==0 and Shop.savings(Shop.byId.xp_30)==10 and Shop.savings(Shop.byId.xp_60)==20
-            and Shop.savings(Shop.byId.crates_5)==10 and Shop.savings(Shop.byId.crates_50)==30 and Shop.savings(Shop.byId.crates_100)==40)
+        assert(Shop.savings(Shop.byId.xp_15)==0 and Shop.savings(Shop.byId.xp_30)==20 and Shop.savings(Shop.byId.xp_60)==20
+            and Shop.savings(Shop.byId.crates_5)==20 and Shop.savings(Shop.byId.crates_50)==20 and Shop.savings(Shop.byId.crates_100)==35)
         for _,product in Shop.products do
             assert((product.minutes~=nil)~=(product.quantity~=nil) and Shop.sectionById[product.section])
             if product.quantity and product.listPrice then assert(product.listPrice==49*product.quantity) end
         end
         assert(Shop.commas(1960)=="1,960" and Shop.commas(99)=="99" and Shop.clock(905)=="15:05" and Shop.clock(3725)=="1:02:05")
+    end)
+    t.test("live developer product IDs map to the correct delivery and are idempotent",function()
+        local expected={xp_15=3730608242,xp_30=3730608283,xp_60=3730608303,crate2x_15=3730608412,crate2x_30=3730608516,crate2x_60=3730608550,crates_1=3730605879,crates_5=3730607863,crates_10=3730607934,crates_50=3730607984,crates_100=3730608105}
+        for id,productId in expected do
+            local product=Shop.byProductId[productId]
+            assert(product and product.id==id and Shop.byId[id]==product)
+            local data=I.new()
+            local ok,receipt=I.purchase(data,product.id,"test:"..productId,now)
+            assert(ok)
+            if product.quantity then assert(data.owned.crate_season1==product.quantity)
+            else assert(data.boosts[product.section]==now+product.minutes*60) end
+            local before=product.quantity and data.owned.crate_season1 or data.boosts[product.section]
+            local replay,_,cached=I.purchase(data,product.id,"test:"..productId,now)
+            assert(replay and cached)
+            assert((product.quantity and data.owned.crate_season1 or data.boosts[product.section])==before)
+        end
+        for _,product in Shop.products do assert(expected[product.id]==product.productId) end
     end)
     t.test("token purchases start now, stack remaining time and replay without regranting",function()
         local data=I.new()

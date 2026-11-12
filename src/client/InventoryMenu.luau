@@ -214,11 +214,6 @@ function Menu.new(playerGui,clear,beforeOpen)
         end
         return Enum.ContextActionResult.Sink
     end,false,Enum.ContextActionPriority.High.Value+45,Enum.KeyCode.ButtonL1,Enum.KeyCode.ButtonR1)
-    CAS:BindActionAtPriority("NOVA_InventoryOpen",function(_,state)
-        if not self.available or UIS:GetFocusedTextBox() or Gui.MenuIsOpen then return Enum.ContextActionResult.Pass end
-        if state==Enum.UserInputState.Begin then self:setOpen(not self.opened) end
-        return Enum.ContextActionResult.Sink
-    end,false,Enum.ContextActionPriority.High.Value+40,Enum.KeyCode.ButtonX)
     self:resize(); self:refresh()
     task.spawn(function()
         local ok,response=pcall(function() return self.remote:InvokeServer("read") end)

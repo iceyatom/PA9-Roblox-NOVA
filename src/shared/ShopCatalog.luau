@@ -11,18 +11,18 @@ Shop.sections={
         blurb="Each crate holds one collectible cosmetic. Duplicates pay Shards."},
 }
 Shop.products={
-    {id="xp_15",section="xp",minutes=15,price=99,productId=0},
-    -- Bundles step 10% further off list per tier above the base offer.
-    {id="xp_30",section="xp",minutes=30,price=178,listPrice=198,productId=0},
-    {id="xp_60",section="xp",minutes=60,price=317,listPrice=396,productId=0},
-    {id="crate2x_15",section="crate",minutes=15,price=149,productId=0},
-    {id="crate2x_30",section="crate",minutes=30,price=268,listPrice=298,productId=0},
-    {id="crate2x_60",section="crate",minutes=60,price=477,listPrice=596,productId=0},
-    {id="crates_1",section="crates",quantity=1,price=49,productId=0},
-    {id="crates_5",section="crates",quantity=5,price=221,listPrice=245,productId=0},
-    {id="crates_10",section="crates",quantity=10,price=392,listPrice=490,productId=0},
-    {id="crates_50",section="crates",quantity=50,price=1715,listPrice=2450,productId=0},
-    {id="crates_100",section="crates",quantity=100,price=2940,listPrice=4900,productId=0},
+    {id="xp_15",section="xp",minutes=15,price=99,productId=3730608242},
+    -- Product IDs and current prices match the Creator Dashboard configuration.
+    {id="xp_30",section="xp",minutes=30,price=159,listPrice=198,productId=3730608283},
+    {id="xp_60",section="xp",minutes=60,price=316,listPrice=396,productId=3730608303},
+    {id="crate2x_15",section="crate",minutes=15,price=149,productId=3730608412},
+    {id="crate2x_30",section="crate",minutes=30,price=238,listPrice=298,productId=3730608516},
+    {id="crate2x_60",section="crate",minutes=60,price=476,listPrice=596,productId=3730608550},
+    {id="crates_1",section="crates",quantity=1,price=49,productId=3730605879},
+    {id="crates_5",section="crates",quantity=5,price=196,listPrice=245,productId=3730607863},
+    {id="crates_10",section="crates",quantity=10,price=392,listPrice=490,productId=3730607934},
+    {id="crates_50",section="crates",quantity=50,price=1960,listPrice=2450,productId=3730607984},
+    {id="crates_100",section="crates",quantity=100,price=3200,listPrice=4900,productId=3730608105},
 }
 Shop.byId,Shop.byProductId,Shop.sectionById={},{},{}
 for _,section in Shop.sections do Shop.sectionById[section.id]=section; section.products={} end
