@@ -17,8 +17,9 @@ end
 -- Equipment is committed through the inventory owner; the reveal only manages feedback.
 function Reveal:actions(root,item,detail,width,y,height,visible)
     local equipment=self.equipment
-    local buttonWidth=equipment and (width-60)/2 or width-48
-    local done=Style.button(root,"Continue",equipment and 36+buttonWidth or 24,y,buttonWidth,height,"Continue",true)
+    local again=equipment and equipment.open and self.crateId and equipment.remaining(self.crateId)>0
+    local buttonWidth=again and (width-72)/3 or equipment and (width-60)/2 or width-48
+    local done=Style.button(root,"Continue",again and 48+buttonWidth*2 or equipment and 36+buttonWidth or 24,y,buttonWidth,height,"Continue",true)
     done.ZIndex=49; done.Visible=visible
     done.Activated:Connect(function() self:hide(); if self.onDone then self.onDone() end end)
     if not equipment then return done end
@@ -45,11 +46,20 @@ function Reveal:actions(root,item,detail,width,y,height,visible)
     done:GetPropertyChangedSignal("Position"):Connect(function() equip.Position=UDim2.fromOffset(24,done.Position.Y.Offset) end)
     done:GetPropertyChangedSignal("Size"):Connect(function() equip.Size=UDim2.fromOffset(buttonWidth,done.Size.Y.Offset) end)
     done:GetPropertyChangedSignal("Visible"):Connect(function() equip.Visible=done.Visible end)
-    done.NextSelectionLeft=equip; equip.NextSelectionRight=done
+    if again then
+        local reopen=Style.button(root,"OpenAgain",36+buttonWidth,y,buttonWidth,height,"Open again",false)
+        reopen.ZIndex=49;reopen.Visible=visible;reopen.TextSize=14;done.TextSize=14;equip.TextSize=14
+        reopen.Activated:Connect(function() if reopen.Active then equipment.open(self.crateId,1) end end)
+        done:GetPropertyChangedSignal("Position"):Connect(function() reopen.Position=UDim2.fromOffset(36+buttonWidth,done.Position.Y.Offset) end)
+        done:GetPropertyChangedSignal("Size"):Connect(function() reopen.Size=UDim2.fromOffset(buttonWidth,done.Size.Y.Offset) end)
+        done:GetPropertyChangedSignal("Visible"):Connect(function() reopen.Visible=done.Visible end)
+        equip.NextSelectionRight=reopen;reopen.NextSelectionRight=done;done.NextSelectionLeft=reopen;reopen.NextSelectionLeft=equip
+    else done.NextSelectionLeft=equip;equip.NextSelectionRight=done end
     return done
 end
 function Reveal:hide()
     self.generation+=1; self.active=false
+    if self.batch then self.batch:destroy();self.batch=nil end
     if self.rollConnection then self.rollConnection:Disconnect(); self.rollConnection=nil end
     if self.unlock then self.unlock:destroy(); self.unlock=nil end
     self.audio:stop()
@@ -59,7 +69,7 @@ function Reveal:hide()
     self.restore=nil
 end
 function Reveal:show(receipt)
-    self:hide(); self.active=true
+    self:hide(); self.active=true;self.crateId=receipt.crateId
     local generation=self.generation
     self.restore={}
     for _,object in self.panel:GetDescendants() do
@@ -153,5 +163,18 @@ function Reveal:show(receipt)
         self.unlock:play()
     end)
     self.tween:Play()
+end
+function Reveal:showMany(receipts)
+    self:hide();self.active=true;self.crateId=receipts[1].crateId
+    self.restore={}
+    for _,object in self.panel:GetDescendants() do
+        if object:IsA("GuiObject") and object.Selectable then self.restore[object]=true;object.Selectable=false end
+    end
+    Gui.SelectedObject=nil
+    self.batch=require(script.Parent.MultiCrateReveal).new(self.panel,receipts,self.equipment,function()
+        self:hide();if self.onDone then self.onDone() end
+    end,function() if self.onReady then self.onReady() end end)
+    self.overlay=self.batch.root
+    self.batch:play()
 end
 return Reveal

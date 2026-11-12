@@ -69,10 +69,26 @@ function Contents:resize()
     self.scroll.Position=UDim2.fromOffset(18,top);self.scroll.Size=UDim2.fromOffset(width-36,math.max(36,height-top-82))
     self.owned.Position=UDim2.fromOffset(22,height-64);self.owned.Size=UDim2.fromOffset(width-240,24)
     self.hint.Position=UDim2.fromOffset(22,height-38);self.hint.Size=UDim2.fromOffset(width-240,20)
-    self.openButton.Position=UDim2.fromOffset(width-(compact and 154 or 226),height-62)
-    self.openButton.Size=UDim2.fromOffset(compact and 136 or 208,44)
+    local quantity=self.data and self.data.owned[self.crate.id] or 0
+    local choices={self.openButton}
+    for _,count in {3,5} do
+        local button=self.batchButtons[count];button.Visible=quantity>=count
+        if button.Visible then table.insert(choices,button) end
+    end
+    local area=compact and width-36 or math.min(420,width-260)
+    local buttonWidth=(area-(#choices-1)*8)/#choices
+    for index,button in choices do
+        button.Position=UDim2.fromOffset(width-18-area+(index-1)*(buttonWidth+8),height-62)
+        button.Size=UDim2.fromOffset(buttonWidth,44);button.TextSize=compact and 13 or 16
+    end
     if compact then
-        self.owned.Size=UDim2.fromOffset(width-182,24);self.hint.Size=UDim2.fromOffset(width-182,20)
+        self.owned.Position=UDim2.fromOffset(22,height-114);self.hint.Position=UDim2.fromOffset(22,height-90)
+        self.owned.Size=UDim2.fromOffset(width-44,24);self.hint.Size=UDim2.fromOffset(width-44,20)
+        self.scroll.Size=UDim2.fromOffset(width-36,math.max(36,height-top-130))
+    else
+        self.owned.Size=UDim2.fromOffset(width-area-54,24);self.hint.Size=UDim2.fromOffset(width-area-54,20)
+    end
+    if compact then
         self.owned.TextSize=14;self.hint.TextSize=11
     else self.owned.TextSize=18;self.hint.TextSize=13 end
     local available=width-54
@@ -92,6 +108,11 @@ function Contents:update(data,canOpen)
     local enabled=quantity>0 and canOpen==true
     self.openButton.Active=enabled;self.openButton.Selectable=enabled;self.openButton.AutoButtonColor=enabled
     self.openButton.BackgroundColor3=enabled and C.purple or C.line
+    for count,button in self.batchButtons do
+        local active=quantity>=count and canOpen==true
+        button.Active=active;button.Selectable=active;button.AutoButtonColor=active;button.BackgroundColor3=active and C.purple or C.line
+    end
+    self:resize()
     for _,slot in self.slots do slot.owned.Visible=data~=nil and Model.owns(data,slot.entry.item.id) end
 end
 function Contents:show(crate,data,canOpen)
@@ -152,8 +173,16 @@ function Contents:show(crate,data,canOpen)
     self.openButton=Style.button(panel,"OpenCrate",0,0,208,44,"Open crate",true)
     self.openButton.Activated:Connect(function()
         if not self.openButton.Active then return end
-        self:hide();if self.onOpen then self.onOpen(crate) end
+        self:hide();if self.onOpen then self.onOpen(crate,1) end
     end)
+    self.batchButtons={}
+    for _,count in {3,5} do
+        local button=Style.button(panel,"Open"..count,0,0,100,44,"Open "..count,true);self.batchButtons[count]=button
+        button.Activated:Connect(function()
+            if not button.Active then return end
+            self:hide();if self.onOpen then self.onOpen(crate,count) end
+        end)
+    end
     self.sizeConnection=root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:resize() end)
     self.scrollConnection=scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function() self:updateThumbnails() end)
     self.gridConnection=grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()

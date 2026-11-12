@@ -166,11 +166,12 @@ end
 function Service:request(player,action,id,key)
     local r=self.records[player]
     if not r or player.Parent~=Players then return {ok=false,message="Loading inventory…"} end
+    local openCount=({open=1,open3=3,open5=5})[action]
     local now=os.clock()
     if now-(r.lastRequest or -math.huge)<.15 then return {ok=false,message="Please wait."} end
     r.lastRequest=now
     if action=="read" and id==nil and key==nil then return {ok=true,profile=self:snapshot(player)} end
-    if type(id)~="string" or #id>64 or (action~="open" and key~=nil) then return {ok=false,message="Invalid request."} end
+    if type(id)~="string" or #id>64 or (not openCount and key~=nil) then return {ok=false,message="Invalid request."} end
     local ok,result=self:mutate(player,function(data)
         if action=="ackRetirements" then return Model.ackRetirements(data,id) end
         if self.canUse and not self.canUse(player) then return false,"Return to the lobby to manage your inventory." end
@@ -178,18 +179,23 @@ function Service:request(player,action,id,key)
         elseif action=="favorite" then return Model.favorite(data,id)
         elseif action=="effects" and (id=="on" or id=="off") then
             data.reducedEffects=id=="on"; return true
-        elseif action=="open" then
+        elseif openCount then
             if type(key)~="string" or #key>64 then return false,"Invalid request." end
             if not data.receipts[key] then
                 if key~="open:"..(data.openSequence+1) then return false,"Opening expired." end
-                if now-(r.lastOpen or -math.huge)<6 then return false,"Finish the current crate reveal first." end
+                if now-(r.lastOpen or -math.huge)<.15 then return false,"Please wait." end
             end
-            local success,receipt,replay=Model.open(data,id,key,self.random:NextNumber())
+            local success,receipt,replay
+            if openCount==1 then success,receipt,replay=Model.open(data,id,key,self.random:NextNumber())
+            else
+                local rolls={};for _=1,openCount do table.insert(rolls,self.random:NextNumber()) end
+                success,receipt,replay=Model.openMany(data,id,key,openCount,rolls)
+            end
             if success and not replay then r.lastOpen=now end
             return success,receipt,replay
         end
         return false,"Unknown inventory action."
     end)
-    return {ok=ok,message=not ok and result or nil,profile=self:snapshot(player),receipt=ok and action=="open" and result or nil}
+    return {ok=ok,message=not ok and result or nil,profile=self:snapshot(player),receipt=ok and openCount==1 and result or nil,receipts=ok and openCount and openCount>1 and result or nil}
 end
 return Service

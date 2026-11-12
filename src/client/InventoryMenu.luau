@@ -106,7 +106,7 @@ function Menu.new(playerGui,clear,beforeOpen)
         Gui.SelectedObject=gamepad() and self.contentsButton or nil
     end,function(item)
         self.focus:show(item,self.data.equipped,Model.owns(self.data,item.id))
-    end,function(crate) self:request("open",crate.id) end)
+    end,function(crate,count) self:request("open",crate.id,count) end)
     self.contentsButton=Style.button(details,"ViewContents",178,298,144,40,"View contents",false)
     self.contentsButton.Visible=false
     self.contentsButton.Activated:Connect(function()
@@ -116,6 +116,12 @@ function Menu.new(playerGui,clear,beforeOpen)
         end
     end)
     self.action=Style.button(details,"EquipOrOpen",18,344,196,44,"Equip",true)
+    self.batchButtons={}
+    for _,count in {3,5} do
+        local button=Style.button(details,"Open"..count,18,348,80,40,"Open "..count,true)
+        button.Visible=false;button.TextSize=14;self.batchButtons[count]=button
+        button.Activated:Connect(function() if button.Active and self.selected then self:request("open",self.selected,count) end end)
+    end
     self.favorite=Style.button(details,"Favorite",226,344,96,44,"Favorite",false); self.favorite.TextSize=16
     self.action.Activated:Connect(function()
         local item=Catalog.byId[self.selected]
@@ -130,6 +136,11 @@ function Menu.new(playerGui,clear,beforeOpen)
     self.reveal=require(script.Parent.CrateReveal).new(panel,function()
         self:refresh(); Gui.SelectedObject=gamepad() and self.action or nil
     end,{
+        remaining=function(id) return self.data and self.data.owned[id] or 0 end,
+        open=function(id,count)
+            if self.busy then return end
+            self.reveal:hide();self.selected=id;self:request("open",id,count)
+        end,
         isEquipped=function(item) return self.data and self.data.equipped[item.category]==item.id end,
         equip=function(item)
             -- Model.equip toggles existing equipment, so never resend an equipped reward.
@@ -374,6 +385,7 @@ function Menu:refresh()
         or (self.query~="" or self.rarity~=0 or self.onlyFavorites or self.ownership~=0) and "No items match these filters."
         or category=="crates" and "No crates yet. Owned crates will appear here." or "No items in this category yet."
     self.count.Text=("%d ITEM%s"):format(#items,#items==1 and "" or "S")
+    for _,button in self.batchButtons do button.Visible=false end
     local item=Catalog.byId[self.selected]
     self.details.Visible=item~=nil
     if item then
@@ -419,32 +431,56 @@ function Menu:refresh()
         self.favorite.Text=data.favorites[item.id] and "★ Saved" or "☆ Favorite"
         self.favorite.Selectable=Model.owns(data,item.id) and not self.reveal.active
         self.favorite.Active=Model.owns(data,item.id) and self.profile.ready and not self.busy and not self.reveal.active
+        self.action.TextSize=18;self.favorite.TextSize=16
+        if crate then
+            local choices={self.action}
+            for _,count in {3,5} do
+                local button=self.batchButtons[count]
+                button.Visible=(data.owned[item.id] or 0)>=count and not self.pendingOpen
+                if button.Visible then table.insert(choices,button) end
+                button.Active=active;button.Selectable=button.Visible and active;button.AutoButtonColor=active
+                button.BackgroundColor3=active and C.purple or C.line
+            end
+            local size=(width-44-#choices*6)/#choices
+            for i,button in choices do button.Position=UDim2.fromOffset(18+(i-1)*(size+6),348);button.Size=UDim2.fromOffset(size,40);button.TextSize=14 end
+            self.favorite.Position=UDim2.fromOffset(18+width-44,348);self.favorite.Size=UDim2.fromOffset(44,40)
+            self.favorite.Text=data.favorites[item.id] and "★" or "☆"
+            if retry then self.action.Text="Retry "..(self.pendingOpen.count or 1)
+            elseif (data.owned[item.id] or 0)>0 then self.action.Text="Open 1" end
+        else
+            self.action.Position=UDim2.fromOffset(18,348);self.action.Size=UDim2.fromOffset(width-108,40)
+            self.favorite.Position=UDim2.fromOffset(18+width-96,348);self.favorite.Size=UDim2.fromOffset(96,40)
+        end
     end
     self.status.Text=self.message or self.profile and self.profile.status or "Loading inventory…"
     self.contents:update(data,self.profile and self.profile.ready and not self.busy and not self.reveal.active)
 end
-function Menu:request(action,id)
+function Menu:request(action,id,count)
     if self.busy or self.reveal.active or not self.data or not self.profile.ready then return end
     if action=="open" and self.pendingOpen and self.pendingOpen.id~=id then self.message="Retry the previous crate opening first."; self:refresh(); return end
     self.busy=true; self.message=nil
     local key
     if action=="open" then
-        self.pendingOpen=self.pendingOpen or {id=id,key="open:"..(self.data.openSequence+1)}
+        self.pendingOpen=self.pendingOpen or {id=id,key="open:"..(self.data.openSequence+1),count=count or 1}
         key=self.pendingOpen.key
     end
     self:refresh()
     task.spawn(function()
-        local ok,response=pcall(function() return self.remote:InvokeServer(action,id,key) end)
+        local serverAction=action=="open" and self.pendingOpen.count>1 and ("open"..self.pendingOpen.count) or action
+        local ok,response=pcall(function() return self.remote:InvokeServer(serverAction,id,key) end)
         self.busy=false
         if not ok then self.message=action=="open" and "Connection interrupted. Retry opening to check your reward." or "Connection interrupted. Please try again."
         else
             if response.profile then self:accept(response.profile) end
             if action=="open" and (response.ok or response.message=="You do not own this crate."
-                or response.message=="Opening expired." or response.message=="Invalid item." or response.message=="Invalid request." or response.message=="Request already used.") then
+                or response.message=="Not enough crates." or response.message=="Invalid crate count." or response.message=="Opening expired." or response.message=="Invalid item." or response.message=="Invalid request." or response.message=="Request already used.") then
                 self.pendingOpen=nil
             end
             self.message=response.ok and nil or response.message
-            if response.ok and response.receipt then
+            if response.ok and response.receipts then
+                self.message="Received "..#response.receipts.." rewards"
+                if self.opened and self.available then self.contents:hide();self.focus:hide();self.overlay.CanvasPosition=Vector2.zero;self.reveal:showMany(response.receipts) end
+            elseif response.ok and response.receipt then
                 local item=Catalog.byId[response.receipt.itemId]
                 self.message=response.receipt.duplicate and ("%s duplicate → +%d Shards"):format(item.name,response.receipt.shards) or "Received "..item.name
                 if self.opened and self.available then self.contents:hide();self.focus:hide();self.overlay.CanvasPosition=Vector2.zero; self.reveal:show(response.receipt) end

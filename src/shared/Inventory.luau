@@ -88,6 +88,7 @@ function Inventory.validate(raw)
                 and Catalog.byId[r.itemId] and Catalog.byId[crateId] and integer(r.shards,1000000000)
                 and type(r.duplicate)=="boolean" then
                 data.receipts[key]={itemId=r.itemId,crateId=crateId,shards=r.shards,duplicate=r.duplicate,requestId=key}
+                if r.batchCount==3 or r.batchCount==5 then data.receipts[key].batchCount=r.batchCount end
                 table.insert(data.receiptOrder,key)
             end
         end
@@ -173,7 +174,7 @@ function Inventory.open(data,id,key,roll)
     id=(Catalog.crateAliases or {})[id] or id
     if type(key)~="string" or #key<1 or #key>64 then return false,"Invalid request." end
     if data.receipts[key] then
-        if data.receipts[key].crateId~=id then return false,"Request already used." end
+        if data.receipts[key].crateId~=id or data.receipts[key].batchCount then return false,"Request already used." end
         return true,data.receipts[key],true
     end
     local crate=Catalog.byId[id]
@@ -193,5 +194,35 @@ function Inventory.open(data,id,key,roll)
     data.receipts[key]=receipt; table.insert(data.receiptOrder,key)
     if #data.receiptOrder>24 then data.receipts[table.remove(data.receiptOrder,1)]=nil end
     return true,receipt
+end
+-- A batch uses consecutive durable opening keys and commits in the same inventory mutation.
+function Inventory.openMany(data,id,key,count,rolls)
+    if count~=3 and count~=5 then return false,"Invalid crate count." end
+    id=(Catalog.crateAliases or {})[id] or id
+    if type(key)~="string" then return false,"Invalid request." end
+    local first=tonumber(key:match("^open:(%d+)$"))
+    if not first then return false,"Invalid request." end
+    local previous=data.receipts[key]
+    if previous then
+        if previous.crateId~=id or previous.batchCount~=count then return false,"Request already used." end
+        local results={}
+        for i=1,count do
+            local receipt=data.receipts["open:"..(first+i-1)]
+            if not receipt or receipt.crateId~=id then return false,"Opening expired." end
+            table.insert(results,receipt)
+        end
+        return true,results,true
+    end
+    if first~=data.openSequence+1 then return false,"Opening expired." end
+    if not Catalog.byId[id] or not Catalog.byId[id].rewards or (data.owned[id] or 0)<count then return false,"Not enough crates." end
+    if type(rolls)~="table" or #rolls~=count then return false,"Invalid rolls." end
+    for _,roll in rolls do if type(roll)~="number" or roll~=roll or roll<0 or roll>1 then return false,"Invalid rolls." end end
+    local results={}
+    for i=1,count do
+        local ok,receipt=Inventory.open(data,id,"open:"..(first+i-1),rolls[i])
+        assert(ok,receipt);table.insert(results,receipt)
+    end
+    results[1].batchCount=count
+    return true,results
 end
 return Inventory
