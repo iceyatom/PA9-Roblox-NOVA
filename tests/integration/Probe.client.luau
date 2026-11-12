@@ -132,7 +132,7 @@ local function handle(cmd,arg)
         return overlay and overlay:GetAttribute("Phase")
     elseif cmd=="read" then
         local seat=stage.Seat1.Text:find("YOU",1,true) and 1 or 2
-        return {dropSettled=player.PlayerGui.NOVA.CrateChance.Visible and latest and latest.chest and player.PlayerGui.NOVA.CrateChance:GetAttribute("ResultKey")==latest.chest.key and player.PlayerGui.NOVA.CrateChance:GetAttribute("AnimationComplete"),chest=latest and latest.chest,seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
+        return {resultsReady=gui.ResultBanner:GetAttribute("AnimationComplete"),resultBannerVisible=gui.ResultBanner.Visible,dropSettled=player.PlayerGui.NOVA.CrateChance.Visible and latest and latest.chest and player.PlayerGui.NOVA.CrateChance:GetAttribute("ResultKey")==latest.chest.key and player.PlayerGui.NOVA.CrateChance:GetAttribute("AnimationComplete"),chest=latest and latest.chest,seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
             hp=stage.Vitals2.Text,seen=seen,round=latest and latest.round or 0,lobby=latest and latest.lobby,mapId=latest and latest.mapId,
             rollVisible=stage.MapShuffle.Visible,rollHeading=stage.MapShuffle.Heading.Text,
             p=latest and latest.players or {},vote=notice.Rematch.Text,

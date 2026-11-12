@@ -44,7 +44,7 @@ return function()
     end
     local function read(p) return request(p,"read") end
     local function waitPhase(p,phase)
-        return untilTrue(function() local r=read(p); return r.phase==phase and r end,12,phase)
+        return untilTrue(function() local r=read(p); return r.phase==phase and (phase~="Results" or r.resultsReady) and r end,phase=="Results" and 18 or 12,phase)
     end
     -- Clients spawn in the 3D lobby. Standing on the pad queues them for Map 1.
     local function queue(p)

@@ -21,6 +21,7 @@ function Hud.new(playerGui)
     gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
     gui.Parent=playerGui
     self.gui=gui
+    self.resultBanner=require(script.Parent.ResultBanner).new(gui)
     local root=W.box(gui,"Backdrop",0,0,0,0,C.ink)
     root.Size=UDim2.fromScale(1,1)
     local origin=W.box(root,"Origin",0,0,0,0)
@@ -83,7 +84,7 @@ function Hud.new(playerGui)
     self.note=W.text(self.notice,"Detail",23,77,360,23,"The duel starts with two players.",16,C.muted)
     self.xpRecap=require(script.Parent.XPRecap).new(self.notice)
     gui:GetPropertyChangedSignal("Enabled"):Connect(function()
-        if not gui.Enabled then self.xpRecap:hide();if self.chestRoll then self.chestRoll:hide() end end
+        if not gui.Enabled then self.resultBanner:hide();self.xpRecap:hide();if self.chestRoll then self.chestRoll:hide() end end
     end)
     self.rematch=W.button(self.notice,"Rematch",23,109,209,37,"Rematch",true)
     self.leave=W.button(self.notice,"Leave",244,109,130,37,"Leave",false)
@@ -100,6 +101,10 @@ end
 function Hud:update(snap,seat)
     self.snap=snap; self.seat=seat
     local phase=snap.phase
+    local resultKey=tostring(snap.lobby)..":"..snap.round
+    if phase=="Results" then self.resultBanner:start(resultKey,snap.winner==0 and "draw" or snap.winner==seat and "win" or "loss")
+    elseif phase~="Waiting" or not self.resultBanner.blocked then self.resultBanner:hide() end
+    local blocked=self.resultBanner.blocked or phase=="Results" and not self.resultBanner:ready(resultKey)
     local status=({Waiting="1 OF 2",Selecting="MAP SHUFFLE",Countdown="COUNTDOWN",Playing="LIVE",Results="FINAL"})[phase]
     self.phaseLabel.Text=("LOBBY %02d / %s"):format(snap.lobby,status)
     for i,p in snap.players do
@@ -119,11 +124,11 @@ function Hud:update(snap,seat)
         side.hp.Text=p.uid and ("%02d / %02d HP"):format(p.hp,snap.maxHP) or "AWAITING PLAYER"
         for j,cell in side.cells do cell.BackgroundColor3=p.uid and j/10 <= p.hp/snap.maxHP and side.color or C.line end
     end
-    self.notice.Visible=phase~="Playing" and phase~="Selecting"
+    self.notice.Visible=phase~="Playing" and phase~="Selecting" and not blocked
     self.notice.Size=UDim2.fromOffset(400,(phase=="Results" or phase=="Waiting") and 160 or 111)
     self.notice.Position=UDim2.fromOffset(520,389)
     self.note.Size=UDim2.fromOffset(360,23)
-    local receipt=phase=="Results" and snap.players[seat].xpRecap
+    local receipt=phase=="Results" and not blocked and snap.players[seat].xpRecap
     if receipt and receipt.total<=0 then receipt=nil end
     if receipt then
         local height=108+self.xpRecap:start(tostring(snap.lobby)..":"..snap.round,receipt)+65
@@ -133,8 +138,10 @@ function Hud:update(snap,seat)
     else
         self.xpRecap:hide()
     end
-    self.rematch.Visible=phase=="Results"
-    self.leave.Visible=phase=="Results" or phase=="Waiting"
+    self.rematch.Visible=phase=="Results" and not blocked
+    self.leave.Visible=(phase=="Results" or phase=="Waiting") and not blocked
+    self.rematch.Active=not blocked;self.rematch.Selectable=not blocked
+    self.leave.Active=not blocked;self.leave.Selectable=not blocked
     self.leave.Position=UDim2.fromOffset(phase=="Waiting" and 23 or 244,109)
     self.leave.Size=UDim2.fromOffset(phase=="Waiting" and 160 or 130,37)
     self.rematch.Size=UDim2.fromOffset(receipt and 280 or 209,37)
@@ -145,7 +152,7 @@ function Hud:update(snap,seat)
     else
         self.rematch.Position=UDim2.fromOffset(23,109)
     end
-    self.chestRoll:update(phase=="Results" and snap.chest or nil,not self.xpRecap.events)
+    self.chestRoll:update(phase=="Results" and not blocked and snap.chest or nil,not blocked and not self.xpRecap.events)
     self.leave.Text=phase=="Waiting" and "Leave queue" or "Lobby"
     if phase=="Waiting" then
         self.kicker.Text,self.title.Text,self.note.Text="IN QUEUE","Waiting for a rival","The duel starts with two players."
@@ -162,9 +169,17 @@ function Hud:update(snap,seat)
         self.rematch.Text=not rival.uid and "Find new rival" or snap.players[seat].vote and "Waiting for rival…" or rival.vote and "Accept rematch" or "Rematch"
     end
 end
+function Hud:resultsReady()
+    return self.gui.Enabled and self.snap and self.snap.phase=="Results" and self.resultBanner:ready(tostring(self.snap.lobby)..":"..self.snap.round)
+end
 function Hud:tick()
+    if not self.gui.Enabled then return end
+    if self.resultBanner:tick() then
+        self:update(self.snap,self.seat)
+        if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" and not Gui.MenuIsOpen then Gui.SelectedObject=self.snap.phase=="Waiting" and self.leave or self.rematch end
+    end
     self.xpRecap:tick()
-    self.chestRoll:update(self.gui.Enabled and self.snap and self.snap.phase=="Results" and self.snap.chest or nil,not self.xpRecap.events)
+    self.chestRoll:update(self.snap and self.snap.phase=="Results" and self:resultsReady() and self.snap.chest or nil,not self.resultBanner.blocked and not self.xpRecap.events)
     if self.snap and self.snap.phase=="Countdown" then
         self.title.Text="Duel in "..math.clamp(math.ceil(self.snap.ends-workspace:GetServerTimeNow()),1,3)
     end

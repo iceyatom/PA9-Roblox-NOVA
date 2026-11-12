@@ -29,6 +29,7 @@ local function fire(kind,a,b)
     input:FireServer(kind,snapshot.lobby,snapshot.round,a,b)
 end
 local settings=require(script.Parent.ControlSettings).new()
+hud.resultBanner.getBindings=function() return settings.bindings end
 practice=require(script.Parent.PracticeHud).new(player.PlayerGui,fire)
 local clear=require(script.Parent.Input).connect(fire,function()
     return not settings.opened and ((practiceSnapshot and practiceSnapshot.phase=="Playing") or (snapshot and snapshot.phase=="Playing"))
@@ -46,14 +47,14 @@ settingsMenu.beforeOpen=function() progressionMenu:setOpen(false); inventory:set
 settingsMenu.selectionOnClose=function()
     if practiceSnapshot then return practiceSnapshot.phase=="Results" and practice.retry or practice.leave end
     if not snapshot then return nil end
-    return snapshot.phase=="Results" and hud.rematch or snapshot.phase=="Waiting" and hud.leave or nil
+    return snapshot.phase=="Results" and hud:resultsReady() and hud.rematch or snapshot.phase=="Waiting" and not hud.resultBanner.blocked and hud.leave or nil
 end
 task.spawn(function() settings:load() end)
-hud.rematch.Activated:Connect(function() fire("rematch") end)
-hud.leave.Activated:Connect(function() fire("leave") end)
+hud.rematch.Activated:Connect(function() if hud:resultsReady() then fire("rematch") end end)
+hud.leave.Activated:Connect(function() if snapshot and not hud.resultBanner.blocked and (snapshot.phase~="Results" or hud:resultsReady()) then fire("leave") end end)
 local openAfterLobby=false
 hud.openChest.Activated:Connect(function()
-    if snapshot and snapshot.phase=="Results" and snapshot.winner==seat and snapshot.chest and snapshot.chest.status=="Chest earned" and snapshot.chest.receipt and snapshot.chest.receipt.awarded and hud.chestRoll.settled then
+    if snapshot and hud:resultsReady() and snapshot.winner==seat and snapshot.chest and snapshot.chest.status=="Chest earned" and snapshot.chest.receipt and snapshot.chest.receipt.awarded and hud.chestRoll.settled then
         hud.chestRoll:dismiss();openAfterLobby=true; fire("leave")
     end
 end)
