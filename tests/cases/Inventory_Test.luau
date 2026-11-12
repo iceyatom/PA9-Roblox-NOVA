@@ -72,9 +72,12 @@ return function(t)
     end)
     t.test("duplicate rewards become shards without duplicate cosmetic copies",function()
         local d=I.new(); I.grant(d,"crate_season1",2)
-        I.open(d,"crate_season1","first",0)
+        local _,first=I.open(d,"crate_season1","first",0)
         local ok,r=I.open(d,"crate_season1","second",0)
-        assert(ok and r.duplicate and r.shards==25 and d.shards==25 and d.owned.skin_mint==1 and not d.owned.crate_season1)
+        -- Saved Item Editor edits may change the rolled item's rarity, so price the duplicate from the live catalog.
+        local value=Catalog.duplicateValues[Catalog.byId[first.itemId].rarity]
+        assert(ok and r.itemId==first.itemId and r.duplicate and r.shards==value and d.shards==value
+            and d.owned[first.itemId]==1 and not d.owned.crate_season1)
         assert(not I.open(d,"crate_season1","empty",0))
     end)
     t.test("retrying a crate request survives profile serialization and cannot spend twice",function()

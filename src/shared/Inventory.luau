@@ -1,11 +1,16 @@
 -- Pure ownership/equipment/reward transactions. No client-provided rewards or quantities.
 local Catalog=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
 local Drop=require(script.Parent.CrateDrop)
+local Shop=require(script.Parent.ShopCatalog)
 local Inventory={}
 local function integer(n,max) return type(n)=="number" and n==n and n>=0 and n<=max and n%1==0 end
 function Inventory.new()
     return {owned={},equipped=table.clone(Catalog.defaults),favorites={},shards=0,receipts={},receiptOrder={},wins={},openSequence=0,reducedEffects=false,retirementSequence=0,
-        crateChance=Drop.BaseChance,dropReceipts={},dropOrder={}}
+        crateChance=Drop.BaseChance,dropReceipts={},dropOrder={},boosts={xp=0,crate=0},purchases={},purchaseOrder={}}
+end
+-- Boosts are wall-clock expiry timestamps (os.time); 0 means never purchased.
+function Inventory.boostActive(data,kind,now)
+    return (data.boosts[kind] or 0)>(now or os.time())
 end
 function Inventory.owns(data,id)
     local item=Catalog.byId[id]
@@ -54,7 +59,7 @@ function Inventory.validate(raw)
             seen[key]=true;local r=raw.dropReceipts[key]
             if type(r)~="table" or r.key~=key or not integer(r.expires,2^52)
                 or (r.outcome~="win" and r.outcome~="loss") or not Drop.validChance(r.chance) or not Drop.validChance(r.nextChance)
-                or type(r.awarded)~="boolean" then return nil end
+                or type(r.awarded)~="boolean" or (r.crates~=nil and (r.crates~=2 or not r.awarded)) then return nil end
             if r.outcome=="win" then
                 if type(r.landing)~="number" or r.landing~=r.landing or r.landing<0 or r.landing>=1
                     or r.awarded~=(r.landing<r.chance/100) then return nil end
@@ -65,6 +70,24 @@ function Inventory.validate(raw)
             end
         end
         for key in raw.dropReceipts do if not seen[key] then return nil end end
+    end
+    if raw.boosts~=nil then
+        if type(raw.boosts)~="table" then return nil end
+        for kind in data.boosts do
+            local expires=raw.boosts[kind]
+            if expires~=nil and not integer(expires,2^52) then return nil end
+            data.boosts[kind]=expires or 0
+        end
+    end
+    if raw.purchases~=nil or raw.purchaseOrder~=nil then
+        if type(raw.purchases)~="table" or type(raw.purchaseOrder)~="table" or #raw.purchaseOrder>Shop.LedgerLimit then return nil end
+        local seen={}
+        for index,id in raw.purchaseOrder do
+            if not integer(index,#raw.purchaseOrder) or index<1 or type(id)~="string" or #id<1 or #id>128 or seen[id]
+                or raw.purchases[id]~=true then return nil end
+            seen[id]=true;data.purchases[id]=true;table.insert(data.purchaseOrder,id)
+        end
+        for id in raw.purchases do if not seen[id] then return nil end end
     end
     for id,count in raw.owned do
         if type(id)~="string" or not integer(count,id=="crate_season1" and 3000000 or 1000000) then return nil end
@@ -149,7 +172,31 @@ function Inventory.grant(data,id,amount)
     elseif not item.default then data.owned[id]=1 end
     return true
 end
-function Inventory.matchReward(data,key,expires,outcome,roll)
+-- Robux purchase delivery. purchaseId is Roblox's receipt ID; a replayed receipt grants nothing twice.
+function Inventory.purchase(data,productId,purchaseId,now)
+    local product=Shop.byId[productId]
+    if not product then return false,"Unknown shop item." end
+    if type(purchaseId)~="string" or #purchaseId<1 or #purchaseId>128 then return false,"Invalid purchase." end
+    now=now or os.time()
+    if not integer(now,2^52) then return false,"Invalid purchase." end
+    if data.purchases[purchaseId] then return true,nil,true end
+    local receipt={productId=product.id,purchaseId=purchaseId}
+    if product.quantity then
+        local total=(data.owned[Shop.CrateId] or 0)+product.quantity
+        if total>3000000 then return false,"Chest inventory full." end
+        data.owned[Shop.CrateId]=total
+        receipt.quantity=product.quantity;receipt.owned=total
+    else
+        local expires=math.max(now,data.boosts[product.section] or 0)+product.minutes*60
+        if expires-now>Shop.MaxBoostSeconds then return false,"Token time is full." end
+        data.boosts[product.section]=expires
+        receipt.boost=product.section;receipt.minutes=product.minutes;receipt.expires=expires
+    end
+    data.purchases[purchaseId]=true;table.insert(data.purchaseOrder,purchaseId)
+    if #data.purchaseOrder>Shop.LedgerLimit then data.purchases[table.remove(data.purchaseOrder,1)]=nil end
+    return true,receipt
+end
+function Inventory.matchReward(data,key,expires,outcome,roll,now)
     if type(key)~="string" or #key<1 or #key>160 or not integer(expires,2^52) then return false,"Invalid match reward." end
     if expires<=os.time() then return false,"Reward expired." end
     if outcome~="win" and outcome~="loss" then return false,"Invalid match outcome." end
@@ -161,11 +208,14 @@ function Inventory.matchReward(data,key,expires,outcome,roll)
     end
     if outcome=="win" and (type(roll)~="number" or roll~=roll or roll<0 or roll>1) then return false,"Invalid crate roll." end
     local receipt=Drop.resolve(data.crateChance,outcome,roll)
-    if receipt.awarded and (data.owned.crate_season1 or 0)>=1000000 then return false,"Chest inventory full." end
+    -- An active Double Crates token doubles a crate won from this match.
+    local crates=receipt.awarded and (Inventory.boostActive(data,"crate",now) and 2 or 1) or 0
+    if crates>0 and (data.owned.crate_season1 or 0)+crates>1000000 then return false,"Chest inventory full." end
     receipt.key=key;receipt.expires=expires
     data.wins[key]=expires
     data.crateChance=receipt.nextChance
-    if receipt.awarded then Inventory.grant(data,"crate_season1",1) end
+    if crates>0 then Inventory.grant(data,"crate_season1",crates) end
+    if crates==2 then receipt.crates=2 end
     data.dropReceipts[key]=receipt;table.insert(data.dropOrder,key)
     if #data.dropOrder>Drop.ReceiptLimit then data.dropReceipts[table.remove(data.dropOrder,1)]=nil end
     return true,table.clone(receipt)

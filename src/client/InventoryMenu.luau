@@ -489,13 +489,23 @@ function Menu:request(action,id,count)
         self:refresh()
     end)
 end
-function Menu:openVictoryChest()
+-- Opens the menu on the Season 1 crate (from the shop or a victory roll).
+function Menu:showCrates()
     self.contents:hide()
     self:setOpen(true)
-    self.search.Text=""; self.rarity=0; self.ownership=1; self.onlyFavorites=false
+    if not self.opened then return false end
+    local owned=self.data and (self.data.owned[Catalog.rewardCrateId] or 0)>0
+    self.search.Text=""; self.rarity=0; self.ownership=owned and 1 or 0; self.onlyFavorites=false
     self:setCategory(#Catalog.categories)
-    self.selected="crate_season1"; self:refresh()
-    self:request("open","crate_season1")
+    self.selected=Catalog.rewardCrateId; self:refresh()
+    return true
+end
+function Menu:showCrateContents()
+    if not self:showCrates() or not self.data or self.reveal.active then return end
+    self.contents:show(Catalog.byId[Catalog.rewardCrateId],self.data,self.profile and self.profile.ready and not self.busy)
+end
+function Menu:openVictoryChest()
+    if self:showCrates() then self:request("open","crate_season1") end
 end
 function Menu:setAvailable(available)
     self.available=available; self.gui.Enabled=available

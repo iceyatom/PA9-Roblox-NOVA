@@ -136,6 +136,10 @@ function Service:crateChance(player)
     local r=self.records[player]
     return r and r.data and r.data.crateChance or require(shared.CrateDrop).BaseChance
 end
+function Service:boostActive(player,kind)
+    local r=self.records[player]
+    return r~=nil and r.data~=nil and Model.boostActive(r.data,kind)
+end
 function Service:awardMatch(player,result,expires,outcome,report)
     -- Sample once per match delivery, never once per save/retry attempt.
     local roll=outcome=="win" and self.random:NextNumber() or nil
