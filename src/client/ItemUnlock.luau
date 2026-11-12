@@ -62,7 +62,7 @@ function Unlock.new(parent,item,onReady,height)
     self.holder=centered(stage,"ReceivedItem",300,300,nil,5)
     self.icon=Instance.new("ImageLabel"); self.icon.Name="ColorIcon"; self.icon.BackgroundTransparency=1
     self.icon.Size=UDim2.fromScale(1,1); self.icon.ScaleType=Enum.ScaleType.Fit
-    self.icon.Image=Art[item.category] or ""; self.icon.Parent=self.holder
+    if not require(script.Parent.BatchOneVisuals).apply(self.icon,item) then self.icon.Image=Art[item.category] or "" end; self.icon.Parent=self.holder
     self.flash=W.box(root,"StampFlash",0,0,0,0,pale,10); self.flash.Size=UDim2.fromScale(1,1)
     self.flash.BackgroundTransparency=1; self.flash.Active=false
     -- Prepare the actual ImageLabel during the spin, including its first engine render.
@@ -97,6 +97,7 @@ function Unlock:render(t)
     self.holder.Size=UDim2.fromOffset(300*scale*(1+squash),300*scale*(1-squash))
     self.holder.Position=UDim2.fromOffset(290,y); self.holder.Rotation=rotation
     self.icon.ImageTransparency=1-enter
+    if self.icon:GetAttribute("SolidSkin") then self.icon.BackgroundTransparency=1-enter end
     self.glow.GroupTransparency=1-ease(phase(t,.2,1.3))*.96
     self.rays.Rotation=t*28; self.wideRays.Rotation=-t*17
     self.shadow.Size=UDim2.fromOffset(220*math.min(scale,1.15),24); self.shadow.BackgroundTransparency=1-.42*enter

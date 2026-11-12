@@ -20,6 +20,7 @@ function Lobbies:join(player)
     if not target then
         self.nextId+=1
         target={id=self.nextId,sim=Match.new(self.map,self.cfg,self.chooseMap)}
+        target.sim.roomId=target.id
         target.sim.finished=self.finished
         self.rooms[target.id]=target
     end

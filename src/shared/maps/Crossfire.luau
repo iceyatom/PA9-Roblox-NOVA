@@ -6,8 +6,8 @@ return {
     Mirrored = false,
     Spawns = {Vector2.new(2.5,16.5), Vector2.new(37.5,16.5)},
     Rows = {
-    "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPY",
-    "P......................................M",
+    "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+    "P......................................P",
     "P......................................P",
     "P......................................P",
     "P...PPPPPDDDDD............DDDDDPPPPP...P",

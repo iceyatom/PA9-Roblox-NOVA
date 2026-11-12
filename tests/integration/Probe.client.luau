@@ -45,7 +45,8 @@ local function handle(cmd,arg)
         local remote=shared.InventoryRequest
         click(center(inv.InventoryButton)); task.wait(.25)
         assert(inv.InventoryOverlay.Visible,"Inventory launcher did not open")
-        click(center(panel.Items.skin_mint)); task.wait(.1)
+        panel.Search.Text="Mint Circuit"
+        task.wait(.15); click(center(panel.Items.skin_mint)); task.wait(.1)
         click(center(panel.Details.EquipOrOpen)); task.wait(.25)
         click(center(panel.Details.Favorite)); task.wait(.25)
         for _,itemId in {"bullet_solar","tracer_comet","card_nebula","sound_arcade"} do
@@ -53,20 +54,85 @@ local function handle(cmd,arg)
         end
         local profile=remote:InvokeServer("read").profile; task.wait(.2)
         assert(profile.data.equipped.skins=="skin_mint" and profile.data.favorites.skin_mint)
-        local denied=remote:InvokeServer("grant","crate_dev"); task.wait(.2)
+        local denied=remote:InvokeServer("grant","crate_season1"); task.wait(.2)
         assert(not denied.ok,"Client grant action was accepted")
-        local key=game:GetService("HttpService"):GenerateGUID(false)
-        local award=remote:InvokeServer("open","crate_dev",key); task.wait(.2)
+        local key="open:"..(profile.data.openSequence+1)
+        local award=remote:InvokeServer("open","crate_season1",key); task.wait(.2)
         assert(award.ok and award.receipt.duplicate and award.receipt.shards>0)
-        local retry=remote:InvokeServer("open","crate_dev",key); task.wait(.2)
-        assert(retry.ok and retry.receipt.itemId==award.receipt.itemId and retry.profile.data.owned.crate_dev==9)
+        local retry=remote:InvokeServer("open","crate_season1",key); task.wait(.2)
+        assert(retry.ok and retry.receipt.itemId==award.receipt.itemId and retry.profile.data.owned.crate_season1==9)
         assert(retry.profile.data.shards==award.profile.data.shards,"Replay awarded duplicate currency twice")
-        click(center(panel.Close)); task.wait(.2)
-        assert(not inv.InventoryOverlay.Visible)
+        inv.InventoryOverlay.CanvasPosition=Vector2.zero
+        task.wait(.15); click(center(panel.Close)); task.wait(.2)
+        if inv.InventoryOverlay.Visible then
+            virtual:SendKey(true,Enum.KeyCode.Escape,false);task.wait(.06);virtual:SendKey(false,Enum.KeyCode.Escape,false);task.wait(.2)
+        end
+        assert(not inv.InventoryOverlay.Visible,"Inventory close control and shortcut both failed")
         return true
+    elseif cmd=="batchStress" then
+        return require(script.Parent.BatchStress)(player.PlayerGui)
+    elseif cmd=="batchProfile" then
+        task.wait(.2)
+        local response=shared.InventoryRequest:InvokeServer("read")
+        assert(response.ok,response.message)
+        return response.profile.data
+    elseif cmd=="batchDelivery" then
+        local assets=require(shared.BatchOneAssets)
+        local host=Instance.new("ScreenGui"); host.Name="AssetDeliveryTest"; host.Parent=player.PlayerGui
+        local nodes={}
+        local index=0
+        for key,id in assets do
+            local node=Instance.new(key=="audio" and "Sound" or "ImageLabel")
+            if key=="audio" then node.SoundId=id else node.Image=id; node.Size=UDim2.fromOffset(24,24); node.Position=UDim2.fromOffset(24*(index%8),24*math.floor(index/8)) end
+            index+=1
+            node.Parent=host
+            nodes[key]=node
+        end
+        local failures={}
+        local content=game:GetService("ContentProvider")
+        local list={}
+        for _,node in nodes do table.insert(list,node) end
+        local fetch={}
+        content:PreloadAsync(list,function(id,status) fetch[id]=status.Name end)
+        local deadline=os.clock()+12
+        repeat
+            local loaded=true
+            for _,node in nodes do if not node.IsLoaded then loaded=false end end
+            if loaded then break end
+            task.wait(.1)
+        until os.clock()>deadline
+        for key,node in nodes do
+            if not node.IsLoaded then table.insert(failures,key.." "..tostring(fetch[assets[key]])) end
+            if key=="audio" and node.TimeLength<24.1 then table.insert(failures,"incomplete sound bank") end
+            node:Destroy()
+        end
+        host:Destroy()
+        assert(#failures==0,table.concat(failures,", "))
+        return #list
+    elseif cmd=="batchSetup" then
+        for _,category in {"skins","bullets","tracers","backgrounds","sounds"} do
+            local result=shared.InventoryRequest:InvokeServer("equip","b1_"..category.."_crimson_singularity")
+            assert(result.ok,result.message); task.wait(.18)
+        end
+        assert(shared.InventoryRequest:InvokeServer("effects","on").ok)
+        task.wait(.2)
+        return player:GetAttribute("ReducedEffects")
+    elseif cmd=="batchSave" or cmd=="batchOpen" then
+        local chance=player.PlayerGui.NOVA.CrateChance
+        local button=cmd=="batchSave" and chance.Origin.Panel.SaveLater or chance.Origin.Panel.OpenNow
+        assert(chance.Visible and chance:GetAttribute("AnimationComplete") and button.Visible,"Chest control missing")
+        click(center(button),.1)
+        return true
+    elseif cmd=="batchFire" then
+        shared.StudioControls:FireServer("lane"); task.wait(.3)
+        for i=1,10 do shared.Input:FireServer("fire",latest.lobby,latest.round,i); task.wait(.08) end
+        return true
+    elseif cmd=="batchReveal" then
+        local overlay=player.PlayerGui.NOVAInventory:FindFirstChild("CrateReveal",true)
+        return overlay and overlay:GetAttribute("Phase")
     elseif cmd=="read" then
         local seat=stage.Seat1.Text:find("YOU",1,true) and 1 or 2
-        return {seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
+        return {resultsReady=gui.ResultBanner:GetAttribute("AnimationComplete"),resultBannerVisible=gui.ResultBanner.Visible,dropSettled=player.PlayerGui.NOVA.CrateChance.Visible and latest and latest.chest and player.PlayerGui.NOVA.CrateChance:GetAttribute("ResultKey")==latest.chest.key and player.PlayerGui.NOVA.CrateChance:GetAttribute("AnimationComplete"),chest=latest and latest.chest,seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
             hp=stage.Vitals2.Text,seen=seen,round=latest and latest.round or 0,lobby=latest and latest.lobby,mapId=latest and latest.mapId,
             rollVisible=stage.MapShuffle.Visible,rollHeading=stage.MapShuffle.Heading.Text,
             p=latest and latest.players or {},vote=notice.Rematch.Text,
@@ -116,6 +182,9 @@ local function handle(cmd,arg)
             click(center(panel[action]))
             local deadline=os.clock()+2
             repeat task.wait(.03) until panel[action].Text=="Listening..." or os.clock()>deadline
+            if panel[action].Text~="Listening..." then
+                click(center(panel[action]),.10); task.wait(.2)
+            end
             assert(panel[action].Text=="Listening...","Capture did not open for "..action..": "..panel.Status.Text)
             press(key)
             deadline=os.clock()+2
@@ -156,6 +225,7 @@ local function handle(cmd,arg)
     elseif cmd=="hold" then
         click(center(stage.Map1),.55)
     elseif cmd=="vote" then
+        if gui.CrateChance.Visible then click(center(gui.CrateChance.Origin.Panel.Close),.08);task.wait(.1) end
         local pos=center(notice.Rematch)
         local under={}
         for _,widget in player.PlayerGui:GetGuiObjectsAtPosition(pos.X,pos.Y) do table.insert(under,widget.Name) end
@@ -164,6 +234,7 @@ local function handle(cmd,arg)
     elseif cmd=="disconnect" then
         task.defer(function() game:GetService("StudioTestService"):LeaveTest() end)
     elseif cmd=="leave" then
+        if gui.CrateChance.Visible then click(center(gui.CrateChance.Origin.Panel.Close),.08);task.wait(.1) end
         click(center(notice.Leave),.1)
     elseif cmd=="forged" then
         local round=latest.round

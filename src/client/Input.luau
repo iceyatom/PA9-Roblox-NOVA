@@ -1,6 +1,7 @@
 local UIS=game:GetService("UserInputService")
 local actions=game:GetService("ContextActionService")
 local gui=game:GetService("GuiService")
+local gamepad=game:GetService("GamepadService")
 local Bindings=require(game.ReplicatedStorage.NOVA.ControlBindings)
 local Input={}
 
@@ -55,7 +56,7 @@ function Input.connect(send,active,settings)
             end
         end
         actions:BindActionAtPriority("NOVA_DuelControls",function(_,state,key)
-            if not active() or gui.MenuIsOpen or UIS:GetFocusedTextBox() then return Enum.ContextActionResult.Pass end
+            if not active() or gui.MenuIsOpen or gui.SelectedObject or gamepad.GamepadCursorEnabled or UIS:GetFocusedTextBox() then return Enum.ContextActionResult.Pass end
             if state==Enum.UserInputState.Begin and key.UserInputType.Name:sub(1,11)=="MouseButton" then
                 local position=UIS:GetMouseLocation()-gui:GetGuiInset()
                 for _,object in game.Players.LocalPlayer.PlayerGui:GetGuiObjectsAtPosition(position.X,position.Y) do
@@ -73,6 +74,8 @@ function Input.connect(send,active,settings)
     end)
     bind()
     UIS.GamepadDisconnected:Connect(clear)
+    gamepad:GetPropertyChangedSignal("GamepadCursorEnabled"):Connect(clear)
+    gui:GetPropertyChangedSignal("SelectedObject"):Connect(clear)
     gui.MenuOpened:Connect(clear)
     UIS.WindowFocusReleased:Connect(clear)
     UIS.TextBoxFocused:Connect(clear)

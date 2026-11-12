@@ -7,6 +7,7 @@ local function equipment()
     for category in Cosmetics.defaults do result[category]=game.Players.LocalPlayer:GetAttribute("Cosmetic_"..category) end
     return result
 end
+local Batch=require(script.Parent.BatchOneVisuals)
 local Tween=game:GetService("TweenService")
 local PracticeHud={}
 PracticeHud.__index=PracticeHud
@@ -28,7 +29,7 @@ function PracticeHud.new(playerGui,send)
     W.text(stage,"Subtitle",70,126,800,24,"30 seconds to shoot as many times as possible!",19,C.muted)
     self.leave=W.button(stage,"Leave",1190,40,180,44,"Lobby",false)
     self.leave.Activated:Connect(function() send("leave") end)
-    local field=W.box(stage,"PracticeMap",70,213,1300,380,W.rgb("0c1220")); self.field=field
+    local field=W.box(stage,"PracticeMap",70,213,1300,380,W.rgb("0c1220")); self.field=field; field.ClipsDescendants=true
     W.stroke(field,C.line)
     for x=30,1280,40 do W.box(field,"Grid",x,20,1,300,W.rgb("172131")) end
     for y=20,300,40 do W.box(field,"Grid",20,y,1260,1,W.rgb("172131")) end
@@ -81,11 +82,19 @@ function PracticeHud:pulse()
     local bullet=Cosmetics.get(equipped,"bullets")
     local tracer=Cosmetics.get(equipped,"tracers")
     local pulse=W.box(self.field,"Shot",253,293,20,6,bullet.default and C.mint or Preview.color(bullet),8)
-    if tracer.length and tracer.length>0 then W.box(pulse,"Tracer",-tracer.length*24,1,tracer.length*24,4,Preview.color(tracer)) end
+    if bullet.setId or (bullet.visual=="prism_veil" or bullet.visual=="dragonforge" or bullet.visual=="riftglass" or bullet.visual=="cipher" or bullet.visual=="supernova" or bullet.visual=="starfade" or bullet.visual=="armory") then pulse.Size=UDim2.fromOffset(9,9); W.round(pulse); Batch.overlay(pulse,bullet,"bullets") end
+    local trail
+    if tracer.length and tracer.length>0 then
+        trail=W.box(pulse,"Tracer",0,0,0,4,Preview.color(tracer))
+        if (tracer.setId or (tracer.visual=="prism_veil" or tracer.visual=="dragonforge" or tracer.visual=="riftglass" or tracer.visual=="cipher" or tracer.visual=="supernova" or tracer.visual=="starfade" or tracer.visual=="armory")) and not Batch.reduced() then
+            trail.Size=UDim2.fromOffset(0,11); trail.BackgroundTransparency=1; Batch.overlay(trail,tracer,"wakes")
+        end
+    end
     Preview.sound(self.field,Cosmetics.get(equipped,"sounds"))
-    table.insert(self.pulses,{frame=pulse,at=os.clock()})
+    table.insert(self.pulses,{frame=pulse,at=os.clock(),trail=trail,tracer=tracer})
 end
 function PracticeHud:update(snap)
+    Batch.overlay(self.body,Cosmetics.get(equipment(),"skins"),"skins")
     self.body.BackgroundColor3=Preview.color(Cosmetics.get(equipment(),"skins"))
     local old=self.snap
     if not old or old.id~=snap.id then
@@ -106,7 +115,10 @@ function PracticeHud:update(snap)
     self:tick()
 end
 function PracticeHud:hide()
+    if self.snap then Preview.stopSounds(self.field) end
     self.gui.Enabled=false; self.snap=nil
+    for _,p in self.pulses do p.frame:Destroy() end
+    table.clear(self.pulses)
 end
 function PracticeHud:tick()
     local snap=self.snap
@@ -135,7 +147,15 @@ function PracticeHud:tick()
     for i=#self.pulses,1,-1 do
         local p=self.pulses[i]; local alpha=(clock-p.at)/.24
         if alpha>=1 then p.frame:Destroy(); table.remove(self.pulses,i)
-        else p.frame.Position=UDim2.fromOffset(253+779*alpha,293) end
+        else
+            p.frame.Position=UDim2.fromOffset(253+779*alpha,293)
+            if p.trail then
+                local length=math.min(alpha*779,p.tracer.length*24)
+                p.trail.Position=UDim2.fromOffset(-length,0); p.trail.Size=UDim2.fromOffset(length,p.trail.Size.Y.Offset)
+                local art=p.trail:FindFirstChild("BatchArt")
+                if art then Batch.apply(art,p.tracer,"wakes",math.floor(clock*18)%p.tracer.frames) end
+            end
+        end
     end
 end
 return PracticeHud

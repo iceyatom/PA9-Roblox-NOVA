@@ -5,33 +5,42 @@ local shared=game.ReplicatedStorage.NOVA
 local Model=require(shared.Inventory)
 local Catalog=require(shared.InventoryCatalog)
 local Store=require(script.Parent.InventoryStore)
-local Service={}; Service.__index=Service
+local Service={}
+Service.__index=Service
+
 function Service.new()
-    local self=setmetatable({records={},closing=false,random=Random.new()},Service)
-    if not Run:IsStudio() then self.storage=Store.new(game:GetService("DataStoreService"):GetDataStore("NOVA_Inventory_v1"),Http:GenerateGUID(false)) end
-    self.changed=Instance.new("RemoteEvent"); self.changed.Name="InventoryState"; self.changed.Parent=shared
-    local request=Instance.new("RemoteFunction"); request.Name="InventoryRequest"; request.Parent=shared
-    request.OnServerInvoke=function(player,action,id,key) return self:request(player,action,id,key) end
-    -- Server-only developer tool. No replicated grant remote, chat command, or client grant path.
-    local grant=Instance.new("BindableFunction"); grant.Name="GrantInventory"
+    local self=setmetatable({records={},closing=false,random=Random.new(),session=Http:GenerateGUID(false)},Service)
+    if not Run:IsStudio() then
+        self.storage=Store.new(game:GetService("DataStoreService"):GetDataStore("NOVA_Inventory_v1"),self.session)
+    end
+    self.changed=Instance.new("RemoteEvent")
+    self.changed.Name="InventoryState"; self.changed.Parent=shared
+    local request=Instance.new("RemoteFunction")
+    request.Name="InventoryRequest"; request.Parent=shared
+    request.OnServerInvoke=function(player,action,id,key,...)
+        if select("#",...)~=0 then return {ok=false,message="Invalid request."} end
+        return self:request(player,action,id,key)
+    end
+    local grant=Instance.new("BindableFunction")
+    grant.Name="GrantInventory"; grant.Parent=script.Parent
     grant.OnInvoke=function(player,id,amount)
-        assert(typeof(player)=="Instance" and player:IsA("Player") and player.Parent==Players,"Pass a connected Player")
-        assert(self:ready(player),"Wait for inventory to load")
-        local r=self.records[player]
-        if id=="samples" then
-            for _,item in Catalog.items do if not item.default then Model.grant(r.data,item.id,item.category=="crates" and 10 or 1) end end
-        else assert(Model.grant(r.data,id,amount or 1),"Invalid grant") end
-        r.version+=1; self:publish(player)
-        task.spawn(function() self:save(player,false) end)
+        assert(typeof(player)=="Instance" and player.Parent==Players and self:ready(player),"Inventory unavailable")
+        local ok,message=self:mutate(player,function(data)
+            if id~="samples" then return Model.grant(data,id,amount or 1) end
+            for _,item in Catalog.items do
+                if not item.default then Model.grant(data,item.id,item.category=="crates" and 10 or 1) end
+            end
+            return true
+        end)
+        assert(ok,message)
         return self:snapshot(player)
     end
-    grant.Parent=script.Parent
     task.spawn(function()
         while not self.closing do
-            task.wait(30)
-            for player,r in self.records do if not r.leaving then task.spawn(function()
-                if r.data then self:save(player,false) else self:load(player) end
-            end) end end
+            task.wait(25)
+            for player,r in self.records do
+                if not r.leaving and not r.busy then task.spawn(function() self:maintain(player,r) end) end
+            end
         end
     end)
     game:BindToClose(function()
@@ -42,9 +51,10 @@ function Service.new()
     end)
     return self
 end
+
 function Service:ready(player)
     local r=self.records[player]
-    return r~=nil and r.data~=nil and not r.leaving and (not self.storage or r.expires>os.time())
+    return r~=nil and r.data~=nil and not r.leaving and not r.pending and (not self.storage or r.expires>os.time())
 end
 function Service:snapshot(player)
     local r=self.records[player]
@@ -55,7 +65,10 @@ function Service:publish(player)
     local r=self.records[player]
     if not r or player.Parent~=Players then return end
     player:SetAttribute("InventoryReady",self:ready(player))
-    if r.data then for category,id in r.data.equipped do player:SetAttribute("Cosmetic_"..category,id) end end
+    if r.data then
+        player:SetAttribute("ReducedEffects",r.data.reducedEffects)
+        for category,id in r.data.equipped do player:SetAttribute("Cosmetic_"..category,id) end
+    end
     self.changed:FireClient(player,self:snapshot(player))
 end
 function Service:view(player)
@@ -63,72 +76,126 @@ function Service:view(player)
     return r and r.data and table.clone(r.data.equipped) or table.clone(Catalog.defaults)
 end
 function Service:load(player)
-    local r=self.records[player]
-    if not r then r={version=0}; self.records[player]=r end
-    if r.loading or r.data or r.leaving then return end
-    r.loading=true; r.status="Loading inventory…"; self:publish(player)
-    for attempt=1,3 do
-        local profile=self.storage and self.storage:load(player.UserId) or nil
-        if not self.storage then profile={data=Model.new(),expires=math.huge} end
-        if profile then r.data=profile.data; r.expires=profile.expires; break end
-        if r.leaving then break end
-        if attempt<3 then task.wait(attempt*2) end
-    end
-    r.loading=false
-    r.status=not r.data and "Inventory unavailable. Retrying automatically…" or self.storage and "Inventory saved." or "Studio / session inventory"
-    self:publish(player)
+    if self.records[player] then return end
+    local r={version=0,status="Loading inventory…"}
+    self.records[player]=r
+    self:maintain(player,r)
 end
-function Service:save(player,release)
-    local r=self.records[player]
-    if not r or not r.data or not self.storage or r.saving then return end
-    r.saving=true
-    local ok=false
-    -- A mutation can arrive while UpdateAsync yields. Flush the latest version before finishing.
-    repeat
-        local version=r.version
-        for attempt=1,3 do
-            ok=self.storage:save(player.UserId,r,release)
-            if ok then break end
-            if attempt<3 then task.wait(attempt*2) end
+-- A timed-out write has an unknown outcome. Keep its exact candidate (including
+-- the roll/receipt) until acknowledged or until a fresh leased load reconciles it.
+function Service:flush(player,r)
+    local candidate=r.pending
+    local profile={data=candidate or r.data,expires=r.expires}
+    for attempt=1,3 do
+        if not self.storage or self.storage:save(player.UserId,profile,false) then
+            r.data=profile.data; r.expires=profile.expires; r.pending=nil
+            if candidate then r.version+=1 end
+            r.status=self.storage and "Inventory saved." or "Studio / session inventory"
+            return true
         end
-        if not ok or release or version==r.version then break end
-    until self.closing
-    r.saving=false
-    r.status=ok and "Inventory saved." or "Inventory save delayed. Retrying automatically…"
-    self:publish(player)
+        if r.expires<=os.time() then break end
+        if attempt<3 then task.wait(2^(attempt-1)) end
+    end
+    r.status="Inventory save delayed. Retrying automatically…"
+    return false
+end
+function Service:maintain(player,r)
+    if r.busy or r.leaving then return end
+    r.busy=true
+    if not r.data or self.storage and r.expires<=os.time() then
+        local profile
+        for attempt=1,3 do
+            if self.storage then profile=self.storage:load(player.UserId)
+            else profile={data=Model.new(),expires=math.huge} end
+            if profile or r.leaving then break end
+            if attempt<3 then task.wait(2^(attempt-1)) end
+        end
+        if profile then
+            r.data=profile.data; r.expires=profile.expires; r.pending=nil; r.version+=1
+            r.status=self.storage and "Inventory saved." or "Studio / session inventory"
+        else r.status="Inventory unavailable. Retrying automatically…" end
+    elseif self.storage then self:flush(player,r) end
+    r.busy=false; self:publish(player)
+end
+function Service:mutate(player,change)
+    local r=self.records[player]
+    while r and r.busy and not r.leaving do task.wait() end
+    if not self:ready(player) then return false,"Inventory unavailable. Retrying…" end
+    r.busy=true
+    local data=Model.validate(r.data)
+    local ok,result,replay=change(data)
+    if ok and not replay then
+        r.pending=data
+        ok=self:flush(player,r)
+        if not ok then result="Reward saving. Retry to check the result." end
+    end
+    r.busy=false; self:publish(player)
+    return ok,result,replay
+end
+function Service:crateChance(player)
+    local r=self.records[player]
+    return r and r.data and r.data.crateChance or require(shared.CrateDrop).BaseChance
+end
+function Service:awardMatch(player,result,expires,outcome,report)
+    -- Sample once per match delivery, never once per save/retry attempt.
+    local roll=outcome=="win" and self.random:NextNumber() or nil
+    task.spawn(function()
+        local delaySeconds=1
+        while self.records[player] and not self.records[player].leaving and os.time()<expires do
+            local ok,receipt=self:mutate(player,function(data) return Model.matchReward(data,result,expires,outcome,roll) end)
+            if ok then
+                report(not receipt and "Reward recorded" or receipt.awarded and "Chest earned" or outcome=="loss" and "Chance increased" or "No crate this time",receipt)
+                return
+            end
+            report("Reward unavailable")
+            task.wait(delaySeconds)
+            delaySeconds=math.min(delaySeconds*2,25)
+        end
+    end)
 end
 function Service:remove(player)
     local r=self.records[player]
     if not r or r.leaving then return end
     r.leaving=true
-    while r.loading or r.saving do task.wait() end
-    self:save(player,true); self.records[player]=nil
+    while r.busy do task.wait() end
+    if self.storage and r.data and r.expires>os.time() then
+        if not r.pending or self:flush(player,r) then self.storage:save(player.UserId,r,true) end
+    end
+    self.records[player]=nil
 end
 function Service:request(player,action,id,key)
     local r=self.records[player]
     if not r or player.Parent~=Players then return {ok=false,message="Loading inventory…"} end
+    local openCount=({open=1,open3=3,open5=5})[action]
     local now=os.clock()
     if now-(r.lastRequest or -math.huge)<.15 then return {ok=false,message="Please wait."} end
     r.lastRequest=now
-    if action=="read" then return {ok=true,profile=self:snapshot(player)} end
-    if not self:ready(player) then return {ok=false,message="Inventory unavailable. Retrying…",profile=self:snapshot(player)} end
-    if self.canUse and not self.canUse(player) then return {ok=false,message="Return to the lobby to manage your inventory."} end
-    if type(id)~="string" or #id>64 then return {ok=false,message="Invalid item."} end
-    local ok,result,replay
-    if action=="equip" then ok,result=Model.equip(r.data,id)
-    elseif action=="favorite" then ok,result=Model.favorite(r.data,id)
-    elseif action=="open" then
-        local cached=type(key)=="string" and r.data.receipts[key]
-        if not cached and now-(r.lastOpen or -math.huge)<6 then return {ok=false,message="Finish the current crate reveal first."} end
-        ok,result,replay=Model.open(r.data,id,key,self.random:NextNumber())
-        if ok and not replay then r.lastOpen=now end
-    else return {ok=false,message="Unknown inventory action."} end
-    if not ok then return {ok=false,message=result} end
-    if not replay then
-        r.version+=1; r.status=self.storage and "Saving inventory…" or "Studio / session inventory"
-        self:publish(player)
-        task.spawn(function() self:save(player,false) end)
-    end
-    return {ok=true,profile=self:snapshot(player),receipt=action=="open" and result or nil}
+    if action=="read" and id==nil and key==nil then return {ok=true,profile=self:snapshot(player)} end
+    if type(id)~="string" or #id>64 or (not openCount and key~=nil) then return {ok=false,message="Invalid request."} end
+    local ok,result=self:mutate(player,function(data)
+        if action=="ackRetirements" then return Model.ackRetirements(data,id) end
+        if self.canUse and not self.canUse(player) then return false,"Return to the lobby to manage your inventory." end
+        if action=="equip" then return Model.equip(data,id)
+        elseif action=="favorite" then return Model.favorite(data,id)
+        elseif action=="effects" and (id=="on" or id=="off") then
+            data.reducedEffects=id=="on"; return true
+        elseif openCount then
+            if type(key)~="string" or #key>64 then return false,"Invalid request." end
+            if not data.receipts[key] then
+                if key~="open:"..(data.openSequence+1) then return false,"Opening expired." end
+                if now-(r.lastOpen or -math.huge)<.15 then return false,"Please wait." end
+            end
+            local success,receipt,replay
+            if openCount==1 then success,receipt,replay=Model.open(data,id,key,self.random:NextNumber())
+            else
+                local rolls={};for _=1,openCount do table.insert(rolls,self.random:NextNumber()) end
+                success,receipt,replay=Model.openMany(data,id,key,openCount,rolls)
+            end
+            if success and not replay then r.lastOpen=now end
+            return success,receipt,replay
+        end
+        return false,"Unknown inventory action."
+    end)
+    return {ok=ok,message=not ok and result or nil,profile=self:snapshot(player),receipt=ok and openCount==1 and result or nil,receipts=ok and openCount and openCount>1 and result or nil}
 end
 return Service

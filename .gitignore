@@ -2,3 +2,10 @@
 __pycache__/
 *.rbxl.lock
 *.rbxlx.lock
+
+# Local artwork, sprites, exports, and source assets.
+/assets/
+
+# Blender projects and numbered backup files anywhere in the repository.
+*.blend
+*.blend[0-9]*

@@ -20,7 +20,7 @@ function Store:save(uid,profile,release)
     local now=self.now(); local data=assert(Inventory.validate(profile.data),"Invalid inventory profile")
     local ok,value=pcall(function()
         return self.store:UpdateAsync(tostring(uid),function(old)
-            if type(old)~="table" or old.schema~=1 or old.owner~=self.token then return nil end
+            if type(old)~="table" or old.schema~=1 or old.owner~=self.token or (old.expires or 0)<=self.now() then return nil end
             return {schema=1,data=data,owner=not release and self.token or nil,expires=not release and now+Store.LeaseSeconds or nil}
         end)
     end)

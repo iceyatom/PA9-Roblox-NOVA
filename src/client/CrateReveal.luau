@@ -9,12 +9,57 @@ local Preview=require(script.Parent.InventoryPreview)
 local Style=require(script.Parent.InventoryStyle)
 local ReelAudio=require(script.Parent.ReelAudio)
 local ItemUnlock=require(script.Parent.ItemUnlock)
+local itemTypes={skins="Skin",bullets="Bullet Skin",tracers="Tracer",backgrounds="Player Background",sounds="Sound Effect"}
 local Reveal={}; Reveal.__index=Reveal
-function Reveal.new(panel,onDone)
-    return setmetatable({panel=panel,onDone=onDone,generation=0,audio=ReelAudio.new(panel,"CrateCycleClick")},Reveal)
+function Reveal.new(panel,onDone,equipment)
+    return setmetatable({panel=panel,onDone=onDone,equipment=equipment,generation=0,audio=ReelAudio.new(panel,"CrateCycleClick")},Reveal)
+end
+-- Equipment is committed through the inventory owner; the reveal only manages feedback.
+function Reveal:actions(root,item,detail,width,y,height,visible)
+    local equipment=self.equipment
+    local again=equipment and equipment.open and self.crateId and equipment.remaining(self.crateId)>0
+    local buttonWidth=again and (width-72)/3 or equipment and (width-60)/2 or width-48
+    local done=Style.button(root,"Continue",again and 48+buttonWidth*2 or equipment and 36+buttonWidth or 24,y,buttonWidth,height,"Continue",true)
+    done.ZIndex=49; done.Visible=visible
+    done.Activated:Connect(function() self:hide(); if self.onDone then self.onDone() end end)
+    if not equipment then return done end
+    local equip=Style.button(root,"EquipNow",24,y,buttonWidth,height,"Equip now",false)
+    equip.ZIndex=49; equip.Visible=visible
+    local equipped=equipment.isEquipped(item)
+    equip.Text=equipped and "Equipped" or "Equip now"
+    equip.Active=not equipped; equip.Selectable=not equipped
+    local generation=self.generation
+    local rewardDetail
+    equip.Activated:Connect(function()
+        if not equip.Active then return end
+        rewardDetail=rewardDetail or detail.Text
+        equip.Active=false; equip.Selectable=false; equip.Text="Equipping…"
+        if Gui.SelectedObject==equip then Gui.SelectedObject=done end
+        task.spawn(function()
+            local ok,message=equipment.equip(item)
+            if self.generation~=generation or not self.active then return end
+            equip.Text=ok and "Equipped" or "Retry equip"
+            equip.Active=not ok; equip.Selectable=not ok
+            detail.Text=ok and rewardDetail or ((itemTypes[item.category] or "Item").."  /  "..(message or "Please try again."))
+        end)
+    end)
+    done:GetPropertyChangedSignal("Position"):Connect(function() equip.Position=UDim2.fromOffset(24,done.Position.Y.Offset) end)
+    done:GetPropertyChangedSignal("Size"):Connect(function() equip.Size=UDim2.fromOffset(buttonWidth,done.Size.Y.Offset) end)
+    done:GetPropertyChangedSignal("Visible"):Connect(function() equip.Visible=done.Visible end)
+    if again then
+        local reopen=Style.button(root,"OpenAgain",36+buttonWidth,y,buttonWidth,height,"Open again",false)
+        reopen.ZIndex=49;reopen.Visible=visible;reopen.TextSize=14;done.TextSize=14;equip.TextSize=14
+        reopen.Activated:Connect(function() if reopen.Active then equipment.open(self.crateId,1) end end)
+        done:GetPropertyChangedSignal("Position"):Connect(function() reopen.Position=UDim2.fromOffset(36+buttonWidth,done.Position.Y.Offset) end)
+        done:GetPropertyChangedSignal("Size"):Connect(function() reopen.Size=UDim2.fromOffset(buttonWidth,done.Size.Y.Offset) end)
+        done:GetPropertyChangedSignal("Visible"):Connect(function() reopen.Visible=done.Visible end)
+        equip.NextSelectionRight=reopen;reopen.NextSelectionRight=done;done.NextSelectionLeft=reopen;reopen.NextSelectionLeft=equip
+    else done.NextSelectionLeft=equip;equip.NextSelectionRight=done end
+    return done
 end
 function Reveal:hide()
     self.generation+=1; self.active=false
+    if self.batch then self.batch:destroy();self.batch=nil end
     if self.rollConnection then self.rollConnection:Disconnect(); self.rollConnection=nil end
     if self.unlock then self.unlock:destroy(); self.unlock=nil end
     self.audio:stop()
@@ -24,7 +69,7 @@ function Reveal:hide()
     self.restore=nil
 end
 function Reveal:show(receipt)
-    self:hide(); self.active=true
+    self:hide(); self.active=true;self.crateId=receipt.crateId
     local generation=self.generation
     self.restore={}
     for _,object in self.panel:GetDescendants() do
@@ -32,6 +77,7 @@ function Reveal:show(receipt)
     end
     Gui.SelectedObject=nil
     local item=Catalog.byId[receipt.itemId]; local crate=Catalog.byId[receipt.crateId]
+    local identity=(itemTypes[item.category] or "Item").."  /  "..item.rarity
     local width=self.panel.Size.X.Offset
     local screen=self.panel:FindFirstAncestorWhichIsA("ScreenGui")
     local short=screen and screen.AbsoluteSize.Y<560
@@ -40,7 +86,21 @@ function Reveal:show(receipt)
     root:SetAttribute("ContentHeight",height)
     root:SetAttribute("Phase","rolling"); root:SetAttribute("ReceiptId",receipt.requestId)
     Style.round(root,12)
-    local crateIcon=Preview.icon(root,"crates",width/2-52,27,104)
+    if require(script.Parent.BatchOneVisuals).reduced() then
+        root:SetAttribute("Phase","settled")
+        local center=math.min(155,height*.3)
+        Preview.icon(root,item,(width-center)/2,20,center)
+        local y=center+26
+        local title=W.text(root,"Result",16,y,width-32,34,item.name,24,C.white,Enum.Font.GothamBold)
+        title.TextXAlignment=Enum.TextXAlignment.Center
+        local detail=W.text(root,"Detail",12,y+38,width-24,44,identity.."  /  "..(receipt.duplicate and ("+"..receipt.shards.." Shards") or "Added to inventory"),16,W.rgb(Catalog.rarityColors[item.rarity]))
+        detail.TextXAlignment=Enum.TextXAlignment.Center
+        detail.TextWrapped=true;detail.TextTruncate=Enum.TextTruncate.None
+        local done=self:actions(root,item,detail,width,y+96,42,true)
+        if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" then Gui.SelectedObject=done end
+        return
+    end
+    local crateIcon=Preview.icon(root,crate,width/2-52,27,104)
     local title=W.text(root,"Title",24,140,width-48,42,"Opening "..crate.name, width<600 and 21 or 29,C.white,Enum.Font.GothamBlack)
     title.TextXAlignment=Enum.TextXAlignment.Center
     local viewport=W.box(root,"ReelViewport",24,220,width-48,178,C.panel,41); viewport.ClipsDescendants=true
@@ -53,12 +113,12 @@ function Reveal:show(receipt)
     local strip=W.box(viewport,"Reel",0,0,6500,178,nil,42)
     local random=Random.new(); local winner=36; local stride=142
     for i=1,43 do
-        local entry=Catalog.byId[crate.rewards[random:NextInteger(1,#crate.rewards)].id]
+        local entry=Catalog.byId[Catalog.roll(crate,random:NextNumber())]
         if i==winner then entry=item end
         local card=W.box(strip,"Reward"..i,(i-1)*stride,8,132,162,C.ink,43)
         Style.round(card,8)
         W.box(card,"Rarity",0,156,132,6,W.rgb(Catalog.rarityColors[entry.rarity]),44)
-        Preview.icon(card,entry.category,25,8,82)
+        Preview.icon(card,entry,25,8,82)
         local name=W.text(card,"Name",7,98,118,42,entry.name,16,C.white,Enum.Font.GothamBold)
         name.TextWrapped=true; name.TextTruncate=Enum.TextTruncate.None; name.TextXAlignment=Enum.TextXAlignment.Center
         W.text(card,"RarityName",8,140,116,16,entry.rarity,13,W.rgb(Catalog.rarityColors[entry.rarity]),Enum.Font.GothamBold)
@@ -69,8 +129,7 @@ function Reveal:show(receipt)
     local result=W.text(root,"Result",24,443,width-48,44,"",width<600 and 24 or 28,C.white,Enum.Font.GothamBlack); result.TextXAlignment=Enum.TextXAlignment.Center
     local detail=W.text(root,"Detail",24,492,width-48,42,"",width<600 and 14 or 17,C.muted); detail.TextXAlignment=Enum.TextXAlignment.Center
     detail.TextWrapped=true; detail.TextTruncate=Enum.TextTruncate.None
-    local done=Style.button(root,"Continue",24,554,width-48,50,"Continue",true); done.ZIndex=46; done.Visible=false
-    done.Activated:Connect(function() self:hide(); if self.onDone then self.onDone() end end)
+    local done=self:actions(root,item,detail,width,554,50,false)
     -- Prepare the exact awarded sprite while the reel is still rolling.
     self.unlock=ItemUnlock.new(root,item,function()
         if self.generation~=generation or not self.active then return end
@@ -97,12 +156,25 @@ function Reveal:show(receipt)
         result.Text=item.name; result.TextColor3=W.rgb(Catalog.rarityColors[item.rarity])
         result.Position=UDim2.fromOffset(24,short and height-122 or 478); result.ZIndex=48
         if short then result.TextSize=24 end
-        detail.Text=receipt.duplicate and ("Duplicate converted into +%d Shards"):format(receipt.shards) or "Added to your inventory"
+        detail.Text=identity.."  /  "..(receipt.duplicate and ("Duplicate converted into +%d Shards"):format(receipt.shards) or "Added to your inventory")
         detail.Position=UDim2.fromOffset(24,short and height-83 or 530); detail.ZIndex=48
         if short then detail.TextSize=14 end
-        done.Position=UDim2.fromOffset(24,short and height-40 or 590); done.Size=UDim2.fromOffset(width-48,short and 36 or 44)
+        done.Position=UDim2.fromOffset(done.Position.X.Offset,short and height-40 or 590); done.Size=UDim2.fromOffset(done.Size.X.Offset,short and 36 or 44)
         self.unlock:play()
     end)
     self.tween:Play()
+end
+function Reveal:showMany(receipts)
+    self:hide();self.active=true;self.crateId=receipts[1].crateId
+    self.restore={}
+    for _,object in self.panel:GetDescendants() do
+        if object:IsA("GuiObject") and object.Selectable then self.restore[object]=true;object.Selectable=false end
+    end
+    Gui.SelectedObject=nil
+    self.batch=require(script.Parent.MultiCrateReveal).new(self.panel,receipts,self.equipment,function()
+        self:hide();if self.onDone then self.onDone() end
+    end,function() if self.onReady then self.onReady() end end)
+    self.overlay=self.batch.root
+    self.batch:play()
 end
 return Reveal
