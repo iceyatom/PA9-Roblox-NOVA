@@ -179,7 +179,8 @@ function Service:request(player,action,id,key)
     local ok,result=self:mutate(player,function(data)
         if action=="ackRetirements" then return Model.ackRetirements(data,id) end
         if self.canUse and not self.canUse(player) then return false,"Return to the lobby to manage your inventory." end
-        if action=="equip" then return Model.equip(data,id)
+        if action=="useToken" then return Model.useToken(data,id)
+        elseif action=="equip" then return Model.equip(data,id)
         elseif action=="favorite" then return Model.favorite(data,id)
         elseif action=="effects" and (id=="on" or id=="off") then
             data.reducedEffects=id=="on"; return true

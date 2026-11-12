@@ -129,7 +129,16 @@ function Menu.new(playerGui,clear,beforeOpen)
     end)
     self.favorite.Activated:Connect(function() if self.favorite.Active and self.selected then self:request("favorite",self.selected) end end)
     self.status=W.text(panel,"Status",24,622,992,20,"Loading inventory…",14,C.muted,Enum.Font.Gotham)
-    self.setup=require(script.Parent.ClassSetup).new(panel)
+    self.setup=require(script.Parent.ClassSetup).new(panel,function(id,complete)
+        if self.busy or not self.profile or not self.profile.ready then complete(false,"Inventory is busy. Please try again.");return end
+        self.busy=true;self:refresh()
+        task.spawn(function()
+            local ok,response=pcall(function() return self.remote:InvokeServer("useToken",id) end)
+            self.busy=false
+            if ok and response.profile then self:accept(response.profile) end
+            self:refresh();complete(ok and response.ok,ok and response.message or "Connection interrupted. Please try again.")
+        end)
+    end)
     for _,attribute in {"Level","Prestige","PrestigeMaster","ReducedEffects"} do
         player:GetAttributeChangedSignal(attribute):Connect(function() if self.classPage and self.opened then self:refresh() end end)
     end
@@ -147,10 +156,11 @@ function Menu.new(playerGui,clear,beforeOpen)
             if self.data and self.data.equipped[item.category]==item.id then return true end
             if self.busy or not self.profile or not self.profile.ready then return false,"Inventory is busy. Please try again." end
             self.busy=true
-            local ok,response=pcall(function() return self.remote:InvokeServer("equip",item.id) end)
+            local ok,response=pcall(function() return self.remote:InvokeServer(item.tokenKind and "useToken" or "equip",item.id) end)
             self.busy=false
             if ok and response.profile then self:accept(response.profile) end
             self:refresh()
+            if item.tokenKind and ok and response.ok then return true end
             if self.data and self.data.equipped[item.category]==item.id then return true end
             return false,ok and response.message or "Connection interrupted. Please try again."
         end,
@@ -291,11 +301,11 @@ function Menu:resize()
         panelHeight=math.max(650,self.setupTop+require(script.Parent.ClassSetup).height(panelWidth-48)+24)
     end
     self.panel.Size=UDim2.fromOffset(panelWidth,panelHeight)
-    self.fit.Scale=compact and math.min(1,(width-24)/panelWidth) or math.max(.01,math.min(1.3,(width-48)/1040,(height-48)/650))
+    self.fit.Scale=compact and math.min(1,(width-24)/panelWidth) or math.max(.01,math.min(1.3,(width-48)/1040,(height-48)/panelHeight))
     self.overlay.ScrollingEnabled=compact
     self.overlay.CanvasSize=compact and UDim2.fromOffset(0,panelHeight*self.fit.Scale+24) or UDim2.fromOffset(0,0)
     self.origin.Position=compact and UDim2.new(.5,0,0,12) or UDim2.fromScale(.5,.5)
-    self.panel.Position=UDim2.fromOffset(-panelWidth/2,compact and 0 or -325)
+    self.panel.Position=UDim2.fromOffset(-panelWidth/2,compact and 0 or -panelHeight/2)
     self:refresh()
 end
 function Menu:setCategory(index)
@@ -312,7 +322,7 @@ function Menu:refresh()
     local classPage=self.classPage==true
     for _,object in {self.search,self.rarityButton,self.sortButton,self.favoriteFilter,self.ownershipFilter,self.scroll,self.empty,self.count,self.details,self.status} do object.Visible=not classPage end
     for i,tab in self.tabs do tab.BackgroundColor3=(classPage and i==#self.tabs or not classPage and i==self.category) and C.purple or C.line end
-    self.setup:update(data,self.panel.Size.X.Offset-48,self.setupTop or 152,classPage and self.opened==true)
+    self.setup:update(data,self.panel.Size.X.Offset-48,self.setupTop or 152,classPage and self.opened==true,self.profile and self.profile.ready and not self.busy)
     if classPage then return end
     local category=Catalog.categories[self.category].id
     self.currency.Text=("%d Shards"):format(data and data.shards or 0)

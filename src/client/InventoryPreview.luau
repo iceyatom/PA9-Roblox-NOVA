@@ -13,7 +13,8 @@ function Preview.icon(parent,category,x,y,size)
     image.Name="Sprite"; image.BackgroundTransparency=1; image.Size=UDim2.fromOffset(size,size)
     image.Position=UDim2.fromOffset(x,y)
     if type(category)=="table" then
-        if not Batch.apply(image,category) then image.Image=Art[category.category] or "" end
+        if category.category=="tokens" then image.Image=category.image
+        elseif not Batch.apply(image,category) then image.Image=Art[category.category] or "" end
     elseif category=="skins" then Skins.apply(image,{category="skins",color="527eff"})
     else image.Image=Art[category] or "" end
     image.ScaleType=Enum.ScaleType.Fit

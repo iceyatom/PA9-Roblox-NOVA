@@ -5,6 +5,7 @@ local Style=require(script.Parent.InventoryStyle)
 local Preview=require(script.Parent.InventoryPreview)
 local Batch=require(script.Parent.BatchOneVisuals)
 local RankIcon=require(script.Parent.RankIcon)
+local Tokens=require(script.Parent.ClassTokens)
 local C=W.colors
 local Setup={};Setup.__index=Setup
 local function label(parent,name,text,size,color)
@@ -15,8 +16,8 @@ end
 local function rect(object,x,y,width,height)
     object.Position=UDim2.fromOffset(x,y);object.Size=UDim2.fromOffset(width,height)
 end
-function Setup.height(width) return width<460 and 760 or 474 end
-function Setup.new(panel)
+function Setup.height(width) return (width<460 and 760 or 474)+16+Tokens.height(width) end
+function Setup.new(panel,onUse)
     local self=setmetatable({slots={}},Setup)
     self.root=W.box(panel,"ClassSetup",24,152,992,474);self.root.Visible=false
     self.hero=W.box(self.root,"PlayerCard",0,0,640,138,C.ink);Style.round(self.hero,10)
@@ -40,10 +41,12 @@ function Setup.new(panel)
         local tier=label(group,"Rarity","",11,C.muted)
         table.insert(self.slots,{category=entry[1],card=group,art=art,title=title,name=name,tier=tier})
     end
+    self.tokens=Tokens.new(self.root,onUse)
     return self
 end
-function Setup:update(data,width,top,visible)
+function Setup:update(data,width,top,visible,ready)
     self.root.Visible=visible
+    self.tokens:update(data,width,(width<460 and 760 or 474)+16,visible,ready)
     if not visible then
         for _,slot in self.slots do
             Batch.clear(slot.art)

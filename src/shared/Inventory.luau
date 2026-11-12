@@ -100,7 +100,7 @@ function Inventory.validate(raw)
     if (data.owned.crate_season1 or 0)>3000000 then return nil end
     for category,id in raw.equipped do
         local item=Catalog.byId[id]
-        if item and item.category==category and category~="crates" and Inventory.owns(data,id) then data.equipped[category]=id end
+        if item and item.category==category and category~="crates" and category~="tokens" and Inventory.owns(data,id) then data.equipped[category]=id end
     end
     for id,value in raw.favorites do local target=(Catalog.crateAliases or {})[id] or id;if value==true and Inventory.owns(data,target) then data.favorites[target]=true end end
     if type(raw.receiptOrder)=="table" and type(raw.receipts)=="table" then
@@ -156,7 +156,7 @@ function Inventory.ackRetirements(data,sequence)
 end
 function Inventory.equip(data,id)
     local item=Catalog.byId[id]
-    if not item or item.category=="crates" or not Inventory.owns(data,id) then return false,"You do not own this cosmetic." end
+    if not item or (item.category=="crates" or item.category=="tokens") or not Inventory.owns(data,id) then return false,"You do not own this cosmetic." end
     data.equipped[item.category]=data.equipped[item.category]==id and Catalog.defaults[item.category] or id
     return true
 end
@@ -168,7 +168,7 @@ end
 function Inventory.grant(data,id,amount)
     local item=Catalog.byId[id]
     if not item or not integer(amount,1000) or amount<1 then return false,"Invalid grant." end
-    if item.category=="crates" then data.owned[id]=math.max(data.owned[id] or 0,math.min(1000000,(data.owned[id] or 0)+amount))
+    if item.category=="crates" or item.category=="tokens" then data.owned[id]=math.max(data.owned[id] or 0,math.min(1000000,(data.owned[id] or 0)+amount))
     elseif not item.default then data.owned[id]=1 end
     return true
 end
@@ -235,11 +235,11 @@ function Inventory.open(data,id,key,roll)
     local selected=Catalog.roll(crate,value)
     if sequence then data.openSequence=sequence end
     local item=Catalog.byId[selected]
-    local duplicate=Inventory.owns(data,selected)
+    local duplicate=item.category~="tokens" and Inventory.owns(data,selected)
     local shards=duplicate and Catalog.duplicateValues[item.rarity] or 0
     data.owned[id]-=1
     if data.owned[id]==0 then data.owned[id]=nil; data.favorites[id]=nil end
-    if duplicate then data.shards=math.min(1000000000,data.shards+shards) else data.owned[selected]=1 end
+    if duplicate then data.shards=math.min(1000000000,data.shards+shards) else data.owned[selected]=(data.owned[selected] or 0)+1 end
     local receipt={itemId=selected,crateId=id,duplicate=duplicate,shards=shards,requestId=key}
     data.receipts[key]=receipt; table.insert(data.receiptOrder,key)
     if #data.receiptOrder>24 then data.receipts[table.remove(data.receiptOrder,1)]=nil end
@@ -274,5 +274,15 @@ function Inventory.openMany(data,id,key,count,rolls)
     end
     results[1].batchCount=count
     return true,results
+end
+function Inventory.useToken(data,id,now)
+    local item=Catalog.byId[id]
+    if not item or not item.tokenKind or (data.owned[id] or 0)<1 then return false,"You do not own this token." end
+    now=now or os.time()
+    local expires=math.max(now,data.boosts[item.tokenKind] or 0)+item.minutes*60
+    if expires-now>require(script.Parent.ShopCatalog).MaxBoostSeconds then return false,"Token time is full." end
+    data.owned[id]-=1;if data.owned[id]==0 then data.owned[id]=nil;data.favorites[id]=nil end
+    data.boosts[item.tokenKind]=expires
+    return true
 end
 return Inventory

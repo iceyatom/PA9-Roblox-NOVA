@@ -44,6 +44,32 @@ return function(t)
         assert(not I.openMany(d,"crate_season1","open:1",3,{0,0,math.huge}))
         assert(d.owned.crate_season1==3 and d.openSequence==0 and next(d.receipts)==nil)
     end)
+    t.test("tokens stack as rewards, persist and activate exactly one stored unit",function()
+        local d=I.new();local id="token_xp_15"
+        assert(Catalog.byId[id].rarity=="Uncommon" and Catalog.byId.token_xp_30.rarity=="Rare" and Catalog.byId.token_xp_60.rarity=="Epic")
+        I.grant(d,id,3);assert(d.owned[id]==3)
+        assert(not I.equip(d,id))
+        assert(I.useToken(d,id,1000) and d.owned[id]==2 and d.boosts.xp==1900)
+        assert(I.useToken(d,id,1100) and d.owned[id]==1 and d.boosts.xp==2800)
+        d=assert(I.validate(d));assert(d.owned[id]==1 and d.boosts.xp==2800)
+        assert(I.useToken(d,id,1200) and not d.owned[id])
+        assert(not I.useToken(d,id,1200))
+        assert(I.grant(d,"token_crate_60",1) and I.useToken(d,"token_crate_60",1000) and d.boosts.crate==4600)
+    end)
+    t.test("season crate includes every duration of both token kinds",function()
+        local seen={};for _,reward in Catalog.byId.crate_season1.rewards do seen[reward.id]=true end
+        for _,id in Catalog.tokens do assert(seen[id],id.." missing from Season 1") end
+        local d=I.new();I.grant(d,"crate_season1",2)
+        local crate=Catalog.byId.crate_season1
+        local total,prior,roll=0,0
+        for _,reward in crate.rewards do total+=reward.weight end
+        for _,reward in crate.rewards do
+            if reward.id=="token_xp_15" then roll=(prior+reward.weight/2)/total;break end
+            prior+=reward.weight
+        end
+        local ok,a=I.open(d,crate.id,"token-a",roll);local yes,b=I.open(d,crate.id,"token-b",roll)
+        assert(ok and yes and not a.duplicate and not b.duplicate and d.owned.token_xp_15==2 and d.shards==0)
+    end)
     t.test("inventory starts with defaults and no free crates or sample collectibles",function()
         local d=I.new()
         assert(next(d.owned)==nil and d.shards==0 and not I.owns(d,"crate_season1"))

@@ -113,8 +113,9 @@ function Menu.new(playerGui,clear,beforeOpen,links)
     Gui.MenuOpened:Connect(function() self:setOpen(false) end)
     Gui:GetPropertyChangedSignal("SelectedObject"):Connect(function()
         if not self.opened or not Gui.SelectedObject then return end
-        local boundary=self.reveal.active and self.reveal.overlay or self.overlay
+        local boundary=self.confirmation or (self.reveal.active and self.reveal.overlay or self.overlay)
         if boundary and not Gui.SelectedObject:IsDescendantOf(boundary) then
+            if self.confirmation then Gui.SelectedObject=self.confirmation.Panel.Cancel;return end
             local done=self.reveal.active and boundary:FindFirstChild("Continue")
             if self.reveal.active then Gui.SelectedObject=done and done.Visible and done or nil
             else Gui.SelectedObject=self.close end
@@ -134,7 +135,8 @@ function Menu.new(playerGui,clear,beforeOpen,links)
     CAS:BindActionAtPriority("NOVA_ShopClose",function(_,state)
         if not self.opened then return Enum.ContextActionResult.Pass end
         if state==Enum.UserInputState.Begin then
-            if self.reveal.active then
+            if self.confirmation then self:cancelConfirmation()
+            elseif self.reveal.active then
                 -- The celebration can be skipped once its buttons are showing.
                 local done=self.reveal.overlay and self.reveal.overlay:FindFirstChild("Continue")
                 if done and done.Visible then self.reveal:hide(); self:refresh(); Gui.SelectedObject=gamepad() and self.close or nil end
@@ -144,7 +146,7 @@ function Menu.new(playerGui,clear,beforeOpen,links)
     end,false,Enum.ContextActionPriority.High.Value+45,Enum.KeyCode.Escape,Enum.KeyCode.ButtonB)
     CAS:BindActionAtPriority("NOVA_ShopTabs",function(_,state,input)
         if not self.opened then return Enum.ContextActionResult.Pass end
-        if state==Enum.UserInputState.Begin and not self.reveal.active then
+        if state==Enum.UserInputState.Begin and not self.reveal.active and not self.confirmation then
             self:setSection((self.section-1+(input.KeyCode==Enum.KeyCode.ButtonR1 and 1 or -1))%#self.tabs+1)
             Gui.SelectedObject=self.tabs[self.section]
         end
@@ -187,10 +189,59 @@ function Menu:offerState(product,profile)
     local test=product.productId==0
     if test and not (Run:IsStudio() and shared:FindFirstChild("ShopStudioPurchase")) then return "Coming soon",false end
     if not profile or not profile.ready then return "Loading…",false end
-    return test and "Buy  /  Studio test" or "Buy",pending==nil and not self.reveal.active
+    return test and "Buy  /  Studio test" or "Buy",pending==nil and not self.reveal.active and not self.confirmation
 end
 
+function Menu:closeConfirmation()
+    local root=self.confirmation
+    self.confirmation=nil;self.confirmProduct=nil
+    if root then root:Destroy() end
+end
+function Menu:cancelConfirmation()
+    local product=self.confirmProduct
+    self:closeConfirmation();self:refresh()
+    if gamepad() then
+        local target=self.close
+        for _,button in self.buttons do if button:GetAttribute("ProductId")==product and button.Selectable then target=button;break end end
+        Gui.SelectedObject=target
+    end
+end
 function Menu:buy(product)
+    if not self.opened or not self.available or self.confirmation then return end
+    local _,profile=self:profile()
+    local _,active=self:offerState(product,profile)
+    if not active then return end
+    local root=W.box(self.gui,"PurchaseConfirmation",0,0,0,0,C.ink,40)
+    root.Size=UDim2.fromScale(1,1);root.BackgroundTransparency=.18;root.Active=true
+    self.confirmation=root;self.confirmProduct=product.id
+    local panel=W.box(root,"Panel",0,0,580,420,C.panel)
+    panel.AnchorPoint=Vector2.new(.5,.5);panel.Position=UDim2.fromScale(.5,.5);panel.Active=true;Style.surface(panel,14)
+    local scale=Instance.new("UIScale");scale.Parent=panel
+    local function resize() scale.Scale=math.max(.01,math.min(1.15,(root.AbsoluteSize.X-24)/580,(root.AbsoluteSize.Y-24)/420)) end
+    local connection=root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+    root.Destroying:Once(function() connection:Disconnect() end);resize()
+    local title=W.text(panel,"Title",24,18,532,34,"CONFIRM PURCHASE",25,C.white,Enum.Font.GothamBlack);title.TextXAlignment=Enum.TextXAlignment.Center
+    icon(panel,sectionArt(Shop.sectionById[product.section]),246,65,88)
+    local description=product.quantity and (Shop.commas(product.quantity).." "..Season.name..(product.quantity==1 and "" or "s"))
+        or (product.minutes.." minutes of "..Shop.sectionById[product.section].name)
+    local summary=wrapped(panel,"Summary",24,163,532,56,description,26,C.white,Enum.Font.GothamBold);summary.TextXAlignment=Enum.TextXAlignment.Center
+    local price=W.text(panel,"Price",24,223,532,38,robux.." "..Shop.commas(product.price).." Robux",26,C.mint,Enum.Font.GothamBlack);price.TextXAlignment=Enum.TextXAlignment.Center
+    local note=product.productId==0 and "Studio test purchase — no Robux will be charged." or "Confirm to continue to Roblox’s purchase prompt."
+    if product.minutes then note..=" Boost time starts immediately and adds to any active time." end
+    local detail=wrapped(panel,"Detail",28,272,524,64,note,16,C.muted);detail.TextXAlignment=Enum.TextXAlignment.Center
+    local cancel=Style.button(panel,"Cancel",24,354,260,44,"Cancel",false)
+    local confirm=Style.button(panel,"Confirm",296,354,260,44,"Confirm",true)
+    cancel.Activated:Connect(function() if self.confirmation==root then self:cancelConfirmation() end end)
+    confirm.Activated:Connect(function()
+        if self.confirmation~=root then return end
+        confirm.Active=false;self:closeConfirmation();self:purchase(product)
+    end)
+    cancel.NextSelectionRight=confirm;confirm.NextSelectionLeft=cancel
+    self:refresh()
+    if gamepad() then Gui.SelectedObject=cancel end
+end
+function Menu:purchase(product)
+    if not self.opened or not self.available then return end
     local _,profile=self:profile()
     local _,active=self:offerState(product,profile)
     if not active then return end
@@ -212,6 +263,7 @@ end
 
 function Menu:delivered(receipt)
     if type(receipt)~="table" or not Shop.byId[receipt.productId] then return end
+    self:closeConfirmation()
     self.pending=nil; self.message=nil
     if self.available then
         if not self.opened then self:setOpen(true) end
@@ -314,7 +366,7 @@ function Menu:resize()
 end
 
 function Menu:setSection(index)
-    if self.reveal.active or index==self.section then return end
+    if self.confirmation or self.reveal.active or index==self.section then return end
     self.section=index; self.message=nil
     if self.compact then self.overlay.CanvasPosition=Vector2.zero end
     self:resize()
@@ -378,7 +430,7 @@ function Menu:refresh()
     for i,tab in self.tabs do tab.BackgroundColor3=i==self.section and C.purple or C.line end
     self.blurb.Text=crates and section.blurb.."\n"..oddsLine() or section.blurb
     self.contentsButton.Visible=crates and self.links.contents~=nil
-    self.contentsButton.Active=not self.reveal.active; self.contentsButton.Selectable=self.contentsButton.Visible and not self.reveal.active
+    self.contentsButton.Active=not self.reveal.active and not self.confirmation; self.contentsButton.Selectable=self.contentsButton.Visible and self.contentsButton.Active
     local focusId=Gui.SelectedObject and Gui.SelectedObject:GetAttribute("ProductId")
     for _,card in self.cards do card:Destroy() end
     self.cards={}; self.buttons={}
@@ -489,7 +541,7 @@ function Menu:setOpen(open)
             task.spawn(function() pcall(function() Content:PreloadAsync({Art.xp,Art.crate,Art.xpFlip,Art.crateFlip,Season.icon}) end) end)
         end
     else
-        self.reveal:hide()
+        self:closeConfirmation();self.reveal:hide()
         if self.playerListWasEnabled~=nil then core:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList,self.playerListWasEnabled) end
         CAS:UnbindAction("NOVA_ShopMovement"); Run:UnbindFromRenderStep("NOVA_ShopMovement")
         if self.controls then self.controls:Enable() end
