@@ -20,7 +20,7 @@ local function wrapped(parent,name,x,y,w,h,text,size,color)
     return label
 end
 function Menu.new(playerGui,clear,beforeOpen)
-    local self=setmetatable({clear=clear,beforeOpen=beforeOpen,category=1,rarity=0,ownership=0,sort=1,onlyFavorites=false,
+    local self=setmetatable({clear=clear,beforeOpen=beforeOpen,category=1,rarity=0,ownership=1,sort=1,onlyFavorites=false,
         available=true,cards={},query="",opened=false},Menu)
     self.remote=shared:WaitForChild("InventoryRequest")
     local gui=Instance.new("ScreenGui"); gui.Name="NOVAInventory"; gui.ResetOnSpawn=false; gui.DisplayOrder=8
@@ -65,7 +65,7 @@ function Menu.new(playerGui,clear,beforeOpen)
     self.rarityButton=Style.button(panel,"RarityFilter",386,152,174,44,"All rarities",false)
     self.sortButton=Style.button(panel,"Sort",572,152,222,44,"Sort: Equipped",false)
     self.favoriteFilter=Style.button(panel,"FavoritesFilter",806,152,210,44,"Favorites: All",false)
-    self.ownershipFilter=Style.button(panel,"OwnershipFilter",826,152,190,44,"All items",false)
+    self.ownershipFilter=Style.button(panel,"OwnershipFilter",826,152,190,44,"Unlocked",false)
     self.ownershipFilter.Activated:Connect(function()
         self.ownership=(self.ownership+1)%3; self.scroll.CanvasPosition=Vector2.zero; self:refresh()
     end)
@@ -431,7 +431,7 @@ end
 function Menu:openVictoryChest()
     self.contents:hide()
     self:setOpen(true)
-    self.search.Text=""; self.rarity=0; self.ownership=0; self.onlyFavorites=false
+    self.search.Text=""; self.rarity=0; self.ownership=1; self.onlyFavorites=false
     self:setCategory(#Catalog.categories)
     self.selected="crate_season1"; self:refresh()
     self:request("open","crate_season1")

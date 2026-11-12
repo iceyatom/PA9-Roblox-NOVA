@@ -18,11 +18,11 @@ end
 function Reveal:actions(root,item,detail,width,y,height,visible)
     local equipment=self.equipment
     local buttonWidth=equipment and (width-60)/2 or width-48
-    local done=Style.button(root,"Continue",equipment and 36+buttonWidth or 24,y,buttonWidth,height,"Continue",not equipment)
+    local done=Style.button(root,"Continue",equipment and 36+buttonWidth or 24,y,buttonWidth,height,"Continue",true)
     done.ZIndex=49; done.Visible=visible
     done.Activated:Connect(function() self:hide(); if self.onDone then self.onDone() end end)
     if not equipment then return done end
-    local equip=Style.button(root,"EquipNow",24,y,buttonWidth,height,"Equip now",true)
+    local equip=Style.button(root,"EquipNow",24,y,buttonWidth,height,"Equip now",false)
     equip.ZIndex=49; equip.Visible=visible
     local equipped=equipment.isEquipped(item)
     equip.Text=equipped and "Equipped" or "Equip now"
