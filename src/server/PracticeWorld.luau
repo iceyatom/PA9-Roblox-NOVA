@@ -49,10 +49,10 @@ function PracticeWorld.ensure(lobby)
     text(card,"Kicker","SOLO / 30 SECOND CHALLENGE",.08,.2,mint,28)
     local title=text(card,"Title","High Score Practice",.31,.35,white,64); title.Font=Enum.Font.GothamBlack
     text(card,"Hint","STEP INTO THE BEACON TO PLAY",.73,.17,muted,26)
-    local board=part(model,"Leaderboard",Vector3.new(36,14,.5),CFrame.new(68.6,8,-22)*CFrame.Angles(0,-math.pi/2,0),Color3.fromHex("111621"))
+    local board=part(model,"Leaderboard",Vector3.new(20,14,.5),CFrame.new(68.6,8,-22)*CFrame.Angles(0,-math.pi/2,0),Color3.fromHex("111621"))
     board.CanCollide=false
     local rankings=Instance.new("SurfaceGui"); rankings.Name="Rankings"; rankings.Face=Enum.NormalId.Back
-    rankings.CanvasSize=Vector2.new(1200,700); rankings.LightInfluence=0; rankings.Parent=board
+    rankings.CanvasSize=Vector2.new(900,700); rankings.LightInfluence=0; rankings.Parent=board
     text(rankings,"Kicker","NOVA / HIGH SCORE PRACTICE",.035,.045,mint,30)
     local heading=text(rankings,"Title","GLOBAL TOP 10",.09,.09,white,60); heading.Font=Enum.Font.GothamBlack
     text(rankings,"Columns","RANK   PLAYER                 SHOTS / 30s",.21,.04,muted,27)

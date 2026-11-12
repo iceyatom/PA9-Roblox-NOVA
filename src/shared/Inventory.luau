@@ -3,11 +3,12 @@ local Catalog=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
 local Drop=require(script.Parent.CrateDrop)
 local Shop=require(script.Parent.ShopCatalog)
 local Daily=require(script.Parent.DailyRewards)
+local Stats=require(script.Parent.Stats)
 local Inventory={}
 local function integer(n,max) return type(n)=="number" and n==n and n>=0 and n<=max and n%1==0 end
 function Inventory.new()
     return {owned={},equipped=table.clone(Catalog.defaults),favorites={},shards=0,receipts={},receiptOrder={},wins={},openSequence=0,reducedEffects=false,retirementSequence=0,
-        crateChance=Drop.BaseChance,dropReceipts={},dropOrder={},boosts={xp=0,crate=0},purchases={},purchaseOrder={},daily=Daily.new()}
+        crateChance=Drop.BaseChance,dropReceipts={},dropOrder={},boosts={xp=0,crate=0},purchases={},purchaseOrder={},daily=Daily.new(),stats=Stats.new()}
 end
 -- Boosts are wall-clock expiry timestamps (os.time); 0 means never purchased.
 function Inventory.boostActive(data,kind,now)
@@ -23,6 +24,9 @@ function Inventory.validate(raw)
     local data=Inventory.new(); data.shards=raw.shards
     data.daily=Daily.validate(raw.daily)
     if not data.daily then return nil end
+    data.stats=Stats.validate(raw.stats)
+    if not data.stats then return nil end
+    if raw.stats==nil and integer(raw.openSequence,Stats.Limit) then data.stats.cratesOpened=raw.openSequence end
     if raw.retirementSequence~=nil and not integer(raw.retirementSequence,2^52) then return nil end
     data.retirementSequence=raw.retirementSequence or 0
     if raw.retirementNotice~=nil then
@@ -277,6 +281,7 @@ function Inventory.open(data,id,key,roll)
     if data.owned[id]==0 then data.owned[id]=nil; data.favorites[id]=nil end
     if duplicate then data.shards=math.min(1000000000,data.shards+shards) else data.owned[selected]=(data.owned[selected] or 0)+1 end
     local receipt={itemId=selected,crateId=id,duplicate=duplicate,shards=shards,requestId=key}
+    data.stats.cratesOpened=math.min(Stats.Limit,data.stats.cratesOpened+1)
     data.receipts[key]=receipt; table.insert(data.receiptOrder,key)
     if #data.receiptOrder>24 then data.receipts[table.remove(data.receiptOrder,1)]=nil end
     return true,receipt

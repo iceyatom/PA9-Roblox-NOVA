@@ -26,8 +26,9 @@ function Menu.new(playerGui,clear,beforeOpen,profile)
     self.remote=shared:WaitForChild("InventoryRequest")
     local gui=Instance.new("ScreenGui");gui.Name="NOVADailyRewards";gui.ResetOnSpawn=false;gui.DisplayOrder=9
     gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;gui.Parent=playerGui;self.gui=gui
-    self.launcher=Style.button(gui,"DailyButton",16,296,220,64,"Daily check-in",true)
-    self.launcher.TextSize=24
+    self.launcher=W.button(gui,"DailyButton",16,256,220,72,"Daily check-in",false)
+    self.launcher.BackgroundColor3=C.panel;self.launcher.Font=Enum.Font.GothamBlack;self.launcher.TextSize=26
+    Style.surface(self.launcher,10)
     self.launcherScale=Instance.new("UIScale");self.launcherScale.Parent=self.launcher
     local overlay=Instance.new("ScrollingFrame");overlay.Name="DailyOverlay";overlay.ZIndex=20
     overlay.Size=UDim2.fromScale(1,1);overlay.BackgroundColor3=C.ink;overlay.BackgroundTransparency=.08
@@ -118,9 +119,9 @@ function Menu:refresh()
     local profile=self:profile();local data=profile and profile.data
     local state=data and Daily.status(data,workspace:GetServerTimeNow())
     local ready=profile and profile.ready and state
-    self.launcher.Text=ready and state.claimable and "Reward ready!" or "Daily check-in"
+    self.launcher.Text="Daily check-in"
     self.launcherScale.Scale=math.min(1,math.max(.5,(self.gui.AbsoluteSize.X-32)/220))
-    self.launcher.Position=self.gui.AbsoluteSize.Y<380 and UDim2.new(1,-236,1,-80) or UDim2.fromOffset(16,296)
+    self.launcher.Position=self.gui.AbsoluteSize.Y<340 and UDim2.new(1,-236,1,-88) or UDim2.fromOffset(16,256)
     if not self.opened or self.reveal.active then return end
     local width=math.min(1240,math.max(300,self.overlay.AbsoluteSize.X-24))
     local columns=width>=1180 and 7 or width>=680 and 4 or width>=480 and 3 or width>=350 and 2 or 1
