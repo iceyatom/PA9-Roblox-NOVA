@@ -175,7 +175,7 @@ function Service:request(player,action,id,key)
                 if key~="open:"..(data.openSequence+1) then return false,"Opening expired." end
                 if now-(r.lastOpen or -math.huge)<6 then return false,"Finish the current crate reveal first." end
             end
-            local success,receipt,replay=Model.open(data,id,key,id=="crate_batch1" and self.random or self.random:NextNumber())
+            local success,receipt,replay=Model.open(data,id,key,self.random:NextNumber())
             if success and not replay then r.lastOpen=now end
             return success,receipt,replay
         end

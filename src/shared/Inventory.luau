@@ -41,22 +41,27 @@ function Inventory.validate(raw)
         if expires>os.time() then data.wins[key]=expires end
     end
     for id,count in raw.owned do
-        if type(id)~="string" or not integer(count,1000000) then return nil end
+        if type(id)~="string" or not integer(count,id=="crate_season1" and 3000000 or 1000000) then return nil end
         -- Preserve unknown IDs for saves written by a newer catalog/server.
-        if not Catalog.retired[id] and count>0 then data.owned[id]=count end
+        if not Catalog.retired[id] and count>0 then
+            local target=(Catalog.crateAliases or {})[id] or id
+            data.owned[target]=(data.owned[target] or 0)+count
+        end
     end
+    if (data.owned.crate_season1 or 0)>3000000 then return nil end
     for category,id in raw.equipped do
         local item=Catalog.byId[id]
         if item and item.category==category and category~="crates" and Inventory.owns(data,id) then data.equipped[category]=id end
     end
-    for id,value in raw.favorites do if value==true and Inventory.owns(data,id) then data.favorites[id]=true end end
+    for id,value in raw.favorites do local target=(Catalog.crateAliases or {})[id] or id;if value==true and Inventory.owns(data,target) then data.favorites[target]=true end end
     if type(raw.receiptOrder)=="table" and type(raw.receipts)=="table" then
         for _,key in raw.receiptOrder do
             local r=raw.receipts[key]
+            local crateId=type(r)=="table" and ((Catalog.crateAliases or {})[r.crateId] or r.crateId)
             if #data.receiptOrder<24 and type(key)=="string" and #key<=64 and type(r)=="table"
-                and Catalog.byId[r.itemId] and Catalog.byId[r.crateId] and integer(r.shards,1000000000)
+                and Catalog.byId[r.itemId] and Catalog.byId[crateId] and integer(r.shards,1000000000)
                 and type(r.duplicate)=="boolean" then
-                data.receipts[key]={itemId=r.itemId,crateId=r.crateId,shards=r.shards,duplicate=r.duplicate,requestId=key}
+                data.receipts[key]={itemId=r.itemId,crateId=crateId,shards=r.shards,duplicate=r.duplicate,requestId=key}
                 table.insert(data.receiptOrder,key)
             end
         end
@@ -113,19 +118,20 @@ end
 function Inventory.grant(data,id,amount)
     local item=Catalog.byId[id]
     if not item or not integer(amount,1000) or amount<1 then return false,"Invalid grant." end
-    if item.category=="crates" then data.owned[id]=math.min(1000000,(data.owned[id] or 0)+amount)
+    if item.category=="crates" then data.owned[id]=math.max(data.owned[id] or 0,math.min(1000000,(data.owned[id] or 0)+amount))
     elseif not item.default then data.owned[id]=1 end
     return true
 end
 function Inventory.win(data,key,expires)
     if expires<=os.time() then return false,"Reward expired." end
     if data.wins[key] then return true,key,true end
-    if (data.owned.crate_batch1 or 0)>=1000000 then return false,"Chest inventory full." end
+    if (data.owned.crate_season1 or 0)>=1000000 then return false,"Chest inventory full." end
     data.wins[key]=expires
-    Inventory.grant(data,"crate_batch1",1)
+    Inventory.grant(data,"crate_season1",1)
     return true,key
 end
 function Inventory.open(data,id,key,roll)
+    id=(Catalog.crateAliases or {})[id] or id
     if type(key)~="string" or #key<1 or #key>64 then return false,"Invalid request." end
     if data.receipts[key] then
         if data.receipts[key].crateId~=id then return false,"Request already used." end
@@ -135,12 +141,8 @@ function Inventory.open(data,id,key,roll)
     if not crate or not crate.rewards or (data.owned[id] or 0)<1 then return false,"You do not own this crate." end
     local sequence=tonumber(key:match("^open:(%d+)$"))
     if sequence and sequence~=data.openSequence+1 then return false,"Opening expired." end
-    local selected
-    if id=="crate_batch1" then
-        selected=Catalog.rollBatch(roll)
-    else
-        selected=Catalog.roll(crate,roll)
-    end
+    local value=type(roll)=="number" and roll or roll:NextNumber()
+    local selected=Catalog.roll(crate,value)
     if sequence then data.openSequence=sequence end
     local item=Catalog.byId[selected]
     local duplicate=Inventory.owns(data,selected)

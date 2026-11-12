@@ -79,15 +79,15 @@ return function()
                 local r=read(p1)
                 return r.chest and r.chest.status=="Chest earned"
             end,10,"committed victory chest")
-            assert(request(p1,"batchProfile").owned.crate_batch1==round)
-            assert(not request(p2,"batchProfile").owned.crate_batch1)
+            assert(request(p1,"batchProfile").owned.crate_season1==round)
+            assert(not request(p2,"batchProfile").owned.crate_season1)
             if round==1 then
                 request(p1,"batchSave"); request(p1,"vote"); request(p2,"vote")
             else
                 request(p1,"batchOpen")
                 untilTrue(function() return request(p1,"batchReveal")=="settled" end,12,"reduced reveal after lobby return")
                 local data=request(p1,"batchProfile")
-                assert(data.owned.crate_batch1==1 and data.openSequence==1 and data.receipts["open:1"])
+                assert(data.owned.crate_season1==1 and data.openSequence==1 and data.receipts["open:1"])
             end
             note("Round "..round.." awarded exactly one winner chest and zero loser chests")
         end
@@ -96,7 +96,7 @@ return function()
         waitPhase(p1,"Playing"); waitPhase(p2,"Playing")
         channel:FireClient(p1,-1,"disconnect")
         local left=waitPhase(p2,"Results")
-        assert(left.title=="Victory" and not left.chest and not request(p2,"batchProfile").owned.crate_batch1)
+        assert(left.title=="Victory" and not left.chest and not request(p2,"batchProfile").owned.crate_season1)
         note("A playing-phase disconnect produced Victory and zero chests")
     end
     local function exercise()

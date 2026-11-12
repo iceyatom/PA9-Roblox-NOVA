@@ -6,15 +6,15 @@ return function(t)
         local previous=C.retired
         C.retired={skin_mint={name="Mint Circuit",rarity="Rare",category="skins"},
             skin_ember={name="Ember Core",rarity="Epic",category="skins"},
-            crate_dev={name="Test Crate",rarity="Epic",category="crates"}}
+            retired_crate_fixture={name="Test Crate",rarity="Epic",category="crates"}}
         local ok,err=pcall(fn); C.retired=previous; assert(ok,err)
     end
     t.test("retirement removes owned equipped and favorite items and credits duplicate values once",function() retired(function()
-        local raw=I.new(); raw.shards=7; raw.owned={skin_mint=1,skin_ember=1,crate_dev=3,unknown_future_item=1}
+        local raw=I.new(); raw.shards=7; raw.owned={skin_mint=1,skin_ember=1,retired_crate_fixture=3,unknown_future_item=1}
         raw.equipped.skins="skin_mint"; raw.favorites.skin_mint=true
         local data=assert(I.validate(raw))
         assert(data.shards==7+25+60+180 and data.equipped.skins==C.defaults.skins)
-        assert(not data.owned.skin_mint and not data.owned.crate_dev and not data.favorites.skin_mint)
+        assert(not data.owned.skin_mint and not data.owned.retired_crate_fixture and not data.favorites.skin_mint)
         assert(data.owned.unknown_future_item==1 and data.retirementNotice.totalShards==265 and #data.retirementNotice.items==3)
         for i=1,20 do data=assert(I.validate(data)); assert(data.shards==272 and data.retirementSequence==1) end
         assert(raw.owned.skin_mint==1 and raw.shards==7)

@@ -10,7 +10,7 @@ function Visuals.apply(label,item,kind,frame)
     Prism.clear(label)
     if item.category=="skins" and (kind==nil or kind=="skins" or kind=="body") then return Skins.apply(label,item) end
     local index=item.artIndex
-    if item.id=="crate_batch1" then label.Image=Assets.chest; return true end
+    if item.image then label.Image=item.image;label.ImageRectSize=Vector2.zero;label.ImageRectOffset=Vector2.zero;label.ImageColor3=Color3.new(1,1,1);return true end
     if index==nil then return false end
     kind=kind or item.category
     local w,h=256,256

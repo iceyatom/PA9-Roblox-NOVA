@@ -266,7 +266,7 @@ function Menu:refresh()
     for _,card in self.cards do card:Destroy() end; self.cards={}
     local items={}
     if data then for _,item in Catalog.items do
-        if item.category==category and (item.setId or (item.visual=="prism_veil" or item.visual=="dragonforge" or item.visual=="riftglass" or item.visual=="cipher" or item.visual=="supernova" or item.visual=="starfade" or item.visual=="armory") or item.id=="crate_batch1" or (self.pendingOpen and self.pendingOpen.id==item.id) or Model.owns(data,item.id))
+        if item.category==category and (item.setId or (item.visual=="prism_veil" or item.visual=="dragonforge" or item.visual=="riftglass" or item.visual=="cipher" or item.visual=="supernova" or item.visual=="starfade" or item.visual=="armory") or item.id=="crate_season1" or (self.pendingOpen and self.pendingOpen.id==item.id) or Model.owns(data,item.id))
             and (self.ownership==0 or Model.owns(data,item.id)==(self.ownership==1))
             and (self.rarity==0 or item.rarity==Catalog.rarities[self.rarity])
             and (not self.onlyFavorites or data.favorites[item.id])
@@ -295,7 +295,7 @@ function Menu:refresh()
         if not owned then
             local assets=require(shared.BatchOneAssets)
             local key=item.artIndex and (item.category.."-"..(math.floor(item.artIndex/16)+1).."-locked") or "chest-locked"
-            if item.visual~="prism_veil" and item.visual~="dragonforge" and item.visual~="riftglass" and item.visual~="cipher" and item.visual~="supernova" and item.visual~="starfade" and item.visual~="armory" and item.category~="skins" and assets[key] then icon.Image=assets[key] end
+            if not item.image and item.visual~="prism_veil" and item.visual~="dragonforge" and item.visual~="riftglass" and item.visual~="cipher" and item.visual~="supernova" and item.visual~="starfade" and item.visual~="armory" and item.category~="skins" and assets[key] then icon.Image=assets[key] end
             icon.ImageTransparency=.25
             if icon:GetAttribute("SolidSkin") then icon.BackgroundTransparency=.25 end
         end
@@ -329,12 +329,21 @@ function Menu:refresh()
         end
         self.itemName.Text=item.name; self.itemRarity.Text=item.rarity..(item.setName and "  /  "..item.setName or "")..(item.default and "  /  DEFAULT" or "")
         self.itemRarity.TextColor3=W.rgb(Catalog.rarityColors[item.rarity]); self.description.Text=item.description
-        self.description.TextSize=item.id=="crate_batch1" and 14 or 17
+        self.description.TextSize=item.id=="crate_season1" and 14 or 17
         if item.rewards then
-            local total=0; for _,r in item.rewards do total+=r.weight end
-            local tiers={}; for _,r in item.rewards do local rarity=Catalog.byId[r.id].rarity; tiers[rarity]=(tiers[rarity] or 0)+r.weight end
-            local odds={}; for _,rarity in Catalog.rarities do if tiers[rarity] then table.insert(odds,("%s %.1f%%"):format(rarity,100*tiers[rarity]/total)) end end
-            self.description.Text="One cosmetic. Duplicates become Shards.\n"..table.concat(odds," · ")
+            local odds=Catalog.crateOdds(item)
+            local lines={("Drop chances per opening · %d items"):format(odds.items)}
+            for index=1,#odds.rarities,2 do
+                local row=odds.rarities[index]
+                local text=("%s %.2f%%"):format(row.rarity,row.percent)
+                local nextRow=odds.rarities[index+1]
+                if nextRow then text..=(" · %s %.2f%%"):format(nextRow.rarity,nextRow.percent) end
+                table.insert(lines,text)
+            end
+            table.insert(lines,odds.equalItems and ("Each item %.3f%% · duplicates pay Shards"):format(odds.perItemPercent)
+                or item.rarityWeighted and "Equal within rarity · duplicates pay Shards"
+                or "Weighted item chances · duplicates pay Shards")
+            self.description.Text=table.concat(lines,"\n")
         end
         self.previewButton.Text="Focused preview"
         self.previewButton.Visible=true; self.previewButton.Active=not self.reveal.active
@@ -384,8 +393,8 @@ function Menu:openVictoryChest()
     self:setOpen(true)
     self.search.Text=""; self.rarity=0; self.ownership=0; self.onlyFavorites=false
     self:setCategory(#Catalog.categories)
-    self.selected="crate_batch1"; self:refresh()
-    self:request("open","crate_batch1")
+    self.selected="crate_season1"; self:refresh()
+    self:request("open","crate_season1")
 end
 function Menu:setAvailable(available)
     self.available=available; self.gui.Enabled=available

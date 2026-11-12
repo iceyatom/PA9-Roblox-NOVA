@@ -88,7 +88,7 @@ function Hud.new(playerGui)
     self.chest=W.box(self.notice,"VictoryChest",12,164,376,128,C.ink)
     self.chestStatus=W.text(self.chest,"Status",9,2,360,24,"Reward saving",16,C.mint,Enum.Font.GothamBold)
     local odds=W.text(self.chest,"Odds",9,27,358,52,
-        "1 item · No pity · Duplicate Shards by tier\nUncommon 60% / 10  ·  Rare 25% / 25  ·  Epic 10% / 60\nLegendary 4% / 150  ·  Cosmic 1% / 500",13,C.muted,Enum.Font.Gotham)
+        Cosmetics.byId.crate_season1.description,13,C.muted,Enum.Font.Gotham)
     odds.TextWrapped=true; odds.TextTruncate=Enum.TextTruncate.None
     self.openChest=W.button(self.chest,"OpenNow",9,84,173,36,"Open now",true)
     self.saveChest=W.button(self.chest,"SaveLater",190,84,175,36,"Save for later",false)
@@ -156,7 +156,7 @@ function Hud:update(snap,seat)
         self.chest.Position=UDim2.fromOffset((size.X.Offset-376)/2,size.Y.Offset)
         self.notice.Size=UDim2.fromOffset(size.X.Offset,size.Y.Offset+133)
         self.notice.Position-=UDim2.fromOffset(0,66)
-        self.chestStatus.Text="Items Batch 1 Chest  /  "..chest.status
+        self.chestStatus.Text="Season 1 Crate  /  "..chest.status
         self.openChest.Visible=chest.status=="Chest earned"
         self.saveChest.Visible=self.openChest.Visible
     end

@@ -67,7 +67,7 @@ function Reveal:show(receipt)
     local strip=W.box(viewport,"Reel",0,0,6500,178,nil,42)
     local random=Random.new(); local winner=36; local stride=142
     for i=1,43 do
-        local entry=Catalog.byId[crate.rewards[random:NextInteger(1,#crate.rewards)].id]
+        local entry=Catalog.byId[Catalog.roll(crate,random:NextNumber())]
         if i==winner then entry=item end
         local card=W.box(strip,"Reward"..i,(i-1)*stride,8,132,162,C.ink,43)
         Style.round(card,8)

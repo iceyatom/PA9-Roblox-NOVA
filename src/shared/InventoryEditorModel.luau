@@ -5,6 +5,27 @@ function Model.copy(value)
     if type(value)~="table" then return value end
     local result={}; for k,v in value do result[k]=Model.copy(v) end; return result
 end
+-- Reserve each available rarity's share, then divide it equally among its active items.
+-- An empty rarity is omitted and the remaining rarity shares are normalized.
+function Model.rarityRewards(rewards,byId,chances,edits)
+    local result,counts,rarities={},{},{}
+    for _,reward in rewards do
+        local item=byId[reward.id]
+        local edit=edits and edits.items[reward.id] or {}
+        if item and not edit.deleted then
+            local rarity=edit.rarity or item.rarity
+            assert(finite(chances[rarity]) and chances[rarity]>0,"Missing rarity chance: "..rarity)
+            counts[rarity]=(counts[rarity] or 0)+1;rarities[reward.id]=rarity
+            table.insert(result,{id=reward.id})
+        end
+    end
+    local total=0;for rarity in counts do total+=chances[rarity] end
+    for _,reward in result do
+        local rarity=rarities[reward.id]
+        reward.weight=100*chances[rarity]/total/counts[rarity]
+    end
+    return result
+end
 local function validText(value,limit)
     return type(value)=="string" and #value<=limit and value:match("%S")~=nil and not value:find("%c")
 end
@@ -75,7 +96,7 @@ function Model.validate(edits,base)
         if edit.name~=nil and (type(edit.name)~="string" or #edit.name>80 or not edit.name:match("%S") or edit.name:find("%c")) then return false,"Names need 1–80 characters, without control characters." end
         if edit.rarity~=nil and not table.find(base.rarities,edit.rarity) and not (item.category=="crates" and edit.rarity=="Chest") then return false,"Invalid rarity for "..id end
         if edit.deleted~=nil and type(edit.deleted)~="boolean" then return false,"Invalid deletion flag." end
-        if edit.deleted and (item.default or id=="crate_batch1") then return false,"Defaults and the duel reward chest cannot be deleted." end
+        if edit.deleted and (item.default or id=="crate_season1") then return false,"Defaults and the duel reward chest cannot be deleted." end
     end
     for id,rewards in edits.crates do
         local crate=base.byId[id]
@@ -128,6 +149,10 @@ function Model.apply(base,edits)
             table.insert(result.items,item); result.byId[item.id]=item
         end
     end
+    for _,item in result.items do if item.rewards and item.rarityChances then
+        item.rarityWeighted=edits.crates[item.id]==nil
+        if item.rarityWeighted then item.rewards=Model.rarityRewards(item.rewards,result.byId,item.rarityChances) end
+    end end
     return result
 end
 return Model

@@ -14,22 +14,22 @@ return function(t)
             if self.available then return {data=Model.validate(self.saved),expires=os.time()+180} end
         end
         local initial=Model.new()
-        Model.grant(initial,"crate_batch1",1)
+        Model.grant(initial,"crate_season1",1)
         local record={data=initial,version=1,expires=os.time()+180}
         local service=setmetatable({records={[player]=record},storage=storage},Service)
-        local function open(data) return Model.open(data,"crate_batch1","open:1",Random.new(12)) end
+        local function open(data) return Model.open(data,"crate_season1","open:1",Random.new(12)) end
         return service,player,record,storage,open
     end
     t.test("unacknowledged debit stays private; lease reload reconciles its receipt",function()
         local service,player,record,storage,open=fixture()
         storage.available=false
         assert(not service:mutate(player,open))
-        assert(record.pending and record.data.owned.crate_batch1==1 and not service:ready(player))
+        assert(record.pending and record.data.owned.crate_season1==1 and not service:ready(player))
         local saved=assert(storage.saved.receipts["open:1"])
         assert(not service:mutate(player,function(data) return Model.favorite(data,"skin_default") end))
         record.expires=os.time()-1; storage.available=true
         service:maintain(player,record)
-        assert(service:ready(player) and not record.data.owned.crate_batch1)
+        assert(service:ready(player) and not record.data.owned.crate_season1)
         local ok,r,replay=service:mutate(player,open)
         assert(ok and replay and r.itemId==saved.itemId and record.data.shards==0)
     end)
@@ -50,6 +50,6 @@ return function(t)
         local item=game.ReplicatedStorage.NOVA.InventoryCatalog
         local id=storage.saved.receipts["open:1"].itemId
         assert(storage.saved.equipped[require(item).byId[id].category]==id)
-        assert(not storage.saved.owned.crate_batch1)
+        assert(not storage.saved.owned.crate_season1)
     end)
 end

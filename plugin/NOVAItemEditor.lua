@@ -83,7 +83,7 @@ local function itemIcon(parent,item,x,y,size)
     if type(item)=="table" and prismVisuals and prismVisuals.apply(image,item) then return image end
     if skinVisuals and skinVisuals.apply(image,item=="skins" and {category="skins",color="527eff"} or item) then return image end
     if type(item)=="table" and assets then
-        if item.id=="crate_batch1" then image.Image=assets.chest
+        if item.image then image.Image=item.image
         elseif item.artIndex~=nil then
             local index=item.artIndex
             image.Image=assets[item.category.."-"..(math.floor(index/16)+1)] or image.Image
@@ -97,7 +97,7 @@ local function name(item) return (edits.items[item.id] or {}).name or item.name 
 local function rarity(item) return (edits.items[item.id] or {}).rarity or item.rarity end
 local function rarityColor(item) return Color3.fromHex((rarityColors or {})[rarity(item)] or "9ca8bc") end
 local function isDeleted(id) return (edits.items[id] or {}).deleted==true end
-local function deletable(item) return not item.default and item.id~="crate_batch1" and not isDeleted(item.id) end
+local function deletable(item) return not item.default and item.id~="crate_season1" and not isDeleted(item.id) end
 local function matches(item)
     local query=search.Text:lower()
     return item.category==base.categories[S.filter].id and (S.showDeleted or not isDeleted(item.id))
@@ -170,6 +170,9 @@ local function cycleRarity(item)
     renderList();renderDetail()
 end
 local function rewardsFor(crate)
+    if crate.rarityChances and not edits.crates[crate.id] then
+        return model.rarityRewards(crate.rewards,base.byId,crate.rarityChances,edits)
+    end
     local result={}; local total=0
     for _,r in edits.crates[crate.id] or crate.rewards do
         if not isDeleted(r.id) then table.insert(result,{id=r.id,weight=r.weight}); total+=r.weight end
@@ -433,7 +436,13 @@ renderDetail=function()
     collection.Activated:Connect(function()S.collections=true;S.selectedCollection=collectionId or "__unassigned";S.collectionMode="members";search.Text="";renderList();renderDetail()end)
     if item.rewards then
         add(label(detail,"PoolHeading","CRATE CONTENTS / ITEM CHANCES",52)).TextColor3=C.purple
-        add(label(detail,"PoolHelp","Include items and edit their %. Normalize scales chances to 100%. Save, then start a new Play session to use changes.",76))
+        add(label(detail,"PoolHelp",item.rarityChances and not edits.crates[item.id]
+            and "Automatic rarity chances split equally among each rarity's items. Editing percentages switches to custom chances. Save, then start a new Play session."
+            or "Include items and edit their %. Normalize scales chances to 100%. Save, then start a new Play session to use changes.",76))
+        if item.rarityChances and edits.crates[item.id] then
+            local reset=add(button(detail,"ResetRarityChances","Reset to rarity-based chances"))
+            reset.Activated:Connect(function() push();edits.crates[item.id]=nil;renderDetail() end)
+        end
         local rewards=rewardsFor(item); local lookup={}; local total=0; local tiers={}
         for _,r in rewards do lookup[r.id]=r; total+=r.weight; local tier=rarity(base.byId[r.id]); tiers[tier]=(tiers[tier] or 0)+r.weight end
         local totalLabel=add(label(detail,"Total",("%d included  /  Total %.6g%%"):format(#rewards,total),32))
@@ -505,7 +514,7 @@ renderDetail=function()
         end
         poolSearch:GetPropertyChangedSignal("Text"):Connect(function() S.poolQuery=poolSearch.Text; drawPool() end); drawPool()
     end
-    if item.default or item.id=="crate_batch1" then
+    if item.default or item.id=="crate_season1" then
         add(label(detail,"Protected","This item is required by the game and cannot be deleted.",56))
     else
         local remove=add(button(detail,"Delete","Delete item")); remove.TextColor3=C.red
@@ -520,7 +529,7 @@ local function load()
     local copy=nova:Clone()
     local ok,result=pcall(function()
         local catalog=require(copy.InventoryCatalog)
-        return {catalog.editorBase,require(copy.InventoryEditorModel),require(copy.InventoryEdits),require(copy.InventoryArt),require(copy.BatchOneAssets),catalog.rarityColors,require(copy.SkinVisuals),require(copy.PrismVisuals)}
+        return {catalog.editorBase,require(copy.InventoryEditorModel),catalog.editorEdits,require(copy.InventoryArt),require(copy.BatchOneAssets),catalog.rarityColors,require(copy.SkinVisuals),require(copy.PrismVisuals)}
     end)
     copy:Destroy()
     if not ok then status("Cannot load inventory: "..tostring(result),true); return end

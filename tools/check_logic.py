@@ -53,7 +53,7 @@ function vec:Dot(b) return self.X*b.X+self.Y*b.Y end
 local builtinTypeof=typeof
 local typeof=function(value) return getmetatable(value)==vec and "Vector2" or builtinTypeof(value) end
 local Random={new=function()
-    return {NextInteger=function(_,a,b) return math.random(a,b) end}
+    return {NextInteger=function(_,a,b) return math.random(a,b) end,NextNumber=function() return math.random() end}
 end}
 local warn=print
 math.randomseed(1234)
