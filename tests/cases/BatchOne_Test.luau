@@ -3,6 +3,32 @@ return function(t)
     local C=require(shared.InventoryCatalog)
     local I=require(shared.Inventory)
     local crate=C.byId.crate_season1
+    t.test("crate contents list every real reward rarest first with exact item chances",function()
+        local rows=C.crateContents(crate);local total,seen=0,{}
+        local previousTier,previousChance=math.huge,0
+        local weights,sum={},0;for _,r in crate.rewards do weights[r.id]=r.weight;sum+=r.weight end
+        assert(#rows==#crate.rewards)
+        for _,row in rows do
+            local item=row.item;local tier=C.rarityIndex(item.rarity)
+            assert(not seen[item.id] and weights[item.id] and not item.default and item.category~="crates")
+            assert(math.abs(row.percent-100*weights[item.id]/sum)<1e-9)
+            assert(tier<=previousTier)
+            if tier==previousTier then assert(row.percent>=previousChance) end
+            previousTier=tier;previousChance=row.percent;seen[item.id]=true;total+=row.percent
+        end
+        assert(math.abs(total-100)<1e-9)
+    end)
+    t.test("contents honor rarity order and custom per-item chances independently",function()
+        local rows=C.crateContents(crate)
+        local high=rows[1].item;local low=rows[#rows].item;local other
+        for _,row in rows do if row.item.id~=low.id and row.item.rarity==low.rarity then other=row.item;break end end
+        assert(other and high.rarity~=low.rarity)
+        local custom={rewards={{id=low.id,weight=30},{id=high.id,weight=50},{id=other.id,weight=20}}}
+        rows=C.crateContents(custom)
+        assert(rows[1].item.id==high.id and rows[1].percent==50)
+        assert(rows[2].item.id==other.id and rows[2].percent==20 and rows[3].percent==30)
+        assert(custom.rewards[1].id==low.id)
+    end)
     t.test("crate odds summarize the actual weighted reward draw",function()
         local a=crate.rewards[1].id
         local b

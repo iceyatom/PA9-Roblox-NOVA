@@ -91,7 +91,20 @@ function Menu.new(playerGui,clear,beforeOpen)
         if item and not self.reveal.active then self.focus:show(item,self.data.equipped,Model.owns(self.data,item.id)) end
     end)
     self.focus=require(script.Parent.InventoryFocus).new(gui,function()
-        Gui.SelectedObject=gamepad() and self.previewButton or nil
+        Gui.SelectedObject=gamepad() and (self.contents.root and (self.contents.selectedCard or self.contents.closeButton) or self.previewButton) or nil
+    end)
+    self.contents=require(script.Parent.CrateContents).new(gui,function()
+        Gui.SelectedObject=gamepad() and self.contentsButton or nil
+    end,function(item)
+        self.focus:show(item,self.data.equipped,Model.owns(self.data,item.id))
+    end,function(crate) self:request("open",crate.id) end)
+    self.contentsButton=Style.button(details,"ViewContents",178,298,144,40,"View contents",false)
+    self.contentsButton.Visible=false
+    self.contentsButton.Activated:Connect(function()
+        local item=Catalog.byId[self.selected]
+        if item and item.rewards and not self.reveal.active then
+            self.contents:show(item,self.data,self.profile and self.profile.ready and not self.busy)
+        end
     end)
     self.action=Style.button(details,"EquipOrOpen",18,344,196,44,"Equip",true)
     self.favorite=Style.button(details,"Favorite",226,344,96,44,"Favorite",false); self.favorite.TextSize=16
@@ -123,10 +136,11 @@ function Menu.new(playerGui,clear,beforeOpen)
     Gui.MenuOpened:Connect(function() self:setOpen(false) end)
     Gui:GetPropertyChangedSignal("SelectedObject"):Connect(function()
         if not self.opened or not Gui.SelectedObject then return end
-        local boundary=self.retirementNotice.root.Visible and self.retirementNotice.root or self.focus.root or (self.reveal.active and self.reveal.overlay or self.overlay)
+        local boundary=self.retirementNotice.root.Visible and self.retirementNotice.root or self.focus.root or self.contents.root or (self.reveal.active and self.reveal.overlay or self.overlay)
         if boundary and not Gui.SelectedObject:IsDescendantOf(boundary) then
             if self.retirementNotice.root.Visible then Gui.SelectedObject=self.retirementNotice.button; return end
             if self.focus.root then Gui.SelectedObject=self.focus.root.Panel.ClosePreview; return end
+            if self.contents.root then Gui.SelectedObject=self.contents.closeButton; return end
             local done=self.reveal.active and boundary:FindFirstChild("Continue")
             if self.reveal.active then Gui.SelectedObject=done and done.Visible and done or nil
             else Gui.SelectedObject=self.close end
@@ -136,7 +150,9 @@ function Menu.new(playerGui,clear,beforeOpen)
     CAS:BindActionAtPriority("NOVA_InventoryClose",function(_,state)
         if not self.opened then return Enum.ContextActionResult.Pass end
         if state==Enum.UserInputState.Begin then
-            if self.focus.root then self.focus:hide(); Gui.SelectedObject=gamepad() and self.previewButton or nil
+            if self.focus.root then
+                self.focus:hide();Gui.SelectedObject=gamepad() and (self.contents.root and (self.contents.selectedCard or self.contents.closeButton) or self.previewButton) or nil
+            elseif self.contents.root then self.contents:close()
             elseif self.reveal.active then self.reveal:hide(); self:refresh(); Gui.SelectedObject=gamepad() and self.action or nil
             else self:setOpen(false) end
         end
@@ -144,7 +160,7 @@ function Menu.new(playerGui,clear,beforeOpen)
     end,false,Enum.ContextActionPriority.High.Value+45,Enum.KeyCode.Escape,Enum.KeyCode.ButtonB)
     CAS:BindActionAtPriority("NOVA_InventoryTabs",function(_,state,input)
         if not self.opened then return Enum.ContextActionResult.Pass end
-        if state==Enum.UserInputState.Begin and not self.reveal.active and not self.focus.root then
+        if state==Enum.UserInputState.Begin and not self.reveal.active and not self.focus.root and not self.contents.root then
             self:setCategory((self.category-1+(input.KeyCode==Enum.KeyCode.ButtonR1 and 1 or -1))%6+1)
             Gui.SelectedObject=self.tabs[self.category]
         end
@@ -241,7 +257,7 @@ function Menu:resize()
     self:refresh()
 end
 function Menu:setCategory(index)
-    if self.reveal.active then return end
+    if self.reveal.active or self.contents.root then return end
     self.category=index; self.selected=nil; self.scroll.CanvasPosition=Vector2.zero
     if self.compact then self.overlay.CanvasPosition=Vector2.zero end
     self.message=nil; self:refresh()
@@ -345,6 +361,14 @@ function Menu:refresh()
                 or "Weighted item chances · duplicates pay Shards")
             self.description.Text=table.concat(lines,"\n")
         end
+        local crate=item.rewards~=nil
+        local width=self.details.Size.X.Offset-36
+        self.previewButton.Size=UDim2.fromOffset(crate and (width-8)/2 or width,40)
+        self.previewButton.TextSize=crate and 14 or 18
+        self.contentsButton.Position=UDim2.fromOffset(18+(width+8)/2,298)
+        self.contentsButton.Size=UDim2.fromOffset((width-8)/2,40)
+        self.contentsButton.Visible=crate
+        self.contentsButton.Active=not self.reveal.active;self.contentsButton.Selectable=self.contentsButton.Active
         self.previewButton.Text="Focused preview"
         self.previewButton.Visible=true; self.previewButton.Active=not self.reveal.active
         local retry=self.pendingOpen and self.pendingOpen.id==item.id
@@ -358,6 +382,7 @@ function Menu:refresh()
         self.favorite.Active=Model.owns(data,item.id) and self.profile.ready and not self.busy and not self.reveal.active
     end
     self.status.Text=self.message or self.profile and self.profile.status or "Loading inventory…"
+    self.contents:update(data,self.profile and self.profile.ready and not self.busy and not self.reveal.active)
 end
 function Menu:request(action,id)
     if self.busy or self.reveal.active or not self.data or not self.profile.ready then return end
@@ -383,13 +408,14 @@ function Menu:request(action,id)
             if response.ok and response.receipt then
                 local item=Catalog.byId[response.receipt.itemId]
                 self.message=response.receipt.duplicate and ("%s duplicate → +%d Shards"):format(item.name,response.receipt.shards) or "Received "..item.name
-                if self.opened and self.available then self.overlay.CanvasPosition=Vector2.zero; self.reveal:show(response.receipt) end
+                if self.opened and self.available then self.contents:hide();self.focus:hide();self.overlay.CanvasPosition=Vector2.zero; self.reveal:show(response.receipt) end
             end
         end
         self:refresh()
     end)
 end
 function Menu:openVictoryChest()
+    self.contents:hide()
     self:setOpen(true)
     self.search.Text=""; self.rarity=0; self.ownership=0; self.onlyFavorites=false
     self:setCategory(#Catalog.categories)
@@ -434,7 +460,7 @@ function Menu:setOpen(open)
             if ok and response.profile then self:accept(response.profile) end
         end) end
     else
-        self.focus:hide(); self.reveal:hide(); self.search:ReleaseFocus(); Preview.stopSounds(self.gui)
+        self.contents:hide();self.focus:hide(); self.reveal:hide(); self.search:ReleaseFocus(); Preview.stopSounds(self.gui)
         if self.playerListWasEnabled~=nil then game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList,self.playerListWasEnabled) end
         CAS:UnbindAction("NOVA_InventoryMovement"); Run:UnbindFromRenderStep("NOVA_InventoryMovement")
         if self.controls then self.controls:Enable() end

@@ -146,4 +146,20 @@ function Catalog.get(equipped,category)
     return item and item.category==category and item or Catalog.byId[Catalog.defaults[category]]
 end
 function Catalog.rarityIndex(rarity) return table.find(Catalog.rarities,rarity) or 1 end
+function Catalog.crateContents(crate)
+    local total=0;for _,reward in crate.rewards do total+=reward.weight end
+    local entries={}
+    for _,reward in crate.rewards do
+        table.insert(entries,{item=Catalog.byId[reward.id],percent=100*reward.weight/total})
+    end
+    table.sort(entries,function(a,b)
+        local ar,br=Catalog.rarityIndex(a.item.rarity),Catalog.rarityIndex(b.item.rarity)
+        if ar~=br then return ar>br end
+        if a.percent~=b.percent then return a.percent<b.percent end
+        local an,bn=a.item.name:lower(),b.item.name:lower()
+        if an~=bn then return an<bn end
+        return a.item.id<b.item.id
+    end)
+    return entries
+end
 return Catalog

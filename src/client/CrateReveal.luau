@@ -9,6 +9,7 @@ local Preview=require(script.Parent.InventoryPreview)
 local Style=require(script.Parent.InventoryStyle)
 local ReelAudio=require(script.Parent.ReelAudio)
 local ItemUnlock=require(script.Parent.ItemUnlock)
+local itemTypes={skins="Skin",bullets="Bullet Skin",tracers="Tracer",backgrounds="Player Background",sounds="Sound Effect"}
 local Reveal={}; Reveal.__index=Reveal
 function Reveal.new(panel,onDone)
     return setmetatable({panel=panel,onDone=onDone,generation=0,audio=ReelAudio.new(panel,"CrateCycleClick")},Reveal)
@@ -32,6 +33,7 @@ function Reveal:show(receipt)
     end
     Gui.SelectedObject=nil
     local item=Catalog.byId[receipt.itemId]; local crate=Catalog.byId[receipt.crateId]
+    local identity=(itemTypes[item.category] or "Item").."  /  "..item.rarity
     local width=self.panel.Size.X.Offset
     local screen=self.panel:FindFirstAncestorWhichIsA("ScreenGui")
     local short=screen and screen.AbsoluteSize.Y<560
@@ -47,9 +49,10 @@ function Reveal:show(receipt)
         local y=center+26
         local title=W.text(root,"Result",16,y,width-32,34,item.name,24,C.white,Enum.Font.GothamBold)
         title.TextXAlignment=Enum.TextXAlignment.Center
-        local detail=W.text(root,"Detail",12,y+38,width-24,28,item.rarity.."  /  "..(receipt.duplicate and ("+"..receipt.shards.." Shards") or "Added to inventory"),16,W.rgb(Catalog.rarityColors[item.rarity]))
+        local detail=W.text(root,"Detail",12,y+38,width-24,44,identity.."  /  "..(receipt.duplicate and ("+"..receipt.shards.." Shards") or "Added to inventory"),16,W.rgb(Catalog.rarityColors[item.rarity]))
         detail.TextXAlignment=Enum.TextXAlignment.Center
-        local done=Style.button(root,"Continue",24,y+78,width-48,42,"Continue",true)
+        detail.TextWrapped=true;detail.TextTruncate=Enum.TextTruncate.None
+        local done=Style.button(root,"Continue",24,y+96,width-48,42,"Continue",true)
         done.Activated:Connect(function() self:hide(); if self.onDone then self.onDone() end end)
         if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" then Gui.SelectedObject=done end
         return
@@ -111,7 +114,7 @@ function Reveal:show(receipt)
         result.Text=item.name; result.TextColor3=W.rgb(Catalog.rarityColors[item.rarity])
         result.Position=UDim2.fromOffset(24,short and height-122 or 478); result.ZIndex=48
         if short then result.TextSize=24 end
-        detail.Text=item.rarity.."  /  "..(receipt.duplicate and ("Duplicate converted into +%d Shards"):format(receipt.shards) or "Added to your inventory")
+        detail.Text=identity.."  /  "..(receipt.duplicate and ("Duplicate converted into +%d Shards"):format(receipt.shards) or "Added to your inventory")
         detail.Position=UDim2.fromOffset(24,short and height-83 or 530); detail.ZIndex=48
         if short then detail.TextSize=14 end
         done.Position=UDim2.fromOffset(24,short and height-40 or 590); done.Size=UDim2.fromOffset(width-48,short and 36 or 44)
