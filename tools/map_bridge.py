@@ -190,7 +190,7 @@ def main(default_port=PORT):
     try:
         server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     except OSError:
-        raise SystemExit(f"Port {args.port} is busy. Another map bridge is probably running; close it first.")
+        raise SystemExit(f"Port {args.port} is busy. Another NOVA editor bridge may already be running; use that bridge or close it before restarting.")
     print(f"NOVA editor bridge on http://127.0.0.1:{args.port}  ->  {ROOT / 'src' / 'shared'}")
     print("Click 'Export to repo' in the NOVA Level Editor or Item Editor. Ctrl+C stops the bridge.")
     try:

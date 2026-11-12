@@ -107,7 +107,7 @@ function Contents:show(crate,data,canOpen)
     local limits=Instance.new("UITextSizeConstraint");limits.MinTextSize=14;limits.MaxTextSize=30;limits.Parent=self.title
     local entries=Catalog.crateContents(crate)
     root:SetAttribute("CrateId",crate.id);root:SetAttribute("ItemCount",#entries)
-    self.subtitle=text(panel,"Subtitle",100,58,600,24,("%d possible items  ·  Rarest first"):format(#entries),15,C.muted)
+    self.subtitle=text(panel,"Subtitle",100,58,600,24,("%d items · Rarity ↓ · Collection A–Z"):format(#entries),15,C.muted)
     self.note=text(panel,"Rounding",18,92,900,24,"Drop chance per opening. Rounded percentages may not total exactly 100%.",13,C.muted)
     self.note.TextWrapped=true;self.note.TextTruncate=Enum.TextTruncate.None
     self.closeButton=Style.button(panel,"CloseContents",0,20,84,40,"Back",false)

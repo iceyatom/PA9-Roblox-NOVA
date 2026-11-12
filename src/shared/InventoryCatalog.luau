@@ -155,6 +155,15 @@ function Catalog.crateContents(crate)
     table.sort(entries,function(a,b)
         local ar,br=Catalog.rarityIndex(a.item.rarity),Catalog.rarityIndex(b.item.rarity)
         if ar~=br then return ar>br end
+        -- Keep each collection together within its rarity, with unassigned items last.
+        local ac,bc=a.item.collectionId,b.item.collectionId
+        if ac~=bc then
+            if not ac then return false end
+            if not bc then return true end
+            local an,bn=(a.item.collectionName or ac):lower(),(b.item.collectionName or bc):lower()
+            if an~=bn then return an<bn end
+            return ac<bc
+        end
         if a.percent~=b.percent then return a.percent<b.percent end
         local an,bn=a.item.name:lower(),b.item.name:lower()
         if an~=bn then return an<bn end

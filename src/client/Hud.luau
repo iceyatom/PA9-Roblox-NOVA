@@ -90,7 +90,7 @@ function Hud.new(playerGui)
     self.leave=W.button(self.notice,"Leave",244,109,130,37,"Leave",false)
     self.chestRoll=require(script.Parent.ChestChance).new(gui,function()
         if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" then Gui.SelectedObject=self.rematch end
-    end)
+    end,stage)
     self.openChest=self.chestRoll.openButton
     self.saveChest=self.chestRoll.continueButton
     self.rematch.Visible=false
@@ -152,7 +152,9 @@ function Hud:update(snap,seat)
     else
         self.rematch.Position=UDim2.fromOffset(23,109)
     end
-    self.chestRoll:update(phase=="Results" and not blocked and snap.chest or nil,not blocked and not self.xpRecap.events)
+    self.noticeHome=self.notice.Position
+    self.chestRoll:update(phase=="Results" and not blocked and snap.chest or nil,not blocked)
+    self:layoutResults()
     self.leave.Text=phase=="Waiting" and "Leave queue" or "Lobby"
     if phase=="Waiting" then
         self.kicker.Text,self.title.Text,self.note.Text="IN QUEUE","Waiting for a rival","The duel starts with two players."
@@ -169,6 +171,15 @@ function Hud:update(snap,seat)
         self.rematch.Text=not rival.uid and "Find new rival" or snap.players[seat].vote and "Waiting for rival…" or rival.vote and "Accept rematch" or "Rematch"
     end
 end
+-- Both panels share the stage scale, keeping the wheel beside XP on every viewport.
+function Hud:layoutResults()
+    if self.chestRoll.root.Visible and self.notice.Visible then
+        local wheelWidth=560*self.chestRoll.fit.Scale
+        local left=(1440-self.notice.Size.X.Offset-24-wheelWidth)/2
+        self.notice.Position=UDim2.fromOffset(left,405-self.notice.Size.Y.Offset/2)
+        self.chestRoll.origin.Position=UDim2.fromOffset(left+self.notice.Size.X.Offset+24+wheelWidth/2,405)
+    elseif self.noticeHome then self.notice.Position=self.noticeHome end
+end
 function Hud:resultsReady()
     return self.gui.Enabled and self.snap and self.snap.phase=="Results" and self.resultBanner:ready(tostring(self.snap.lobby)..":"..self.snap.round)
 end
@@ -179,7 +190,8 @@ function Hud:tick()
         if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" and not Gui.MenuIsOpen then Gui.SelectedObject=self.snap.phase=="Waiting" and self.leave or self.rematch end
     end
     self.xpRecap:tick()
-    self.chestRoll:update(self.snap and self.snap.phase=="Results" and self:resultsReady() and self.snap.chest or nil,not self.resultBanner.blocked and not self.xpRecap.events)
+    self.chestRoll:update(self.snap and self.snap.phase=="Results" and self:resultsReady() and self.snap.chest or nil,not self.resultBanner.blocked)
+    self:layoutResults()
     if self.snap and self.snap.phase=="Countdown" then
         self.title.Text="Duel in "..math.clamp(math.ceil(self.snap.ends-workspace:GetServerTimeNow()),1,3)
     end

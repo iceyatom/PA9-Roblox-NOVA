@@ -18,14 +18,15 @@ local function centerText(parent,name,y,w,h,value,size,color)
     text.TextXAlignment=Enum.TextXAlignment.Center;text.TextWrapped=true;text.TextTruncate=Enum.TextTruncate.None
     return text
 end
-function Chance.new(gui,onDismiss)
-    local self=setmetatable({tweens={},segments={},generation=0,onDismiss=onDismiss},Chance)
-    local root=W.box(gui,"CrateChance",0,0,0,0,C.ink,60);root.Size=UDim2.fromScale(1,1);root.BackgroundTransparency=.12;root.Active=true;root.Visible=false;self.root=root
+function Chance.new(gui,onDismiss,stage)
+    local self=setmetatable({tweens={},segments={},generation=0,onDismiss=onDismiss,docked=stage~=nil},Chance)
+    local root=W.box(stage or gui,"CrateChance",0,0,0,0,C.ink,60);root.Size=UDim2.fromScale(1,1);root.BackgroundTransparency=stage and 1 or .12;root.Active=not stage;root.Visible=false;self.root=root
     local origin=W.box(root,"Origin",0,0,0,0);origin.Position=UDim2.fromScale(.5,.5)
-    local fit=Instance.new("UIScale");fit.Parent=origin
+    self.origin=origin
+    local fit=Instance.new("UIScale");fit.Parent=origin;self.fit=fit
     local panel=W.box(origin,"Panel",0,0,560,620,C.panel);panel.AnchorPoint=Vector2.new(.5,.5);Style.surface(panel,16);self.panel=panel
     self.pop=Instance.new("UIScale");self.pop.Parent=panel
-    local function resize() fit.Scale=math.max(.01,math.min(1.1,(root.AbsoluteSize.X-24)/560,(root.AbsoluteSize.Y-24)/620)) end
+    local function resize() fit.Scale=stage and .72 or math.max(.01,math.min(1.1,(root.AbsoluteSize.X-24)/560,(root.AbsoluteSize.Y-24)/620)) end
     root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize);resize()
     centerText(panel,"Title",20,424,38,"Season 1 Crate",29,C.white).Font=Enum.Font.GothamBlack
     self.kicker=centerText(panel,"Kicker",65,480,26,"VICTORY ROLL",17,C.mint)
@@ -67,7 +68,7 @@ function Chance.new(gui,onDismiss)
     end,false,Enum.ContextActionPriority.High.Value+55,Enum.KeyCode.ButtonB)
     Gui:GetPropertyChangedSignal("SelectedObject"):Connect(function()
         local selected=Gui.SelectedObject
-        if root.Visible and gui.Enabled and not Gui.MenuIsOpen and selected and not selected:IsDescendantOf(root) then
+        if not self.docked and root.Visible and gui.Enabled and not Gui.MenuIsOpen and selected and not selected:IsDescendantOf(root) then
             Gui.SelectedObject=self.settled and self.continueButton or close
         end
     end)
@@ -114,7 +115,7 @@ function Chance:finish(receipt,generation)
     self.continueButton.Visible=true;self.continueButton.Text=won and "Save for later" or "Continue"
     self.continueButton.Position=UDim2.fromOffset(won and 286 or 36,556)
     self.continueButton.Size=UDim2.fromOffset(won and 238 or 488,44)
-    if gamepad() then Gui.SelectedObject=self.continueButton end
+    if gamepad() and not self.docked then Gui.SelectedObject=self.continueButton end
 end
 function Chance:update(result,ready)
     if not result or self.dismissed==result.key then if self.root.Visible then self:hide() end;return end
@@ -133,7 +134,7 @@ function Chance:update(result,ready)
         self.openButton.Visible=false;self.openButton.Active=false;self.openButton.Selectable=false;self.continueButton.Visible=false
         self.root.Visible=true;self.pop.Scale=reduced() and 1 or .88
         self:tween(self.pop,reduced() and 0 or .28,{Scale=1},Enum.EasingStyle.Back)
-        if gamepad() then Gui.SelectedObject=self.closeButton end
+        if gamepad() and not self.docked then Gui.SelectedObject=self.closeButton end
     end
     local receipt=result.receipt
     if receipt and not self.started then

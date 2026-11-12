@@ -55,6 +55,15 @@ function Menu.new(playerGui,clear,beforeOpen)
         W.text(tab,"Label",42,0,116,44,category.name,18,C.white,Enum.Font.GothamBold)
         tab.Activated:Connect(function() self:setCategory(i) end); self.tabs[i]=tab
     end
+    local setupTab=Style.button(panel,"Tab_ClassSetup",0,92,138,44,"",false)
+    Preview.icon(setupTab,"skins",4,6,32)
+    W.text(setupTab,"Label",42,0,90,44,"Class setup",16,C.white,Enum.Font.GothamBold)
+    setupTab.Activated:Connect(function() self:setCategory(#Catalog.categories+1) end)
+    table.insert(self.tabs,setupTab)
+    for _,tab in self.tabs do
+        tab.Label.TextScaled=true
+        local limit=Instance.new("UITextSizeConstraint");limit.MinTextSize=11;limit.MaxTextSize=18;limit.Parent=tab.Label
+    end
     local search=Instance.new("TextBox"); search.Name="Search"; search.Position=UDim2.fromOffset(24,152)
     search.Size=UDim2.fromOffset(350,38); search.BackgroundColor3=C.ink; search.TextColor3=C.white
     search.PlaceholderText="Search your items…"; search.PlaceholderColor3=C.muted; search.Text=""
@@ -114,6 +123,10 @@ function Menu.new(playerGui,clear,beforeOpen)
     end)
     self.favorite.Activated:Connect(function() if self.favorite.Active and self.selected then self:request("favorite",self.selected) end end)
     self.status=W.text(panel,"Status",24,622,992,20,"Loading inventory…",14,C.muted,Enum.Font.Gotham)
+    self.setup=require(script.Parent.ClassSetup).new(panel)
+    for _,attribute in {"Level","Prestige","PrestigeMaster","ReducedEffects"} do
+        player:GetAttributeChangedSignal(attribute):Connect(function() if self.classPage and self.opened then self:refresh() end end)
+    end
     self.reveal=require(script.Parent.CrateReveal).new(panel,function()
         self:refresh(); Gui.SelectedObject=gamepad() and self.action or nil
     end,{
@@ -175,8 +188,8 @@ function Menu.new(playerGui,clear,beforeOpen)
     CAS:BindActionAtPriority("NOVA_InventoryTabs",function(_,state,input)
         if not self.opened then return Enum.ContextActionResult.Pass end
         if state==Enum.UserInputState.Begin and not self.reveal.active and not self.focus.root and not self.contents.root then
-            self:setCategory((self.category-1+(input.KeyCode==Enum.KeyCode.ButtonR1 and 1 or -1))%6+1)
-            Gui.SelectedObject=self.tabs[self.category]
+            self:setCategory(((self.classPage and #self.tabs or self.category)-1+(input.KeyCode==Enum.KeyCode.ButtonR1 and 1 or -1))%#self.tabs+1)
+            Gui.SelectedObject=self.tabs[self.classPage and #self.tabs or self.category]
         end
         return Enum.ContextActionResult.Sink
     end,false,Enum.ContextActionPriority.High.Value+45,Enum.KeyCode.ButtonL1,Enum.KeyCode.ButtonR1)
@@ -225,16 +238,16 @@ function Menu:resize()
     rect(self.currency,compact and 78 or 660,compact and 54 or 26,compact and panelWidth-156 or 270,compact and 22 or 32)
     self.currency.TextSize=compact and 14 or 18; self.currency.TextXAlignment=compact and Enum.TextXAlignment.Left or Enum.TextXAlignment.Right
     rect(self.close,panelWidth-86,24,62,40)
-    local tabColumns=compact and (panelWidth<580 and 3 or 6) or 6
+    local tabColumns=compact and (panelWidth<580 and 3 or 4) or #self.tabs
     local tabWidth=(panelWidth-48-(tabColumns-1)*4)/tabColumns
     for i,tab in self.tabs do
         rect(tab,24+((i-1)%tabColumns)*(tabWidth+4),92+math.floor((i-1)/tabColumns)*48,tabWidth,44)
         tab.Sprite.Visible=not compact
-        rect(tab.Label,compact and 3 or 42,0,compact and tabWidth-6 or 116,44)
-        tab.Label.TextSize=compact and (panelWidth<580 and 14 or 16) or 18
+        rect(tab.Label,compact and 3 or 42,0,compact and tabWidth-6 or tabWidth-46,44)
+        tab.Label.TextSize=compact and (panelWidth<580 and 14 or 16) or 15
         tab.Label.TextXAlignment=compact and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left
     end
-    local filterY=92+math.ceil(6/tabColumns)*48+12
+    local filterY=92+math.ceil(#self.tabs/tabColumns)*48+12
     if compact then
         rect(self.search,24,filterY,panelWidth-48,44)
         local fw=(panelWidth-64)/3
@@ -262,6 +275,10 @@ function Menu:resize()
     rect(self.itemRarity,18,190,dw-36,20); rect(self.description,18,222,dw-36,74)
     rect(self.previewButton,18,298,dw-36,40); rect(self.action,18,348,dw-144,40); rect(self.favorite,dw-114,348,96,40)
     local panelHeight=compact and self.detailsY+460 or 650
+    self.setupTop=compact and filterY or 152
+    if self.classPage then
+        panelHeight=math.max(650,self.setupTop+require(script.Parent.ClassSetup).height(panelWidth-48)+24)
+    end
     self.panel.Size=UDim2.fromOffset(panelWidth,panelHeight)
     self.fit.Scale=compact and math.min(1,(width-24)/panelWidth) or math.max(.01,math.min(1.3,(width-48)/1040,(height-48)/650))
     self.overlay.ScrollingEnabled=compact
@@ -272,13 +289,20 @@ function Menu:resize()
 end
 function Menu:setCategory(index)
     if self.reveal.active or self.contents.root then return end
-    self.category=index; self.selected=nil; self.scroll.CanvasPosition=Vector2.zero
+    self.classPage=index==#self.tabs
+    if not self.classPage then self.category=index end
+    self.selected=nil; self.scroll.CanvasPosition=Vector2.zero
     if self.compact then self.overlay.CanvasPosition=Vector2.zero end
-    self.message=nil; self:refresh()
+    self.message=nil; self:resize()
 end
 function Menu:refresh()
     if not self.status then return end
     local data=self.data
+    local classPage=self.classPage==true
+    for _,object in {self.search,self.rarityButton,self.sortButton,self.favoriteFilter,self.ownershipFilter,self.scroll,self.empty,self.count,self.details,self.status} do object.Visible=not classPage end
+    for i,tab in self.tabs do tab.BackgroundColor3=(classPage and i==#self.tabs or not classPage and i==self.category) and C.purple or C.line end
+    self.setup:update(data,self.panel.Size.X.Offset-48,self.setupTop or 152,classPage and self.opened==true)
+    if classPage then return end
     local category=Catalog.categories[self.category].id
     self.currency.Text=("%d Shards"):format(data and data.shards or 0)
     self.rarityButton.Text=self.rarity==0 and "All rarities" or Catalog.rarities[self.rarity]
@@ -289,9 +313,10 @@ function Menu:refresh()
         self.favoriteFilter.Text=self.onlyFavorites and "Favorites" or "All items"
     end
     self.ownershipFilter.Text=({"All items","Unlocked","Locked"})[self.ownership+1]
-    self.ownershipFilter.BackgroundColor3=self.ownership~=0 and C.purple or C.line
+    self.rarityButton.BackgroundColor3=self.rarity~=0 and C.purple or C.line
+    self.sortButton.BackgroundColor3=self.sort~=1 and C.purple or C.line
+    self.ownershipFilter.BackgroundColor3=self.ownership~=1 and C.purple or C.line
     self.favoriteFilter.BackgroundColor3=self.onlyFavorites and C.purple or C.line
-    for i,tab in self.tabs do tab.BackgroundColor3=i==self.category and C.purple or C.line end
     local focusId=Gui.SelectedObject and Gui.SelectedObject:GetAttribute("ItemId")
     for _,card in self.cards do card:Destroy() end; self.cards={}
     local items={}
@@ -464,7 +489,7 @@ function Menu:setOpen(open)
             local humanoid=player.Character and player.Character:FindFirstChildOfClass("Humanoid")
             if humanoid then humanoid:Move(Vector3.zero,false); humanoid.Jump=false end
         end)
-        Gui.SelectedObject=gamepad() and self.tabs[self.category] or nil
+        Gui.SelectedObject=gamepad() and self.tabs[self.classPage and #self.tabs or self.category] or nil
         if self.popTween then self.popTween:Cancel() end
         self.pop.Scale=.94
         self.popTween=Tween:Create(self.pop,TweenInfo.new(.18,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Scale=1})

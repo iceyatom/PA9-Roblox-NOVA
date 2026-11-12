@@ -1,6 +1,27 @@
 return function(t)
     local I=require(game.ReplicatedStorage.NOVA.Inventory)
     local Catalog=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
+    t.test("crate contents sort by descending rarity then collection before chance",function()
+        local original=Catalog.byId
+        Catalog.byId={
+            cosmic={id="cosmic",name="Cosmic",rarity="Cosmic"},
+            alpha={id="alpha",name="Alpha",rarity="Epic",collectionId="z-id",collectionName="Alpha"},
+            alphaRare={id="alphaRare",name="Alpha rare",rarity="Epic",collectionId="z-id",collectionName="Alpha"},
+            beta={id="beta",name="Beta",rarity="Epic",collectionId="a-id",collectionName="Beta"},
+            loose={id="loose",name="Loose",rarity="Epic"},
+            common={id="common",name="Common",rarity="Common",collectionId="z-id",collectionName="Alpha"},
+        }
+        local ok,entries=pcall(Catalog.crateContents,{rewards={
+            {id="common",weight=1},{id="loose",weight=1},{id="beta",weight=1},
+            {id="alpha",weight=30},{id="cosmic",weight=50},{id="alphaRare",weight=17},
+        }})
+        Catalog.byId=original
+        assert(ok,entries)
+        for index,id in {"cosmic","alphaRare","alpha","beta","loose","common"} do
+            assert(entries[index].item.id==id,"Unexpected collection/rarity order")
+        end
+        assert(entries[3].percent==30,"Sorting must preserve drop chances")
+    end)
     t.test("inventory starts with defaults and no free crates or sample collectibles",function()
         local d=I.new()
         assert(next(d.owned)==nil and d.shards==0 and not I.owns(d,"crate_season1"))
