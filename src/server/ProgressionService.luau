@@ -145,10 +145,10 @@ function Service:remove(player)
     self.records[player]=nil
 end
 
-function Service:award(player,won)
+function Service:award(player,won,doubled)
     if not self:ready(player) then return 0 end
     local r=self.records[player]
-    local receipt=Rewards.apply(r.data,Rewards.items(won))
+    local receipt=Rewards.apply(r.data,Rewards.items(won,doubled))
     r.version+=1
     player:SetAttribute("ProgressionStatus",self.storage and "Saving progression…" or "Studio preview / session progression")
     self:publish(player)

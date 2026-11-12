@@ -136,6 +136,10 @@ function Service:crateChance(player)
     local r=self.records[player]
     return r and r.data and r.data.crateChance or require(shared.CrateDrop).BaseChance
 end
+function Service:boostActive(player,kind)
+    local r=self.records[player]
+    return r~=nil and r.data~=nil and Model.boostActive(r.data,kind)
+end
 function Service:awardMatch(player,result,expires,outcome,report)
     -- Sample once per match delivery, never once per save/retry attempt.
     local roll=outcome=="win" and self.random:NextNumber() or nil
@@ -175,7 +179,8 @@ function Service:request(player,action,id,key)
     local ok,result=self:mutate(player,function(data)
         if action=="ackRetirements" then return Model.ackRetirements(data,id) end
         if self.canUse and not self.canUse(player) then return false,"Return to the lobby to manage your inventory." end
-        if action=="equip" then return Model.equip(data,id)
+        if action=="useToken" then return Model.useToken(data,id)
+        elseif action=="equip" then return Model.equip(data,id)
         elseif action=="favorite" then return Model.favorite(data,id)
         elseif action=="effects" and (id=="on" or id=="off") then
             data.reducedEffects=id=="on"; return true

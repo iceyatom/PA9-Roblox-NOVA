@@ -109,7 +109,7 @@ return function(t)
         end
         local chances=crate.rarityChances;local available=0
         for tier in counts do available+=chances[tier] end
-        assert(math.abs(weights.Common-45)<1e-9)
+        assert(math.abs(weights.Common-100*chances.Common/available)<1e-9)
         for tier,value in weights do assert(math.abs(value-100*chances[tier]/available)<1e-9) end
         for _,r in crate.rewards do local tier=catalog.byId[r.id].rarity;assert(math.abs(r.weight-weights[tier]/counts[tier])<1e-9) end
         edits.crates.crate_season1={{id="skin_mint",weight=25},{id="skin_ember",weight=75}}

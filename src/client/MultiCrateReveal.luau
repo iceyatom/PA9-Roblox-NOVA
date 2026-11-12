@@ -10,7 +10,7 @@ local Batch=require(script.Parent.BatchOneVisuals)
 local Audio=require(script.Parent.ReelAudio)
 local C=W.colors
 local Multi={};Multi.__index=Multi
-local types={skins="Skin",bullets="Bullet skin",tracers="Tracer",backgrounds="Player background",sounds="Sound effect"}
+local types={skins="Skin",bullets="Bullet skin",tracers="Tracer",backgrounds="Player background",sounds="Sound effect",tokens="2× token"}
 function Multi.new(panel,receipts,equipment,onDone,onReady)
     local width=panel.Size.X.Offset
     local root=W.box(panel,"CrateReveal",0,0,width,math.max(650,panel.Size.Y.Offset),C.ink,40)
@@ -20,8 +20,8 @@ function Multi.new(panel,receipts,equipment,onDone,onReady)
 end
 function Multi:refreshEquipment()
     for _,row in self.rows do if row.equip then
-        local equipped=self.equipment.isEquipped(row.item)
-        row.equip.Text=equipped and "Equipped" or "Equip"
+        local equipped=row.used or self.equipment.isEquipped(row.item)
+        row.equip.Text=equipped and (row.item.tokenKind and "Activated" or "Equipped") or (row.item.tokenKind and "Use token" or "Equip")
         row.equip.Active=not equipped and not self.equipping;row.equip.Selectable=row.equip.Active
     end end
 end
@@ -64,7 +64,7 @@ function Multi:complete(row)
             task.spawn(function()
                 local ok,message=self.equipment.equip(item)
                 if self.closed then return end
-                self.equipping=false;self:refreshEquipment()
+                self.equipping=false;if ok and item.tokenKind then row.used=true end;self:refreshEquipment()
                 if not ok then detail.Text=message or "Please try again." end
             end)
         end)

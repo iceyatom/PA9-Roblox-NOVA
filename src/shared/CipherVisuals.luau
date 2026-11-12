@@ -1,3 +1,4 @@
+local Geometry=require(script.Parent.CosmeticGeometry)
 -- Blender sprite loops + continuously moving native UI VFX for NOVA's 2D arena.
 local Run=game:GetService("RunService")
 local Players=game:GetService("Players")
@@ -46,14 +47,15 @@ local function line(f,x1,y1,x2,y2,width)
     f.Size=UDim2.fromOffset(math.sqrt(dx*dx+dy*dy)+.5,width);f.Rotation=math.deg(math.atan2(dy,dx))
 end
 local function update(e,t,simple)
+    local guiSize=Geometry.size(e.root)
     local root=e.root
     if e.kind=="skins" or e.kind=="bullets" then
-        local frame=simple and 0 or math.floor(t*8)%16
+        local frame=reduced(root) and 0 or math.floor(t*8)%16
         if frame~=e.frame then root.ImageRectOffset=Vector2.new(frame%4*256,math.floor(frame/4)*256);e.frame=frame end
         return
     end
-    t=(simple and 0 or t)+e.seed
-    local w,h=root.AbsoluteSize.X,root.AbsoluteSize.Y;local bg=e.kind=="backgrounds"
+    t=(reduced(root) and 0 or t)+e.seed
+    local w,h=guiSize.X,guiSize.Y;local bg=e.kind=="backgrounds"
     local spread=bg and h*.10 or math.min(w*.08,math.max(4,h*.9))
     for i,rail in e.rails do
         rail.Visible=bg or not simple or i==2
@@ -86,7 +88,7 @@ local function start()
         for root,e in entries do
             if visible(root) then
                 if e.kind=="tracers" then trails+=1 end
-                update(e,t,reduced(root) or e.compact or e.kind=="tracers" and trails>12)
+                update(e,t,reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact or e.kind=="tracers" and trails>12)
             end
         end
         if not next(entries) then connection:Disconnect();connection=nil end
@@ -112,7 +114,7 @@ function V.apply(root,item)
         local bg=item.category=="backgrounds"
         if bg then root.Image=Assets.background;root.ScaleType=Enum.ScaleType.Crop end
         local count=0;for other,old in entries do if old.kind=="tracers" and visible(other) then count+=1 end end
-        e.compact=not bg and (reduced(root) or count>=12)
+        e.compact=not bg and (reduced(root) or root:GetAttribute("CompactPrism")==true or count>=12)
         local fx=box(root,"CipherEffects",tint,1);fx.AnchorPoint=Vector2.zero;fx.Size=UDim2.fromScale(1,1);fx.ClipsDescendants=bg
         for i=1,bg and 2 or 3 do e.rails[i]=box(fx,"DataRail",tint,.45) end
         for i=1,e.compact and 2 or bg and 8 or 9 do
@@ -129,6 +131,6 @@ function V.apply(root,item)
         end
     end
     entries[root]=e;e.destroyConnection=root.Destroying:Once(function()entries[root]=nil end)
-    update(e,os.clock(),reduced(root) or e.compact);start();return true
+    update(e,os.clock(),reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact);start();return true
 end
 return V

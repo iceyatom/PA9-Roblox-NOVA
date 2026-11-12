@@ -170,7 +170,7 @@ function Arena:update(snap,time)
             glow.BackgroundTransparency=0.62
             W.round(glow)
             local core=Instance.new("ImageLabel")
-            core.Name="Core"; core.Position=UDim2.fromOffset(diameter*.8,diameter*.8)
+            core.Name="Core";core.AnchorPoint=Vector2.new(.5,.5);core.Position=UDim2.fromScale(.5,.5)
             core.Size=UDim2.fromOffset(diameter,diameter); core.BackgroundColor3=Preview.color(bullet)
             core.BorderSizePixel=0; core.ZIndex=5
             if bullet.setId or (bullet.visual=="prism_veil" or bullet.visual=="dragonforge" or bullet.visual=="riftglass" or bullet.visual=="cipher" or bullet.visual=="supernova" or bullet.visual=="starfade" or bullet.visual=="armory") then
@@ -221,7 +221,8 @@ function Arena:draw(time,dt)
         end
         self.windowSeconds=0; self.windowFrames=0; self.slowFrames=0
     end
-    local simple=Batch.reduced() or self.low
+    local reducedEffects=Batch.reduced()
+    local simple=reducedEffects or self.low
     local active=0
     local alpha=math.clamp((time-self.received)*cfg.SnapshotRate,0,1)
     for _,actor in self.actors do
@@ -238,19 +239,23 @@ function Arena:draw(time,dt)
             active+=1
             local length=math.min(shot.tailLength*(simple and .65 or 1),(shot.draw-shot.origin).Magnitude)
             local mid=shot.draw-shot.direction*length/2
-            local dynamic=(shot.tracer.visual=="prism_veil" or shot.tracer.visual=="dragonforge" or shot.tracer.visual=="riftglass" or shot.tracer.visual=="cipher" or shot.tracer.visual=="supernova" or shot.tracer.visual=="starfade" or shot.tracer.visual=="armory")
-            local animated=dynamic or not simple and shot.tracer.setId~=nil
+            local mode=Batch.tracerMode(shot.tracer)
+            local dynamic=mode=="dynamic"
+            local animated=mode~="line"
             shot.tail.Visible=length>0 and active<=(simple and 64 or 128)
             shot.tail.Position=UDim2.fromOffset(mid.X*self.unit,mid.Y*self.unit)
             shot.tail.Size=UDim2.fromOffset(length*self.unit,animated and 3*cfg.BulletRadius*self.unit or 3)
-            shot.tail.Rotation=math.deg(math.atan2(shot.direction.Y,shot.direction.X))
-            shot.tail:SetAttribute("ReducedPrism",simple)
-            local frame=dynamic and -2 or animated and math.floor(time*18)%shot.tracer.frames or -1
+            shot.tail:SetAttribute("ReducedPrism",reducedEffects)
+            shot.tail:SetAttribute("CompactPrism",simple)
+            shot.tail:SetAttribute("TracerMode",mode)
+            local frame=dynamic and -2 or mode=="sprite" and (reducedEffects and 0 or math.floor(time*(simple and 9 or 18))%shot.tracer.frames) or mode=="static" and -3 or -1
             if shot.frameIndex~=frame then
                 shot.frameIndex=frame
                 shot.tail.BackgroundTransparency=animated and 1 or .2
-                if animated then Batch.apply(shot.tail,shot.tracer,"wakes",frame) else shot.tail.Image="" end
+                if animated then Batch.apply(shot.tail,shot.tracer,"wakes",mode=="static" and 0 or frame) else shot.tail.Image="" end
             end
+            -- Applying a new effect resets its root rotation; orient it after assignment.
+            shot.tail.Rotation=math.deg(math.atan2(shot.direction.Y,shot.direction.X))
         end
         shot.trace.Visible=self.diagnostics.Visible
     end

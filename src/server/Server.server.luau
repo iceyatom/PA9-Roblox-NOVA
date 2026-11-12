@@ -21,7 +21,7 @@ lobbies = require(script.Parent.Lobbies).new(map,Config,Maps.choose,function(sim
                 if sim.chestResults==results then lobbies.dirty[sim.roomId]=true end
             end)
         end
-        sim.rewards[i],sim.xpRecaps[i]=progression:award(p,sim.winner==i)
+        sim.rewards[i],sim.xpRecaps[i]=progression:award(p,sim.winner==i,inventory:boostActive(p,"xp"))
     end
 end)
 local LobbyWorld = require(script.Parent.LobbyWorld)
@@ -30,6 +30,7 @@ local practiceWorld=require(script.Parent.PracticeWorld).ensure(world)
 local practice=require(script.Parent.Practice).new()
 progression.canPrestige=function(p) return not lobbies.membership[p] and not practice.sessions[p] end
 inventory.canUse=progression.canPrestige
+require(script.Parent.ShopService).new(inventory)
 local leaderboard=require(script.Parent.PracticeLeaderboard).new(practiceWorld.Leaderboard)
 local signKicker = world:FindFirstChild("Kicker",true)
 if signKicker then signKicker.Text = ("%d MAPS  /  RANDOM ROTATION"):format(#Maps.pool()) end

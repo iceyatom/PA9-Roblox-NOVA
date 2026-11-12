@@ -1,3 +1,4 @@
+local Geometry=require(script.Parent.CosmeticGeometry)
 -- Blender sprite loops + continuously moving native UI VFX for NOVA's 2D arena.
 local Run=game:GetService("RunService")
 local Players=game:GetService("Players")
@@ -51,11 +52,12 @@ local function halo(parent,name,color,alpha)
     f.BackgroundTransparency=1;f.AnchorPoint=Vector2.new(.5,.5);f.ZIndex=parent.ZIndex;f.Parent=parent;return f
 end
 local function update(e,t,simple)
-    local root=e.root;local w,h=root.AbsoluteSize.X,root.AbsoluteSize.Y
-    t=(simple and 0 or t)+e.seed
+    local guiSize=Geometry.size(e.root)
+    local root=e.root;local w,h=guiSize.X,guiSize.Y
+    t=(reduced(root) and 0 or t)+e.seed
     local pulse=.5+.5*math.sin(t*3)
     if e.kind=="skins" or e.kind=="bullets" then
-        local frame=simple and 0 or math.floor((t-e.seed)*8)%16
+        local frame=reduced(root) and 0 or math.floor((t-e.seed)*8)%16
         if e.frame~=frame then root.ImageRectOffset=Vector2.new(frame%4*256,math.floor(frame/4)*256);e.frame=frame end
         for i,f in e.aura do
             local scale=i==1 and 2.5 or i==2 and 1.7 or .7
@@ -119,7 +121,7 @@ local function start()
         local t=os.clock();local count=0
         for root,e in entries do if visible(root) then
             if e.kind=="tracers" then count+=1 end
-            update(e,t,reduced(root) or e.compact or e.kind=="tracers" and count>8)
+            update(e,t,reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact or e.kind=="tracers" and count>8)
         end end
         if not next(entries) then connection:Disconnect();connection=nil end
     end)
@@ -144,7 +146,7 @@ function V.apply(root,item)
     end
     local fx=box(root,"SupernovaEffects",hot,1);fx.AnchorPoint=Vector2.zero;fx.Size=UDim2.fromScale(1,1);fx.ClipsDescendants=bg
     local count=0;for other,old in entries do if old.kind=="tracers" and visible(other) then count+=1 end end
-    e.compact=trail and (reduced(root) or count>=8)
+    e.compact=trail and (reduced(root) or root:GetAttribute("CompactPrism")==true or count>=8)
     if not trail then
         for i=1,bg and 2 or 3 do e.aura[i]=halo(fx,"PulsingRadiance",i==2 and violet or i==3 and hot or pink,.5) end
     end
@@ -167,6 +169,6 @@ function V.apply(root,item)
         local dim=Color3.fromRGB(185,140,200);sweep.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,dim),ColorSequenceKeypoint.new(.5,Color3.new(1,1,1)),ColorSequenceKeypoint.new(1,dim)});sweep.Parent=root;e.sweep=sweep
     end
     entries[root]=e;e.destroyConnection=root.Destroying:Once(function()entries[root]=nil end)
-    update(e,os.clock(),reduced(root) or e.compact);start();return true
+    update(e,os.clock(),reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact);start();return true
 end
 return V

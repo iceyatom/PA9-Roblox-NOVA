@@ -5,6 +5,13 @@ local Visuals={}
 function Visuals.reduced()
     return game.Players.LocalPlayer:GetAttribute("ReducedEffects")==true
 end
+local liveTracers={prism_veil=true,dragonforge=true,riftglass=true,cipher=true,supernova=true,starfade=true,armory=true}
+function Visuals.tracerMode(item)
+    if liveTracers[item.visual] then return "dynamic" end
+    if item.setId and (item.frames or 1)>1 then return "sprite" end
+    if item.image or item.setId then return "static" end
+    return "line"
+end
 function Visuals.apply(label,item,kind,frame)
     if Prism.apply(label,item,kind) then return true end
     Prism.clear(label)
@@ -41,8 +48,12 @@ function Visuals.overlay(parent,item,kind)
         image.BackgroundTransparency=1; image.Size=UDim2.fromScale(1,1)
         image.ZIndex=parent.ZIndex; image.Parent=parent
     end
+    require(script.Parent.TracerSpriteAnimation).stop(image)
     image:SetAttribute("Item",item.id)
     Visuals.apply(image,item,kind=="skins" and "body" or kind)
+    if kind=="wakes" and Visuals.tracerMode(item)=="sprite" then
+        require(script.Parent.TracerSpriteAnimation).start(image,item,function(frame) Visuals.apply(image,item,"wakes",frame) end)
+    end
     if kind=="bullets" and item.setId then
         image.ImageRectOffset+=Vector2.new(35,35);image.ImageRectSize=Vector2.new(186,186)
     end

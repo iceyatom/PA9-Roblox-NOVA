@@ -94,8 +94,11 @@ function Chance:finish(receipt,generation)
     self.arrow.TextColor3=won and C.mint or C.red
     self.showPercent=not won
     if won then
-        self.kicker.Text="CRATE UNLOCKED!";self.kicker.TextColor3=C.mint
-        self.amount.Text="+1 CRATE";self.caption.Text="ADDED TO YOUR INVENTORY"
+        -- A Double Crates token active at the win pays two crates (receipt.crates==2).
+        local doubled=receipt.crates==2
+        self.kicker.Text=doubled and "DOUBLE CRATES UNLOCKED!" or "CRATE UNLOCKED!";self.kicker.TextColor3=C.mint
+        self.amount.Text=doubled and "+2 CRATES" or "+1 CRATE"
+        self.caption.Text=doubled and "DOUBLE CRATES TOKEN APPLIED" or "ADDED TO YOUR INVENTORY"
         self.detail.Text="Next win starts at "..percent(receipt.nextChance).."."
         self:tween(self.fill,reduced() and 0 or .45,{Value=100})
         self:tween(self.icon,reduced() and 0 or .45,{Size=UDim2.fromOffset(184,184),Position=UDim2.fromOffset(188,173)},Enum.EasingStyle.Back)

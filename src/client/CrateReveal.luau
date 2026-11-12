@@ -9,7 +9,7 @@ local Preview=require(script.Parent.InventoryPreview)
 local Style=require(script.Parent.InventoryStyle)
 local ReelAudio=require(script.Parent.ReelAudio)
 local ItemUnlock=require(script.Parent.ItemUnlock)
-local itemTypes={skins="Skin",bullets="Bullet Skin",tracers="Tracer",backgrounds="Player Background",sounds="Sound Effect"}
+local itemTypes={skins="Skin",bullets="Bullet Skin",tracers="Tracer",backgrounds="Player Background",sounds="Sound Effect",tokens="2× Token"}
 local Reveal={}; Reveal.__index=Reveal
 function Reveal.new(panel,onDone,equipment)
     return setmetatable({panel=panel,onDone=onDone,equipment=equipment,generation=0,audio=ReelAudio.new(panel,"CrateCycleClick")},Reveal)
@@ -26,7 +26,7 @@ function Reveal:actions(root,item,detail,width,y,height,visible)
     local equip=Style.button(root,"EquipNow",24,y,buttonWidth,height,"Equip now",false)
     equip.ZIndex=49; equip.Visible=visible
     local equipped=equipment.isEquipped(item)
-    equip.Text=equipped and "Equipped" or "Equip now"
+    equip.Text=equipped and "Equipped" or item.tokenKind and "Use token" or "Equip now"
     equip.Active=not equipped; equip.Selectable=not equipped
     local generation=self.generation
     local rewardDetail
@@ -38,7 +38,7 @@ function Reveal:actions(root,item,detail,width,y,height,visible)
         task.spawn(function()
             local ok,message=equipment.equip(item)
             if self.generation~=generation or not self.active then return end
-            equip.Text=ok and "Equipped" or "Retry equip"
+            equip.Text=ok and (item.tokenKind and "Activated" or "Equipped") or "Retry"
             equip.Active=not ok; equip.Selectable=not ok
             detail.Text=ok and rewardDetail or ((itemTypes[item.category] or "Item").."  /  "..(message or "Please try again."))
         end)

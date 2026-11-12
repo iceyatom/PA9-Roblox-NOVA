@@ -1,3 +1,4 @@
+local Geometry=require(script.Parent.CosmeticGeometry)
 -- Prism Veil: Blender skin loop + live 2D ribbon/shard/spark geometry.
 -- Tracers are updated continuously; no trail animation images are sampled.
 local Run=game:GetService("RunService")
@@ -62,27 +63,28 @@ local function line(f,x1,y1,x2,y2,width)
     f.Rotation=math.deg(math.atan2(dy,dx))
 end
 local function update(e,t,simple)
+    local guiSize=Geometry.size(e.root)
     local root=e.root
     if e.kind=="skin" then
-        local frame=simple and 0 or math.floor(t*8)%16
+        local frame=reduced(root) and 0 or math.floor(t*8)%16
         if frame~=e.frame then root.ImageRectOffset=Vector2.new(frame%4*256,math.floor(frame/4)*256);e.frame=frame end
     elseif e.kind=="bullet" then
-        root.Rotation=simple and 0 or t*180%360
+        root.Rotation=reduced(root) and 0 or t*180%360
     elseif e.kind=="background" then
-        if simple then t=0 end
-        local w,h=root.AbsoluteSize.X,root.AbsoluteSize.Y
+        if reduced(root) then t=0 end
+        local w,h=guiSize.X,guiSize.Y
         for i,shard in e.shards do
             local phase=t*.24+i*2.4
             shard.Position=UDim2.fromScale((i*.173+.08)%1+.025*math.sin(phase),.15+(i*.137)% .7+.05*math.cos(phase*.8))
             local size=math.clamp(h*(.05+(i%3)*.025),3,22)
-            shard.Size=UDim2.fromOffset(size,size);shard.Rotation=45+(simple and 0 or math.sin(phase)*20)
+            shard.Size=UDim2.fromOffset(size,size);shard.Rotation=45+(reduced(root) and 0 or math.sin(phase)*20)
             shard.BackgroundTransparency=.4+.2*math.sin(phase)
         end
-        e.sweep.Offset=Vector2.new(simple and 0 or math.sin(t*.45)*.8,0)
+        e.sweep.Offset=Vector2.new(reduced(root) and 0 or math.sin(t*.45)*.8,0)
     else
         t+=e.seed or 0
-        local w=root.AbsoluteSize.X
-        local h=math.min(w*.3,math.clamp(math.max(root.AbsoluteSize.Y*1.8,w*.06),12,72))
+        local w=guiSize.X
+        local h=math.min(w*.3,math.clamp(math.max(guiSize.Y*1.8,w*.06),12,72))
         local particleScale=math.clamp(w/140,.7,2.5)
         local n=simple and 4 or 8
         for ribbon,segments in e.ribbons do
@@ -91,7 +93,7 @@ local function update(e,t,simple)
                 for _,f in parts do f.Visible=enabled end
                 if enabled then
                     local function point(u)
-                        return u*w,root.AbsoluteSize.Y/2+math.sin(u*7-t*7+ribbon*2.1)*h*.6*(1-u)+((ribbon-2)*h*.22)*(1-u)
+                        return u*w,guiSize.Y/2+math.sin(u*7-t*7+ribbon*2.1)*h*.6*(1-u)+((ribbon-2)*h*.22)*(1-u)
                     end
                     local u=(j-1)/n; local x1,y1=point(u);local x2,y2=point(j/n)
                     local thickness=math.max(1,h*.12*(.2+.8*j/n))
@@ -107,7 +109,7 @@ local function update(e,t,simple)
         for i,shard in e.shards do
             shard.Visible=not simple or i<=2
             local age=(t*(.7+i*.023)+i*.157)%1; local u=1-age
-            shard.Position=UDim2.fromOffset(w*u,root.AbsoluteSize.Y/2+math.sin(age*5+i)*h*.7*age)
+            shard.Position=UDim2.fromOffset(w*u,guiSize.Y/2+math.sin(age*5+i)*h*.7*age)
             local size=(2+(i%3)*1.4)*particleScale*math.sin(math.pi*age)
             shard.Size=UDim2.fromOffset(size,size);shard.Rotation=45+t*(35+i*9)
             shard.BackgroundTransparency=.15+age*.7
@@ -115,7 +117,7 @@ local function update(e,t,simple)
         for i,spark in e.sparks do
             spark.Visible=not simple or i<=3
             local age=(t*(1.1+i*.019)+i*.093)%1
-            spark.Position=UDim2.fromOffset(w*(1-age),root.AbsoluteSize.Y/2+math.sin(i*1.9+age*4)*h*.85*age)
+            spark.Position=UDim2.fromOffset(w*(1-age),guiSize.Y/2+math.sin(i*1.9+age*4)*h*.85*age)
             local size=math.max(1,(3+i%2)*particleScale*math.sin(math.pi*age))
             spark.Size=UDim2.fromOffset(size,size);spark.Rotation=t*50+i*30
             spark.BackgroundTransparency=age*.85
@@ -129,7 +131,7 @@ local function start()
         for root,e in entries do
             if not root.Parent then entries[root]=nil
             elseif visible(root) then
-                local simple=reduced(root) or e.compact
+                local simple=reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact
                 if e.kind=="tracer" then trails+=1; simple=simple or trails>12 end
                 update(e,t,simple)
             end
@@ -202,7 +204,7 @@ function V.apply(root,item,kind)
     if e.kind=="tracer" then
         local count=0
         for other,entry in entries do if entry.kind=="tracer" and visible(other) then count+=1 end end
-        e.compact=reduced(root) or count>=12
+        e.compact=reduced(root) or root:GetAttribute("CompactPrism")==true or count>=12
     end
     if e.kind=="tracer" or e.kind=="background" then
         local effects=box(root,"PrismEffects",white,1);effects.AnchorPoint=Vector2.zero;effects.Size=UDim2.fromScale(1,1)
@@ -224,7 +226,7 @@ function V.apply(root,item,kind)
     end
     entries[root]=e
     e.destroyConnection=root.Destroying:Once(function() entries[root]=nil end)
-    update(e,os.clock(),reduced(root) or e.compact);start()
+    update(e,os.clock(),reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact);start()
     return true
 end
 return V

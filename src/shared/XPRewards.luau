@@ -1,10 +1,16 @@
 local P=require(script.Parent.Progression)
 local Rewards={}
 
-function Rewards.items(won)
+-- doubled: the player's Double XP token was active when the duel finished.
+function Rewards.items(won,doubled)
     local items={{label="Duel completed",amount=P.PlayXP}}
     if won and P.WinXP>P.PlayXP then
         table.insert(items,{label="Victory bonus",amount=P.WinXP-P.PlayXP})
+    end
+    if doubled then
+        local total=0
+        for _,item in items do total+=item.amount end
+        table.insert(items,{label="Double XP token",amount=total})
     end
     return items
 end

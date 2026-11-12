@@ -154,7 +154,7 @@ function Contents:show(crate,data,canOpen)
         local rarity=text(card,"RarityName",10,187,90,20,item.rarity,13,color)
         rarity.Size=UDim2.new(1,-58,0,20)
         local owned=text(card,"Owned",0,189,40,18,"OWNED",9,C.mint);owned.Position=UDim2.new(1,-49,0,189)
-        local category=text(card,"Category",10,208,150,14,categoryNames[item.category],11,C.muted);category.Size=UDim2.new(1,-20,0,14)
+        local category=text(card,"Category",10,208,150,14,categoryNames[item.category] or "2× token",11,C.muted);category.Size=UDim2.new(1,-20,0,14)
         local slot={card=card,entry=entry,owned=owned};table.insert(self.slots,slot)
         card.Activated:Connect(function()
             self.selectedCard=card

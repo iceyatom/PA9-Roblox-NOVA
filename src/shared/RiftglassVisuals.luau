@@ -1,3 +1,4 @@
+local Geometry=require(script.Parent.CosmeticGeometry)
 -- Blender sprite loops + continuously moving native UI VFX for NOVA's 2D arena.
 local Run=game:GetService("RunService")
 local Players=game:GetService("Players")
@@ -47,14 +48,15 @@ local function line(f,x1,y1,x2,y2,width)
     f.Size=UDim2.fromOffset(math.sqrt(dx*dx+dy*dy)+.5,width);f.Rotation=math.deg(math.atan2(dy,dx))
 end
 local function update(e,t,simple)
+    local guiSize=Geometry.size(e.root)
     local root=e.root
     if e.kind=="skins" or e.kind=="bullets" then
-        local f=simple and 0 or math.floor(t*8)%16
+        local f=reduced(root) and 0 or math.floor(t*8)%16
         if e.frame~=f then root.ImageRectOffset=Vector2.new(f%4*256,math.floor(f/4)*256);e.frame=f end
         return
     end
-    t=(simple and 0 or t)+e.seed
-    local w,h=root.AbsoluteSize.X,root.AbsoluteSize.Y
+    t=(reduced(root) and 0 or t)+e.seed
+    local w,h=guiSize.X,guiSize.Y
     local bg=e.kind=="backgrounds"
     local spread=bg and math.min(h*.08,15) or math.min(w*.17,math.clamp(h*2,10,60))
     local n=simple and 6 or 12
@@ -115,7 +117,7 @@ local function start()
         for root,e in entries do
             if visible(root) then
                 if e.kind=="tracers" then count+=1 end
-                local simple=reduced(root) or e.compact or e.kind=="tracers" and count>10
+                local simple=reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact or e.kind=="tracers" and count>10
                 update(e,t,simple)
                 Radiance.update(e.radiance,t,simple)
             end
@@ -145,7 +147,7 @@ function V.apply(root,item)
         local bg=item.category=="backgrounds"
         if bg then root.Image=Assets.background;root.ScaleType=Enum.ScaleType.Crop end
         local count=0;for other,old in entries do if old.kind=="tracers" and visible(other) then count+=1 end end
-        e.compact=not bg and (reduced(root) or count>=10)
+        e.compact=not bg and (reduced(root) or root:GetAttribute("CompactPrism")==true or count>=10)
         local fx=box(root,"RiftglassEffects",white,1);fx.AnchorPoint=Vector2.zero;fx.Size=UDim2.fromScale(1,1);fx.ClipsDescendants=bg
         for _,r in bg and {1,2} or e.compact and {2} or {1,2,3} do
             e.ribbons[r]={}
@@ -167,6 +169,6 @@ function V.apply(root,item)
     end
     entries[root]=e;e.destroyConnection=root.Destroying:Once(function()entries[root]=nil end)
     e.radiance=Radiance.new(root,e,"riftglass")
-    update(e,os.clock(),reduced(root) or e.compact);Radiance.update(e.radiance,os.clock(),reduced(root) or e.compact);start();return true
+    update(e,os.clock(),reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact);Radiance.update(e.radiance,os.clock(),reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact);start();return true
 end
 return V

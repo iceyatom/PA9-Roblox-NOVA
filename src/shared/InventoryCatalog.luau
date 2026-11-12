@@ -88,25 +88,62 @@ if armoryAssets.halo~="" then
         if set and set.skin~="" and set.bullet~="" and set.background~="" and set.sprite~="" then add(item.id,item.category,item.name,item.rarity,item.color,false,item) end
     end
 end
+Catalog.tokens={}
+for _,kind in {"xp","crate"} do
+    for index,minutes in {15,30,60} do
+        local id="token_"..kind.."_"..minutes
+        add(id,"tokens",("%d min 2× %s"):format(minutes,kind=="xp" and "XP" or "Crates"),({"Uncommon","Rare","Epic"})[index],kind=="xp" and "b56dff" or "50e4ac",false,
+            {tokenKind=kind,minutes=minutes,image=require(script.Parent.ShopArt)[kind],description="Stored boost token. Activate from Class setup. Additional tokens extend the active timer."})
+        table.insert(Catalog.tokens,id)
+    end
+end
 local Season=require(script.Parent.SeasonOne)
 Catalog.rewardCrateId=Season.id;Catalog.crateAliases=Season.aliases
 local allRewards={}
 for _,item in Catalog.items do if not item.default and item.category~="crates" then table.insert(allRewards,{id=item.id,weight=1}) end end
 allRewards=EditorModel.rarityRewards(allRewards,Catalog.byId,Season.rarityChances)
 add(Season.id,"crates",Season.name,"Chest","59e0aa",false,{rewards=allRewards,image=Season.icon,rarityChances=Season.rarityChances,
-    description="Contains one current collectible cosmetic. Rarity chances split equally among items in that rarity. Duplicates pay Shards."})
+    description="Contains one cosmetic or stored boost token. Rarity chances split equally among items in that rarity. Duplicates pay Shards."})
 Catalog.editorBase=EditorModel.copy({items=Catalog.items,byId=Catalog.byId,defaults=Catalog.defaults,
     rarities=Catalog.rarities,categories=Catalog.categories})
 local edits=EditorModel.copy(require(script.Parent.InventoryEdits))
 -- Old crate configuration is retired, while unrelated item and collection edits survive.
 for old in Season.aliases do edits.items[old]=nil;edits.crates[old]=nil end
+-- Expand a saved custom pool without changing its rarity budgets or relative existing weights.
+local pool=edits.crates[Season.id]
+if pool then
+    local seen,budgets,counts={},{},{}
+    for _,reward in pool do
+        seen[reward.id]=true
+        local item=Catalog.byId[reward.id]
+        local rarity=(edits.items[reward.id] or {}).rarity or item.rarity
+        budgets[rarity]=(budgets[rarity] or 0)+reward.weight;counts[rarity]=(counts[rarity] or 0)+1
+    end
+    local missing={}
+    for _,id in Catalog.tokens do
+        local item=Catalog.byId[id];local rarity=(edits.items[id] or {}).rarity or item.rarity
+        if not seen[id] and not (edits.items[id] or {}).deleted and (budgets[rarity] or 0)>0 then
+            missing[rarity]=(missing[rarity] or 0)+1
+        end
+    end
+    for _,reward in pool do
+        local rarity=(edits.items[reward.id] or {}).rarity or Catalog.byId[reward.id].rarity
+        if missing[rarity] then reward.weight*=counts[rarity]/(counts[rarity]+missing[rarity]) end
+    end
+    for _,id in Catalog.tokens do
+        local item=Catalog.byId[id];local rarity=(edits.items[id] or {}).rarity or item.rarity
+        if not seen[id] and missing[rarity] and not (edits.items[id] or {}).deleted then
+            table.insert(pool,{id=id,weight=budgets[rarity]/(counts[rarity]+missing[rarity])})
+        end
+    end
+end
 Catalog.editorEdits=edits
 local effective=EditorModel.apply(Catalog.editorBase,edits)
 Catalog.items,Catalog.byId,Catalog.defaults=effective.items,effective.byId,effective.defaults
 Catalog.retired=effective.retired
 Catalog.collections=effective.collections
 local season=Catalog.byId[Season.id]
-season.description=("1 item from %d current cosmetics. %s Duplicates pay Shards."):format(#season.rewards,
+season.description=("1 item from %d current rewards. %s Duplicates pay Shards."):format(#season.rewards,
     edits.crates[Season.id] and "Custom item chances." or "Fixed rarity chances, equal chance within each rarity.")
 function Catalog.roll(crate,value)
     local total=0

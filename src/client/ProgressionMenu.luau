@@ -99,11 +99,6 @@ function Menu.new(gui,launcher,clear,beforeOpen)
         end
         return Enum.ContextActionResult.Sink
     end,false,Enum.ContextActionPriority.High.Value+40,Enum.KeyCode.ButtonL1,Enum.KeyCode.ButtonR1)
-    CAS:BindActionAtPriority("NOVA_ProgressionOpen",function(_,state)
-        if not gui.Enabled or UIS:GetFocusedTextBox() or Gui.MenuIsOpen then return Enum.ContextActionResult.Pass end
-        if state==Enum.UserInputState.Begin then self:setOpen(not self.opened) end
-        return Enum.ContextActionResult.Sink
-    end,false,Enum.ContextActionPriority.High.Value+40,Enum.KeyCode.ButtonY)
     self:refresh()
     return self
 end
