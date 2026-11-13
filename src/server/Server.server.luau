@@ -7,9 +7,14 @@ local map = Maps.active()
 local progression=require(script.Parent.ProgressionService).new()
 local inventory=require(script.Parent.InventoryService).new()
 local CrateDrop=require(shared.CrateDrop)
+local function recordStats(player,sim,outcome,seat)
+    inventory:recordStats(player,{key=("%s/%d/%d/%d"):format(inventory.session,sim.roomId,sim.round,player.UserId),
+        mapId=sim.map.id,mapName=sim.map.title or sim.map.id,outcome=outcome,shots=sim.bodies[seat].acceptedShots or 0})
+end
 local lobbies
 lobbies = require(script.Parent.Lobbies).new(map,Config,Maps.choose,function(sim)
     for i,p in sim.seats do
+        recordStats(p,sim,sim.winner==0 and "draw" or sim.winner==i and "win" or "loss",i)
         local outcome=CrateDrop.outcome(sim.winner,sim.reason,i)
         local results=sim.chestResults
         if outcome and not results[i] then
@@ -32,6 +37,9 @@ progression.canPrestige=function(p) return not lobbies.membership[p] and not pra
 inventory.canUse=progression.canPrestige
 require(script.Parent.ShopService).new(inventory)
 local leaderboard=require(script.Parent.PracticeLeaderboard).new(practiceWorld.Leaderboard)
+local statsBoards=require(script.Parent.StatsWorld).ensure(world,practiceWorld.Leaderboard)
+local statsLeaderboards=require(script.Parent.StatsLeaderboards).new(statsBoards)
+inventory.statsChanged=function(player,stats) statsLeaderboards:submit(player,stats) end
 local signKicker = world:FindFirstChild("Kicker",true)
 if signKicker then signKicker.Text = ("%d MAPS  /  RANDOM ROTATION"):format(#Maps.pool()) end
 if Run:IsStudio() then print(("[NOVA] Map rotation: %d maps"):format(#Maps.pool())) end
@@ -167,6 +175,8 @@ end)
 
 Players.PlayerRemoving:Connect(function(p)
     practice:remove(p)
+    local entry=lobbies.membership[p]
+    if entry and entry.room.sim.phase=="Playing" then recordStats(p,entry.room.sim,"loss",entry.seat) end
     lobbies:remove(p)
     flush()
     inventory:remove(p)

@@ -61,7 +61,7 @@ function Menu.new(playerGui,clear,beforeOpen,links)
     launcher.MouseEnter:Connect(function() launcherStroke.Color=C.purple end)
     launcher.MouseLeave:Connect(function() launcherStroke.Color=C.line end)
     -- Running token timers stay visible in the lobby while the shop is closed.
-    local chipRow=W.box(gui,"ActiveTokens",16,256,220,30); self.chipRow=chipRow
+    local chipRow=W.box(gui,"ActiveTokens",16,416,220,30); self.chipRow=chipRow
     self.chipScale=Instance.new("UIScale"); self.chipScale.Parent=chipRow
     for index,kind in {"xp","crate"} do
         local chip=W.box(chipRow,"Token_"..kind,(index-1)*112,0,108,30,C.panel)

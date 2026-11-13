@@ -39,7 +39,40 @@ local function click(pos,hold)
 end
 local function center(f) return f.AbsolutePosition+f.AbsoluteSize/2 end
 local function handle(cmd,arg)
-    if cmd=="inventory" then
+    if cmd=="statsHidden" then
+        assert(not player.PlayerGui.NOVAStats.Enabled,"Career stats stayed visible during a duel")
+        return true
+    elseif cmd=="statsUI" then
+        local daily=player.PlayerGui:WaitForChild("NOVADailyRewards")
+        if daily.DailyOverlay.Visible then click(center(daily.DailyOverlay.Panel.Close));task.wait(.15) end
+        local stats=player.PlayerGui:WaitForChild("NOVAStats");local panel=stats.StatsOverlay.Panel
+        click(center(stats.StatsButton));task.wait(.2)
+        assert(stats:GetAttribute("MenuOpen"),"Career stats launcher failed")
+        click(center(panel.Tab1));task.wait(.1)
+        assert(panel.Content.cratesOpened.Value.Text==tostring(arg.crates),"Wrong crate opening total")
+        if arg.matches then assert(panel.Content.matchesPlayed.Value.Text==tostring(arg.matches),"Wrong match total") end
+        click(center(panel.Tab2));task.wait(.1)
+        assert(panel.Content.MapList.Visible,"Map stats tab failed")
+        click(center(panel.Close));task.wait(.1)
+        assert(not stats:GetAttribute("MenuOpen"))
+        return true
+    elseif cmd=="statsCrates" then
+        local function invoke(action,id,key)
+            for _=1,8 do
+                task.wait(.25)
+                local response=shared.InventoryRequest:InvokeServer(action,id,key)
+                if response.ok or response.message~="Please wait." then assert(response.ok,response.message);return response end
+            end
+            error("Inventory requests stayed throttled")
+        end
+        local p=invoke("read").profile
+        local key="open:"..(p.data.openSequence+1)
+        local opened=invoke("open3","crate_season1",key);assert(opened.ok)
+        local replay=invoke("open3","crate_season1",key);assert(replay.profile.data.stats.cratesOpened==3)
+        local single=invoke("open","crate_season1","open:"..(replay.profile.data.openSequence+1))
+        assert(single.ok and single.profile.data.stats.cratesOpened==4)
+        return true
+    elseif cmd=="inventory" then
         local inv=player.PlayerGui:WaitForChild("NOVAInventory")
         local panel=inv.InventoryOverlay.Origin.Panel
         local remote=shared.InventoryRequest
@@ -118,7 +151,7 @@ local function handle(cmd,arg)
         task.wait(.2)
         return player:GetAttribute("ReducedEffects")
     elseif cmd=="batchSave" or cmd=="batchOpen" then
-        local chance=player.PlayerGui.NOVA.CrateChance
+        local chance=assert(gui:FindFirstChild("CrateChance",true))
         local button=cmd=="batchSave" and chance.Origin.Panel.SaveLater or chance.Origin.Panel.OpenNow
         assert(chance.Visible and chance:GetAttribute("AnimationComplete") and button.Visible,"Chest control missing")
         click(center(button),.1)
@@ -132,7 +165,8 @@ local function handle(cmd,arg)
         return overlay and overlay:GetAttribute("Phase")
     elseif cmd=="read" then
         local seat=stage.Seat1.Text:find("YOU",1,true) and 1 or 2
-        return {resultsReady=gui.ResultBanner:GetAttribute("AnimationComplete"),resultBannerVisible=gui.ResultBanner.Visible,dropSettled=player.PlayerGui.NOVA.CrateChance.Visible and latest and latest.chest and player.PlayerGui.NOVA.CrateChance:GetAttribute("ResultKey")==latest.chest.key and player.PlayerGui.NOVA.CrateChance:GetAttribute("AnimationComplete"),chest=latest and latest.chest,seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
+        local chance=assert(gui:FindFirstChild("CrateChance",true))
+        return {resultsReady=gui.ResultBanner:GetAttribute("AnimationComplete"),resultBannerVisible=gui.ResultBanner.Visible,dropSettled=chance.Visible and latest and latest.chest and chance:GetAttribute("ResultKey")==latest.chest.key and chance:GetAttribute("AnimationComplete"),chest=latest and latest.chest,seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
             hp=stage.Vitals2.Text,seen=seen,round=latest and latest.round or 0,lobby=latest and latest.lobby,mapId=latest and latest.mapId,
             rollVisible=stage.MapShuffle.Visible,rollHeading=stage.MapShuffle.Heading.Text,
             p=latest and latest.players or {},vote=notice.Rematch.Text,
@@ -225,7 +259,8 @@ local function handle(cmd,arg)
     elseif cmd=="hold" then
         click(center(stage.Map1),.55)
     elseif cmd=="vote" then
-        if gui.CrateChance.Visible then click(center(gui.CrateChance.Origin.Panel.Close),.08);task.wait(.1) end
+        local chance=assert(gui:FindFirstChild("CrateChance",true))
+        if chance.Visible then click(center(chance.Origin.Panel.Close),.08);task.wait(.1) end
         local pos=center(notice.Rematch)
         local under={}
         for _,widget in player.PlayerGui:GetGuiObjectsAtPosition(pos.X,pos.Y) do table.insert(under,widget.Name) end
@@ -234,7 +269,8 @@ local function handle(cmd,arg)
     elseif cmd=="disconnect" then
         task.defer(function() game:GetService("StudioTestService"):LeaveTest() end)
     elseif cmd=="leave" then
-        if gui.CrateChance.Visible then click(center(gui.CrateChance.Origin.Panel.Close),.08);task.wait(.1) end
+        local chance=assert(gui:FindFirstChild("CrateChance",true))
+        if chance.Visible then click(center(chance.Origin.Panel.Close),.08);task.wait(.1) end
         click(center(notice.Leave),.1)
     elseif cmd=="forged" then
         local round=latest.round

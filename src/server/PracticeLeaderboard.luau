@@ -3,10 +3,11 @@ local Run=game:GetService("RunService")
 local Leaderboard={}
 Leaderboard.__index=Leaderboard
 
-function Leaderboard.new(board)
-    local self=setmetatable({board=board,best={},names={},pending={},saving={},global={},ready=false},Leaderboard)
+function Leaderboard.new(board,options)
+    options=options or {}
+    local self=setmetatable({board=board,best={},names={},pending={},saving={},global={},ready=false,deferredWrites=options.deferredWrites},Leaderboard)
     -- Studio deliberately never reads or changes the live rankings.
-    self.store=not Run:IsStudio() and game:GetService("DataStoreService"):GetOrderedDataStore("NOVA_HighScorePractice_v1") or nil
+    self.store=not Run:IsStudio() and game:GetService("DataStoreService"):GetOrderedDataStore(options.storeName or "NOVA_HighScorePractice_v1") or nil
     self:render()
     task.spawn(function()
         while true do
@@ -38,8 +39,14 @@ function Leaderboard:render()
     for i=1,10 do
         local row=sign:FindFirstChild("Row"..i)
         local entry=sorted[i]
-        if row then row.Text=entry and ("%02d   %-20s   %d"):format(i,self.names[entry.uid] or ("User "..entry.uid),entry.score)
-            or ("%02d   —"):format(i) end
+        if row then
+            if row:IsA("TextLabel") then row.Text=entry and ("%02d   %-20s   %d"):format(i,self.names[entry.uid] or ("User "..entry.uid),entry.score) or ("%02d   —"):format(i)
+            else
+                row.Rank.Text=("%02d"):format(i)
+                row.PlayerName.Text=entry and (self.names[entry.uid] or ("User "..entry.uid)) or "—"
+                row.Score.Text=entry and require(game.ReplicatedStorage.NOVA.ShopCatalog).commas(entry.score) or "—"
+            end
+        end
     end
     sign.Status.Text=not self.store and "STUDIO PREVIEW / SESSION SCORES"
         or self.readFailed and "GLOBAL BOARD OFFLINE / RETRYING"
@@ -98,7 +105,7 @@ function Leaderboard:submit(player,score)
     self.best[uid]=math.max(self.best[uid] or 0,score)
     if self.store then
         self.pending[uid]=math.max(self.pending[uid] or 0,score)
-        task.defer(function() self:persist(uid) end)
+        if not self.deferredWrites then task.defer(function() self:persist(uid) end) end
     end
     self:render()
     return self.store and "Saving" or "SessionOnly"

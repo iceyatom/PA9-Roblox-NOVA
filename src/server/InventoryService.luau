@@ -5,6 +5,7 @@ local shared=game.ReplicatedStorage.NOVA
 local Model=require(shared.Inventory)
 local Catalog=require(shared.InventoryCatalog)
 local Store=require(script.Parent.InventoryStore)
+local Stats=require(shared.Stats)
 local Service={}
 Service.__index=Service
 
@@ -70,6 +71,7 @@ function Service:publish(player)
         for category,id in r.data.equipped do player:SetAttribute("Cosmetic_"..category,id) end
     end
     self.changed:FireClient(player,self:snapshot(player))
+    if r.data and self.statsChanged then self.statsChanged(player,r.data.stats) end
 end
 function Service:view(player)
     local r=self.records[player]
@@ -77,7 +79,7 @@ function Service:view(player)
 end
 function Service:load(player)
     if self.records[player] then return end
-    local r={version=0,status="Loading inventory…"}
+    local r={version=0,status="Loading inventory…",statsQueue={}}
     self.records[player]=r
     self:maintain(player,r)
 end
@@ -89,6 +91,7 @@ function Service:flush(player,r)
     for attempt=1,3 do
         if not self.storage or self.storage:save(player.UserId,profile,false) then
             r.data=profile.data; r.expires=profile.expires; r.pending=nil
+            self:ackStats(r)
             if candidate then r.version+=1 end
             r.status=self.storage and "Inventory saved." or "Studio / session inventory"
             return true
@@ -114,7 +117,14 @@ function Service:maintain(player,r)
             r.data=profile.data; r.expires=profile.expires; r.pending=nil; r.version+=1
             r.status=self.storage and "Inventory saved." or "Studio / session inventory"
         else r.status="Inventory unavailable. Retrying automatically…" end
-    elseif self.storage then self:flush(player,r) end
+    end
+    if r.data and (not self.storage or r.expires>os.time()) then
+        if r.pending then self:flush(player,r) end
+        if not r.pending then
+            if #(r.statsQueue or {})>0 then r.pending=Model.validate(r.data);self:mergeStats(r,r.pending) end
+            if r.pending or self.storage then self:flush(player,r) end
+        end
+    end
     r.busy=false; self:publish(player)
 end
 function Service:mutate(player,change)
@@ -123,6 +133,7 @@ function Service:mutate(player,change)
     if not self:ready(player) then return false,"Inventory unavailable. Retrying…" end
     r.busy=true
     local data=Model.validate(r.data)
+    self:mergeStats(r,data)
     local ok,result,replay=change(data)
     if ok and not replay then
         r.pending=data
@@ -131,6 +142,21 @@ function Service:mutate(player,change)
     end
     r.busy=false; self:publish(player)
     return ok,result,replay
+end
+-- Bounded batches keep every queued result in the receipt window until its save
+-- is acknowledged, including an UpdateAsync timeout after the write committed.
+function Service:mergeStats(r,data)
+    for i=1,math.min(64,#(r.statsQueue or {})) do assert(Stats.record(data.stats,r.statsQueue[i]),"Invalid server stats event") end
+end
+function Service:ackStats(r)
+    while r.statsQueue and r.statsQueue[1] and r.data.stats.receipts[r.statsQueue[1].key] do table.remove(r.statsQueue,1) end
+end
+function Service:recordStats(player,event)
+    local r=self.records[player]
+    if not r or r.leaving then return end
+    r.statsQueue=r.statsQueue or {}
+    table.insert(r.statsQueue,event)
+    task.defer(function() if self.records[player]==r then self:maintain(player,r) end end)
 end
 function Service:crateChance(player)
     local r=self.records[player]
@@ -162,6 +188,14 @@ function Service:remove(player)
     if not r or r.leaving then return end
     r.leaving=true
     while r.busy do task.wait() end
+    if r.data and (not self.storage or r.expires>os.time()) then
+        if r.pending then self:flush(player,r) end
+        while not r.pending and #(r.statsQueue or {})>0 do
+            r.pending=Model.validate(r.data);self:mergeStats(r,r.pending)
+            if not self:flush(player,r) then break end
+        end
+        if self.statsChanged then self.statsChanged(player,r.data.stats) end
+    end
     if self.storage and r.data and r.expires>os.time() then
         if not r.pending or self:flush(player,r) then self.storage:save(player.UserId,r,true) end
     end

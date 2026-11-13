@@ -246,7 +246,50 @@ return function()
         local p=untilTrue(function() return next(ready) end,45,"stress client")
         note(request(p,"batchStress"))
     end
-    local driver=({["NOVA/batch1"]=batch,["NOVA/batch-stress"]=stress})[test:GetTestArgs()] or exercise
+    local function stats()
+        local p1=untilTrue(function() return next(ready) end,45,"stats client")
+        untilTrue(function() return p1:GetAttribute("InventoryReady") end,15,"stats inventory")
+        game.ServerScriptService.NOVA.GrantInventory:Invoke(p1,"crate_season1",7)
+        request(p1,"statsCrates");assert(request(p1,"statsUI",{crates=4,matches=0}))
+        note("Stats launcher and map tab worked; single and triple crate openings counted once despite replay")
+        queue(p1);test:AddPlayers(1)
+        local p2=untilTrue(function() for p in ready do if p~=p1 then return p end end end,55,"second stats client")
+        queue(p2)
+        waitPhase(p1,"Playing");waitPhase(p2,"Playing")
+        assert(request(p1,"statsHidden") and request(p2,"statsHidden"))
+        request(p1,"lane");request(p1,"fire",10);waitPhase(p1,"Results")
+        local first=request(p1,"batchProfile").stats;local loser=request(p2,"batchProfile").stats
+        assert(first.matchesPlayed==1 and first.wins==1 and first.longestWinStreak==1 and first.shotsFired==10)
+        assert(loser.matchesPlayed==1 and loser.losses==1 and loser.shotsFired==0)
+        note("Real duel win/loss and ten accepted shots reached career stats; stats hid during the duel")
+        request(p1,"vote");request(p2,"vote");waitPhase(p1,"Playing");waitPhase(p2,"Playing")
+        request(p2,"lane");request(p2,"fire",10);waitPhase(p2,"Results")
+        local second=request(p1,"batchProfile").stats
+        assert(second.matchesPlayed==2 and second.wins==1 and second.losses==1 and second.currentWinStreak==0 and second.longestWinStreak==1)
+        local maps=0;for _ in second.maps do maps+=1 end;assert(maps==2)
+        note("Rematch recorded a distinct map and loss reset the current streak without changing the best")
+        request(p1,"vote");request(p2,"vote");waitPhase(p1,"Playing");waitPhase(p2,"Playing")
+        local Service=require(game.ServerScriptService.NOVA.InventoryService);local remove=Service.remove;local departed
+        Service.remove=function(self,p)
+            local r=self.records[p];remove(self,p);if p==p2 and r then departed=r.data.stats end
+        end
+        channel:FireClient(p2,-1,"disconnect");waitPhase(p1,"Results")
+        untilTrue(function() return departed end,10,"departing player's final stats")
+        Service.remove=remove
+        assert(departed.matchesPlayed==3 and departed.losses==2 and departed.currentWinStreak==0)
+        local third=request(p1,"batchProfile").stats
+        assert(third.matchesPlayed==3 and third.wins==2 and third.shotsFired==10)
+        local boards=workspace.NOVALobby.StatsLeaderboards
+        assert(boards.matchesPlayed.Rankings.Row1.Score.Text=="3")
+        assert(boards.wins.Rankings.Row1.PlayerName.Text==p1.Name and boards.wins.Rankings.Row1.Score.Text=="2")
+        assert(boards.cratesOpened.Rankings.Row1.PlayerName.Text==p1.Name and boards.cratesOpened.Rankings.Row1.Score.Text=="4")
+        assert(boards.longestWinStreak.Rankings.Row1.Score.Text=="1")
+        note("Combat disconnect recorded survivor victory and departing forfeit; all four wall boards showed the correct session rankings")
+        request(p1,"leave");untilTrue(function() return p1.Character end,10,"stats lobby return")
+        assert(request(p1,"statsUI",{crates=4,matches=3}))
+        note("Returning to the lobby showed updated career and map stats")
+    end
+    local driver=({["NOVA/batch1"]=batch,["NOVA/batch-stress"]=stress,["NOVA/stats"]=stats})[test:GetTestArgs()] or exercise
     local ok,err=xpcall(driver,debug.traceback)
     if not ok then note(tostring(err)) end
     test:EndTest({passed=ok,observations=log})

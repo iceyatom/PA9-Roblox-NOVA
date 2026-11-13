@@ -1,5 +1,23 @@
 # NOVA v1 acceptance record
 
+## Career stats and sidewall rankings — November 12, 2026
+
+Sidebar styling: Daily check-in and Career stats now follow Shop at y=256 and y=336, with matching 220×72 dark panels, 8px gaps, 10px corners, and 26px Gotham Black labels. Both are text-only; the daily label stays Daily check-in. Active boost timers moved below the stack. Studio visual inspection confirmed matching backgrounds, aligned buttons and fitting text, with no runtime errors.
+
+Shared sidebar dimming: all five lobby menus now raise their ScreenGui above every closed launcher while open, then restore its original layer on close. This replaces the Stats-only override and fixes Progression/Inventory leaving later launchers bright. Actual Studio button clicks verified Progression, Inventory, Shop, Daily check-in and Career stats each became the sole open menu above all other launcher layers. Progression also hides the Settings launcher consistently. The final console contained no runtime errors; sources were synchronized and the generated place rebuilt.
+
+Career launcher dimming: the closed Stats ScreenGui now stays at the lobby layer and rises only while its panel is open. The Daily check-in backdrop now dims Career stats alongside the other launchers. Studio visual inspection verified the dimming, and opening/closing Stats then reopening Daily restored the correct layering with no runtime errors.
+
+Sidewall layout adjustment: trimmed the practice Global Top 10 from 36 to 20 studs, moved it 16 studs toward the corner, and placed Matches Played 24 studs to its right. The remaining three career boards retain their prior positions. The updated practice board clears the corner pillar by 14.5 studs along the wall. The layout was inspected in Studio and verified in Play; calling the layout setup twice and starting another session did not move the boards again. Sources and the generated place were updated.
+
+Added the Career stats overview and By map tab, with completed matches, wins/losses/draws, W/L ratio, current/longest win streaks, best map, accepted duel shots and crate openings. Best map uses wins then win rate. Combat disconnects record a forfeit for the departing player and victory for the survivor. Match results use an ordered inventory queue and bounded durable receipts; crate counts commit with consumption. Older profiles migrate their opening sequence; other previously unsaved history starts at zero.
+
+Added four top-10 boards on the existing practice leaderboard's wall for matches played, longest win streak, wins and crates opened. Studio uses session data; live servers use four separate OrderedDataStores, coalesced 60-second writes and atomic maximum updates. The existing practice board and hand-moved lobby are preserved. Cross-server/live persistence still needs a published-server check.
+
+All **165 local logic checks passed** with the stock catalog fixture. In Studio, **13 stats cases**, **four inventory transaction cases**, and **two existing leaderboard cases** passed. All **139 source/test files parsed**. The named real multiplayer run `NOVA/stats` returned **passed=true**: it exercised the stats launcher/map tab, single/triple openings and receipt replay, a real ten-shot win/loss, a rematch on a distinct map, current-streak reset, disconnect victory and departing-player forfeit, all four board rankings, and updated stats after returning to the lobby. The existing probe was updated to find the docked crate panel recursively and to inspect client-created stats UI from the client.
+
+Desktop and iPhone 17 Pro portrait stats screens had no clipped labels, and the phone overview scrolls. Sidewall placement was visually inspected; four new boards fit beside the unchanged practice board. The Studio console had no runtime errors in the final preview. The generated place was rebuilt and sources synchronized. No place was published.
+
 ## Daily check-in — November 12, 2026
 
 Daily claim celebration: reused `ShopReveal` and `ItemUnlock` for the saved daily reward, including spinning gold rays, the token flip, lift/stamp motion, rings/sparks and sound. A real day-1 claim added exactly one crate and reached the settled reveal; Continue restored the check-in menu, and a repeated request was rejected with the balance unchanged. Presentation-only checks verified day 27's four 60-minute Double Crates tokens, day 30's reserved pack, portrait/landscape phone text fit, Reduced Effects, cancellation cleanup, and the existing shop token flip. All 103 source files parsed, the generated place was rebuilt, and changed modules were synced to Studio. The test preview was removed and the default viewport restored; no place was published.
