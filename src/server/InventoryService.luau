@@ -66,6 +66,7 @@ function Service:publish(player)
     local r=self.records[player]
     if not r or player.Parent~=Players then return end
     player:SetAttribute("InventoryReady",self:ready(player))
+    player:SetAttribute("WinStreak",self:winStreak(player))
     if r.data then
         player:SetAttribute("ReducedEffects",r.data.reducedEffects)
         for category,id in r.data.equipped do player:SetAttribute("Cosmetic_"..category,id) end
@@ -151,11 +152,23 @@ end
 function Service:ackStats(r)
     while r.statsQueue and r.statsQueue[1] and r.data.stats.receipts[r.statsQueue[1].key] do table.remove(r.statsQueue,1) end
 end
+-- Include queued authoritative results immediately, while their existing profile
+-- transaction saves in the background. Replayed receipts cannot add a win twice.
+function Service:winStreak(player)
+    local r=self.records[player]
+    if not r or not r.data then return 0 end
+    local stats=Stats.validate(r.data.stats)
+    for _,event in r.statsQueue or {} do
+        assert(Stats.record(stats,event),"Invalid server stats event")
+    end
+    return stats.currentWinStreak
+end
 function Service:recordStats(player,event)
     local r=self.records[player]
     if not r or r.leaving then return end
     r.statsQueue=r.statsQueue or {}
     table.insert(r.statsQueue,event)
+    player:SetAttribute("WinStreak",self:winStreak(player))
     task.defer(function() if self.records[player]==r then self:maintain(player,r) end end)
 end
 function Service:crateChance(player)

@@ -73,6 +73,7 @@ local function broadcast(room)
     for i=1,2 do
         local p,b = sim.seats[i],sim.bodies[i]
         snap.players[i] = {uid=p and p.UserId,name=p and p.DisplayName,x=b.x,y=b.y,hp=b.hp,acceptedShots=b.acceptedShots or 0,vote=sim.votes[i] == true,
+            winStreak=p and p:GetAttribute("WinStreak") or 0,
             progression=p and progression:view(p),cosmetics=p and inventory:view(p),xpAward=sim.rewards[i],xpRecap=sim.xpRecaps[i]}
     end
     for i,b in sim.bullets do snap.shots[i]={b.id,b.x,b.y,b.seat,b.vx,b.vy} end
