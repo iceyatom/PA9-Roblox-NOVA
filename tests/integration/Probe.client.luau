@@ -158,7 +158,7 @@ local function handle(cmd,arg)
         return true
     elseif cmd=="batchFire" then
         shared.StudioControls:FireServer("lane"); task.wait(.3)
-        for i=1,10 do shared.Input:FireServer("fire",latest.lobby,latest.round,i); task.wait(.08) end
+        for i=1,10 do shared.Input:FireServer("fire",latest.lobby,latest.round,i); task.wait(.1) end
         return true
     elseif cmd=="batchReveal" then
         local overlay=player.PlayerGui.NOVAInventory:FindFirstChild("CrateReveal",true)
@@ -169,7 +169,8 @@ local function handle(cmd,arg)
         return {resultsReady=gui.ResultBanner:GetAttribute("AnimationComplete"),resultBannerVisible=gui.ResultBanner.Visible,dropSettled=chance.Visible and latest and latest.chest and chance:GetAttribute("ResultKey")==latest.chest.key and chance:GetAttribute("AnimationComplete"),chest=latest and latest.chest,seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
             hp=stage.Vitals2.Text,seen=seen,round=latest and latest.round or 0,lobby=latest and latest.lobby,mapId=latest and latest.mapId,
             rollVisible=stage.MapShuffle.Visible,rollHeading=stage.MapShuffle.Heading.Text,
-            p=latest and latest.players or {},vote=notice.Rematch.Text,
+            p=latest and latest.players or {},vote=notice.Rematch.Text,session=latest and latest.session,
+            sessionVisible=stage.SessionScore.Visible,sessionWins={stage.SessionScore.Wins1.Text,stage.SessionScore.Wins2.Text},sessionMatch=stage.SessionScore.MatchCount.Text,rematchVisible=notice.Rematch.Visible,
             visible=notice.Visible,bar=stage.Map1.Player2.Health.Fill.Size.X.Scale,trail=trail,
             skinColor1=stage.Map1.Player1.BackgroundColor3:ToHex(),cardVisible1=stage.PlayerCard1.BackgroundTransparency==0,
             inventoryVisible=player.PlayerGui.NOVAInventory.Enabled,cosmeticShot=table.clone(cosmeticShot)}
@@ -256,6 +257,17 @@ local function handle(cmd,arg)
         return true
     elseif cmd=="fire" then
         for i=1,arg do click(center(stage.Map1)) end
+    elseif cmd=="sessionWin" then
+        shared.StudioControls:FireServer("lane");task.wait(.3)
+        for _=1,20 do
+            if latest.phase~="Playing" then break end
+            click(center(stage.Map1),.08);task.wait(.06)
+        end
+        assert(latest.phase=="Results",("Duel did not finish: phase %s, HP %d/%d, shots %d/%d"):format(latest.phase,
+            latest.players[1].hp,latest.players[2].hp,latest.players[1].acceptedShots,latest.players[2].acceptedShots))
+        return true
+    elseif cmd=="forceRematch" then
+        shared.Input:FireServer("rematch",latest.lobby,latest.round)
     elseif cmd=="hold" then
         click(center(stage.Map1),.55)
     elseif cmd=="vote" then

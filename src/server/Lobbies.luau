@@ -77,11 +77,34 @@ function Lobbies:intent(player,roomId,round,kind,a,b)
     return accepted
 end
 
+-- Detach both seats before callbacks so neither can pair into another duel here.
+function Lobbies:closeSession(room)
+    if self.rooms[room.id]~=room or not room.sim.session.complete or room.sim.session.remaining>0 then return false end
+    local players={}
+    for _,player in room.sim.seats do
+        local entry=self.membership[player]
+        if entry and entry.room==room then
+            self.membership[player]=nil
+            table.insert(players,player)
+        end
+    end
+    self.rooms[room.id]=nil
+    self.dirty[room.id]=nil
+    table.clear(room.sim.seats)
+    for _,player in players do
+        if self.sessionEnded then self.sessionEnded(player) end
+    end
+    return true
+end
+
 function Lobbies:step(dt)
+    local expired={}
     for _,room in self.rooms do
         local old=room.sim.phase
         room.sim:step(dt)
         if room.sim.phase~=old then self.dirty[room.id]=true end
+        if room.sim.session.complete and room.sim.session.remaining<=0 then table.insert(expired,room) end
     end
+    for _,room in expired do self:closeSession(room) end
 end
 return Lobbies

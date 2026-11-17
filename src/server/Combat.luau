@@ -1,4 +1,5 @@
 local Combat = {}
+local ShotLimiter=require(script.Parent.ShotLimiter)
 
 -- Parametric entry time along a segment into an expanded rectangle (slab method).
 local function interval(pos, delta, low, high)
@@ -24,6 +25,7 @@ function Combat.fire(sim, seat, sequence)
     local dx,dy = target.x-owner.x,target.y-owner.y
     local length = math.sqrt(dx*dx+dy*dy)
     if length < 1e-7 or length ~= length then return false end
+    if not ShotLimiter.allow(owner,(sim.fireClock or os.clock)()) then return false end
     owner.acceptedShots=(owner.acceptedShots or 0)+1
     sim.serial += 1
     local speed = sim.cfg.BulletSpeed

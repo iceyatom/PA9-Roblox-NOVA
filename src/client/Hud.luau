@@ -66,6 +66,24 @@ function Hud.new(playerGui)
         for j=1,10 do cells[j]=W.box(stage,"HP",x+(j-1)*20.7,y+115,17,5,C.line) end
         self.seats[i]={who=who,name=name,rank=rank,rankIcon=rankIcon,avatar=avatar,hp=hp,cells=cells,color=col,card=card,gradient=gradient,streak=streak}
     end
+    local session=W.box(stage,"SessionScore",x,609,220,158)
+    self.sessionPanel=session
+    W.text(session,"Heading",0,0,220,20,"SESSION SCORE",13,C.muted,bold)
+    self.sessionWins={}
+    for i=1,2 do
+        local sx=(i-1)*114
+        local score=W.text(session,"Wins"..i,sx,23,94,38,"0",32,i==1 and C.blue or C.red,heavy)
+        score.TextXAlignment=Enum.TextXAlignment.Center
+        self.sessionWins[i]=score
+        local label=W.text(session,"Player"..i,sx,61,94,18,"PLAYER 0"..i,11,C.muted)
+        label.TextXAlignment=Enum.TextXAlignment.Center
+    end
+    local versus=W.text(session,"Separator",95,27,18,32,"–",22,C.muted,bold)
+    versus.TextXAlignment=Enum.TextXAlignment.Center
+    self.sessionMatch=W.text(session,"MatchCount",0,85,220,22,"MATCH 1 / 11",15,C.white,bold)
+    self.sessionDraws=W.text(session,"Draws",0,110,220,18,"",12,C.muted)
+    self.sessionReturn=W.text(session,"Return",0,135,220,22,"",14,C.mint,bold)
+    session.Visible=false
     -- Right rail: persistent legend for the four collision behaviors.
     local rx=1195
     W.text(stage,"FieldGuide",rx,229,218,30,"Field guide",26,C.white,bold)
@@ -91,7 +109,7 @@ function Hud.new(playerGui)
     self.rematch=W.button(self.notice,"Rematch",23,109,209,37,"Rematch",true)
     self.leave=W.button(self.notice,"Leave",244,109,130,37,"Leave",false)
     self.chestRoll=require(script.Parent.ChestChance).new(gui,function()
-        if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" then Gui.SelectedObject=self.rematch end
+        if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" then Gui.SelectedObject=self.snap and self.snap.session and self.snap.session.complete and self.leave or self.rematch end
     end,stage)
     self.openChest=self.chestRoll.openButton
     self.saveChest=self.chestRoll.continueButton
@@ -103,6 +121,16 @@ end
 function Hud:update(snap,seat)
     self.snap=snap; self.seat=seat
     local phase=snap.phase
+    local session=snap.session
+    local complete=session and session.complete
+    self.sessionPanel.Visible=session~=nil and (phase~="Waiting" or session.played>0)
+    if session then
+        for i=1,2 do self.sessionWins[i].Text=tostring(session.wins[i]) end
+        self.sessionMatch.Text=(complete and "SESSION COMPLETE" or ("MATCH %d / %d"):format(session.game,session.limit))
+        self.sessionDraws.Text=("%d / %d played%s"):format(session.played,session.limit,
+            session.draws>0 and (" · %d %s"):format(session.draws,session.draws==1 and "draw" or "draws") or "")
+        self.sessionReturn.Visible=complete==true
+    end
     local resultKey=tostring(snap.lobby)..":"..snap.round
     if phase=="Results" then self.resultBanner:start(resultKey,snap.winner==0 and "draw" or snap.winner==seat and "win" or "loss")
     elseif phase~="Waiting" or not self.resultBanner.blocked then self.resultBanner:hide() end
@@ -143,9 +171,9 @@ function Hud:update(snap,seat)
     else
         self.xpRecap:hide()
     end
-    self.rematch.Visible=phase=="Results" and not blocked
+    self.rematch.Visible=phase=="Results" and not blocked and not complete
     self.leave.Visible=(phase=="Results" or phase=="Waiting") and not blocked
-    self.rematch.Active=not blocked;self.rematch.Selectable=not blocked
+    self.rematch.Active=not blocked and not complete;self.rematch.Selectable=not blocked and not complete
     self.leave.Active=not blocked;self.leave.Selectable=not blocked
     self.leave.Position=UDim2.fromOffset(phase=="Waiting" and 23 or 244,109)
     self.leave.Size=UDim2.fromOffset(phase=="Waiting" and 160 or 130,37)
@@ -157,6 +185,10 @@ function Hud:update(snap,seat)
     else
         self.rematch.Position=UDim2.fromOffset(23,109)
     end
+    if complete then
+        self.leave.Size=UDim2.fromOffset(160,37)
+        self.leave.Position=UDim2.fromOffset((self.notice.Size.X.Offset-160)/2,self.leave.Position.Y.Offset)
+    end
     self.noticeHome=self.notice.Position
     self.chestRoll:update(phase=="Results" and not blocked and snap.chest or nil,not blocked)
     self:layoutResults()
@@ -167,7 +199,7 @@ function Hud:update(snap,seat)
         self.kicker.Text,self.note.Text="BOTH PLAYERS READY","Movement and fire unlock together."
         self:tick()
     elseif phase=="Results" then
-        self.kicker.Text="ROUND COMPLETE"
+        self.kicker.Text=complete and ("SESSION COMPLETE / %d MATCHES"):format(session.limit) or "ROUND COMPLETE"
         self.title.Text=snap.winner==0 and "Draw" or snap.winner==seat and "Victory" or "Defeat"
         self.note.Text=snap.reason=="Disconnect" and "Your rival disconnected." or snap.winner==0 and "Both players landed the final hit." or "Ten hits. Duel complete."
         local reward=snap.players[seat].xpAward
@@ -192,7 +224,11 @@ function Hud:tick()
     if not self.gui.Enabled then return end
     if self.resultBanner:tick() then
         self:update(self.snap,self.seat)
-        if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" and not Gui.MenuIsOpen then Gui.SelectedObject=self.snap.phase=="Waiting" and self.leave or self.rematch end
+        if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" and not Gui.MenuIsOpen then Gui.SelectedObject=(self.snap.phase=="Waiting" or self.snap.session and self.snap.session.complete) and self.leave or self.rematch end
+    end
+    local session=self.snap and self.snap.session
+    if session and session.complete then
+        self.sessionReturn.Text=("Lobby in %ds"):format(math.max(0,math.ceil(session.returnAt-workspace:GetServerTimeNow())))
     end
     self.xpRecap:tick()
     self.chestRoll:update(self.snap and self.snap.phase=="Results" and self:resultsReady() and self.snap.chest or nil,not self.resultBanner.blocked)

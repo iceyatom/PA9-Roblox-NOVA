@@ -79,10 +79,10 @@ settingsMenu.beforeOpen=function() progressionMenu:setOpen(false); inventory:set
 settingsMenu.selectionOnClose=function()
     if practiceSnapshot then return practiceSnapshot.phase=="Results" and practice.retry or practice.leave end
     if not snapshot then return nil end
-    return snapshot.phase=="Results" and hud:resultsReady() and hud.rematch or snapshot.phase=="Waiting" and not hud.resultBanner.blocked and hud.leave or nil
+    return snapshot.phase=="Results" and hud:resultsReady() and (snapshot.session and snapshot.session.complete and hud.leave or hud.rematch) or snapshot.phase=="Waiting" and not hud.resultBanner.blocked and hud.leave or nil
 end
 task.spawn(function() settings:load() end)
-hud.rematch.Activated:Connect(function() if hud:resultsReady() then fire("rematch") end end)
+hud.rematch.Activated:Connect(function() if hud:resultsReady() and hud.rematch.Active then fire("rematch") end end)
 hud.leave.Activated:Connect(function() if snapshot and not hud.resultBanner.blocked and (snapshot.phase~="Results" or hud:resultsReady()) then fire("leave") end end)
 local openAfterLobby=false
 hud.openChest.Activated:Connect(function()

@@ -69,7 +69,7 @@ end
 local function broadcast(room)
     local sim=room.sim
     local snap = {lobby=room.id,phase=sim.phase,round=sim.round,mapId=sim.map.id,tick=sim.stepNumber,ends=workspace:GetServerTimeNow()+sim.count,
-        winner=sim.winner,reason=sim.reason,players={},shots={},maxHP=sim.cfg.Health}
+        winner=sim.winner,reason=sim.reason,players={},shots={},maxHP=sim.cfg.Health,session=sim:sessionView(workspace:GetServerTimeNow())}
     for i=1,2 do
         local p,b = sim.seats[i],sim.bodies[i]
         snap.players[i] = {uid=p and p.UserId,name=p and p.DisplayName,x=b.x,y=b.y,hp=b.hp,acceptedShots=b.acceptedShots or 0,vote=sim.votes[i] == true,
@@ -127,6 +127,12 @@ local function returnToLobby(p)
     state:FireClient(p,{phase="Lobby"})
     flush()
     spawnInLobby(p)
+end
+
+lobbies.sessionEnded=function(p)
+    if p.Parent~=Players then return end
+    state:FireClient(p,{phase="Lobby"})
+    task.spawn(spawnInLobby,p)
 end
 
 local function enterPractice(p)

@@ -53,7 +53,7 @@ return function()
         root.Parent:PivotTo(CFrame.new(pad.Position+Vector3.new(0,4,0)))
         untilTrue(function()
             local phase=read(p).phase
-            return phase=="Waiting" or phase=="Selecting" or phase=="Countdown"
+            return phase=="Waiting" or phase=="Selecting" or phase=="Countdown" or phase=="Playing"
         end,6,"queue for "..p.Name)
         assert(p.Character==nil,"Queued player keeps no 3D character")
     end
@@ -289,7 +289,57 @@ return function()
         assert(request(p1,"statsUI",{crates=4,matches=3}))
         note("Returning to the lobby showed updated career and map stats")
     end
-    local driver=({["NOVA/batch1"]=batch,["NOVA/batch-stress"]=stress,["NOVA/stats"]=stats})[test:GetTestArgs()] or exercise
+    local function session()
+        -- Only shorten map selection/countdown in this test; play eleven real duels,
+        -- retain the production 30-second result window, and use real rematch buttons.
+        local Match=require(game.ServerScriptService.NOVA.Match)
+        local original=Match.new
+        Match.new=function(map,cfg,choose)
+            local tuned=table.clone(cfg);tuned.Countdown=.25;tuned.MapRollDuration=.5
+            return original(map,tuned,choose)
+        end
+        local p1=untilTrue(function() return next(ready) end,45,"session client")
+        untilTrue(function() return p1:GetAttribute("InventoryReady") and p1:GetAttribute("ProgressionReady") end,15,"session profiles")
+        queue(p1);test:AddPlayers(1)
+        local p2=untilTrue(function() for p in ready do if p~=p1 then return p end end end,55,"second session client")
+        untilTrue(function() return p2:GetAttribute("InventoryReady") and p2:GetAttribute("ProgressionReady") end,15,"second session profiles")
+        queue(p2)
+        local wins={0,0}
+        for game=1,11 do
+            local a,b=waitPhase(p1,"Playing"),waitPhase(p2,"Playing")
+            assert(a.session.game==game and b.session.game==game and a.session.played==game-1)
+            assert(a.sessionVisible and b.sessionVisible)
+            local winner=game%2==1 and p1 or p2
+            local seat=read(winner).seat
+            request(winner,"sessionWin")
+            a,b=waitPhase(p1,"Results"),waitPhase(p2,"Results")
+            wins[seat]+=1
+            for _,view in {a,b} do
+                assert(view.session.played==game and view.session.wins[1]==wins[1] and view.session.wins[2]==wins[2])
+                assert(view.sessionWins[1]==tostring(wins[1]) and view.sessionWins[2]==tostring(wins[2]))
+            end
+            note(("Match %d / 11: both clients show %d-%d"):format(game,wins[1],wins[2]))
+            if game<11 then
+                assert(a.rematchVisible and b.rematchVisible)
+                request(p1,"vote");request(p2,"vote")
+            else
+                assert(a.session.complete and b.session.complete and not a.rematchVisible and not b.rematchVisible)
+                assert(a.sessionMatch=="SESSION COMPLETE" and b.sessionMatch=="SESSION COMPLETE")
+                request(p1,"forceRematch");request(p2,"forceRematch");task.wait(.3)
+                assert(read(p1).round==a.round and read(p2).phase=="Results","Forged votes started match 12")
+            end
+        end
+        untilTrue(function()
+            return read(p1).phase=="Lobby" and read(p2).phase=="Lobby" and p1.Character and p2.Character
+        end,40,"automatic lobby return after match eleven")
+        note("Final rematch buttons hid, forged votes were rejected, and both characters returned to the lobby automatically")
+        queue(p1);queue(p2)
+        local fresh=waitPhase(p1,"Playing")
+        assert(fresh.session.played==0 and fresh.session.game==1 and fresh.session.wins[1]==0 and fresh.session.wins[2]==0)
+        note("Queueing again created a fresh 0-0 session at match 1 / 11")
+        Match.new=original
+    end
+    local driver=({["NOVA/batch1"]=batch,["NOVA/batch-stress"]=stress,["NOVA/stats"]=stats,["NOVA/session"]=session})[test:GetTestArgs()] or exercise
     local ok,err=xpcall(driver,debug.traceback)
     if not ok then note(tostring(err)) end
     test:EndTest({passed=ok,observations=log})

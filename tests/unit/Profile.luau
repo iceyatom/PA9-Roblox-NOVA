@@ -11,7 +11,10 @@ return function()
         s:join(1); s:join(2); s:step(3)
         s.bodies[1].x,s.bodies[1].y=14,11.5
         s.bodies[2].x,s.bodies[2].y=24,11.5
-        for i=1,60 do s:intent(1,s.round,"fire",i); s:intent(2,s.round,"fire",i) end
+        local fireAt=0
+        s.fireClock=function() return fireAt end
+        for i=1,60 do fireAt=i;assert(s:intent(1,s.round,"fire",i));assert(s:intent(2,s.round,"fire",i)) end
+        assert(#s.bullets==120,"Stress fixture must contain 120 projectiles")
         local start=os.clock()
         s:step(cfg.Step)
         times[sample]=(os.clock()-start)*1000

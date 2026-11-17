@@ -21,7 +21,7 @@ When two queued players pair, the server chooses a map and both clients see a ho
 
 ## High Score Practice
 
-The mint beacon to the right of the main queue enters a private 2D firing lane. The player and auto-aimed target stay stationary. After an animated 3–2–1 / GO countdown, press your configured Fire binding (or the on-screen Fire button) once per shot for 30 seconds. Holding a binding does not repeat shots. The server counts accepted shots during the time window; movement, client score submissions, stale run IDs and duplicate shot IDs cannot change a score. A 50-shots-per-second ceiling bounds abusive remote traffic above normal human tapping speed.
+The mint beacon to the right of the main queue enters a private 2D firing lane. The player and auto-aimed target stay stationary. After an animated 3–2–1 / GO countdown, press your configured Fire binding (or the on-screen Fire button) once per shot for 30 seconds. Holding a binding does not repeat shots. The server counts accepted shots during the time window; movement, client score submissions, stale run IDs and duplicate shot IDs cannot change a score. The shared server firing limit starts at 12 shots per second; excess clicks do not add shots or score.
 
 Results show the run total and personal best, with Try again and Back to lobby buttons. The Lobby button can also abandon an unfinished attempt; abandoned attempts do not submit scores. Each player has an independent practice session and cannot queue for a duel at the same time.
 
@@ -29,6 +29,24 @@ The wall beside the beacon shows the global top 10, one best completed score per
 
 ## Duel rules
 A/D move, Space jumps from a surface, and gravity brings the player down. Each left mouse press launches one shot at the opponent's authoritative center when the request arrives. Direction is frozen for the flight. The server accepts increasing integer shot IDs for the current round only. Impacts in the same simulation step are applied together; simultaneous lethal impacts draw. Both players must vote for a rematch. Lobby returns the player to the 3D lobby. A combat disconnect gives the remaining player a win, and they may choose to wait for a new opponent. New arrivals cannot enter an active duel.
+
+## Duel session score and rematch limit
+
+The left rail shows **Session Score** for Player 01 (blue) and Player 02 (red), the current **Match N / 11**, completed matches, and draws. The first duel counts toward the score and limit. Rematches keep the same tally; each completed win/loss or draw counts as one match, exactly once. Draws award neither side a session win. These scores are separate from career win streaks.
+
+After the **11th completed match**, the session ends, rematches are rejected by the server, and the results show **Session Complete** with a **30-second lobby return countdown**. Players can use Lobby or open their earned chest sooner; both remaining players automatically respawn in the 3D lobby when the timer expires and must queue again. Rewards still save through the existing pipeline. Leaving or disconnecting cannot reopen the completed session. Changing opponents or queueing again starts at 0-0; other active duels remain independent.
+
+`SessionMatchLimit` and `SessionReturnDelay` live in `src/shared/Config.luau`. The logic suite includes session boundaries, draws, disconnects, early departures, score resets, blocked rematches, and automatic seat cleanup. The real two-client Studio check is `game:GetService("StudioTestService"):ExecuteMultiplayerTestAsync(1,"NOVA/session")`; it plays eleven duels through rematch buttons and checks both clients' scoreboards, blocked extra votes, automatic return, and fresh requeue.
+
+## Server firing limit and live tuning
+
+Duels and High Score Practice share a server-enforced **12 shots per second** limit, with at least 1/12 second between accepted shots per player. Excess requests are discarded, never queued, and their shot IDs cannot be replayed later. Idle time cannot accumulate a burst. Only accepted shots spawn projectiles or count toward practice/career totals. This limits firing speed without banning players for fast input.
+
+Use Roblox Studio's built-in **File > Open Configs** panel as the live administration control. Create a **Number** config named **`NOVA_MaxShotsPerSecond`**, initially **12**. Stage edits for Studio testing, then **Publish now** in that panel to distribute a new limit to running servers that contain this implementation. Only whole numbers **1-60** are accepted. Roblox's propagation can take several minutes; the server applies received changes to duels and practice, including existing sessions. A live change during a practice run can affect its score, so change the value between competitive events when possible.
+
+`ShotLimiter` owns the policy and `FireRateConfig` loads/refreshes it through `ConfigService`. A missing key uses 12. Invalid values or temporary service errors retain the last valid cap. Inspect `ServerScriptService.NOVA` attributes **MaxShotsPerSecond** and **FireRateConfigStatus** in the test server to see its effective limit and configuration status. No client/admin RemoteEvent can change the cap, and no API key is stored in the game. Existing saved practice records are preserved.
+
+For a temporary test-server override, run `game:GetService("ConfigService"):SetTestingValue("NOVA_MaxShotsPerSecond", 6)` in the **Server Command Bar** during Play; clear it with `ClearTestingValue("NOVA_MaxShotsPerSecond")`. Testing overrides affect only that Play session. The gameplay scripts require an initial place publish before this protection and subsequent live config changes reach online players. See [Roblox Experience Configs](https://create.roblox.com/docs/production/configs).
 
 ## Career stats and global leaderboards
 

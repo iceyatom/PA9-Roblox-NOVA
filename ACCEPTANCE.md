@@ -1,5 +1,13 @@
 # NOVA v1 acceptance record
 
+## Duel session score and eleven-match limit - November 13, 2026
+
+Added per-opponent session wins, draws, completed-game totals and Match N / 11 to the duel's left rail. The first duel counts; rematches retain scores. Match eleven closes the session, server-rejects further votes, hides Rematch, and starts a 30-second automatic lobby return. Both seats detach before respawning; new queues/opponents reset scores, final-result departures cannot reopen the session, and other rooms remain independent. Existing reward and career-stat delivery remains in place.
+
+All **179 local logic checks passed** with the stock catalog fixture. Studio's Session (7), Match/MatchRewards (8), Lobbies (4) and Stats (14) checks passed: **33 total**. The real two-client `NOVA/session` test returned **passed=true** after eleven played duels, with matching client scoreboards progressing from 1-0 to 6-5. It verified hidden final rematch controls, rejected forged extra votes, automatic respawn of both players, and requeue at 0-0 / match 1. Only map selection/countdown were shortened in this test; the production 30-second final return window was exercised. The probe spaces test shots reliably under the existing server firing cap.
+
+A Studio visual check confirmed the final score, session-complete label, centered Lobby action, and visible return countdown fit without clipping. Temporary previews and test sessions were removed. Changed source/test scripts were synchronized to Studio and the generated place rebuilt. No place was published.
+
 ## Career stats and sidewall rankings — November 12, 2026
 
 Sidebar styling: Daily check-in and Career stats now follow Shop at y=256 and y=336, with matching 220×72 dark panels, 8px gaps, 10px corners, and 26px Gotham Black labels. Both are text-only; the daily label stays Daily check-in. Active boost timers moved below the stack. Studio visual inspection confirmed matching backgrounds, aligned buttons and fitting text, with no runtime errors.

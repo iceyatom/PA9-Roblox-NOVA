@@ -78,7 +78,7 @@ return function(t)
     t.test("only accepted duel shots count and finished callbacks cannot double record",function()
         local sim=F.duel();local d=S.new()
         assert(sim:intent(1,sim.round,"fire",1));assert(not sim:intent(1,sim.round,"fire",1))
-        assert(not sim:intent(1,sim.round-1,"fire",2));assert(sim:intent(1,sim.round,"fire",2))
+        assert(not sim:intent(1,sim.round-1,"fire",2));sim.testClock+=1/12;assert(sim:intent(1,sim.round,"fire",2))
         sim.finished=function(s) S.record(d,event(tostring(s.round),"win","test",s.bodies[1].acceptedShots or 0)) end
         sim:finish(1,"Elimination");sim:finish(1,"Elimination")
         assert(d.matchesPlayed==1 and d.shotsFired==2)

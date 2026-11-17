@@ -10,6 +10,7 @@ function Match.new(map,cfg,chooseMap)
 end
 
 function Match:startRound()
+    if self.session.complete then return false end
     if self.chooseMap then
         self.map = self.chooseMap(self.round > 0 and self.map.id or nil)
         self:reset("Selecting")
@@ -21,6 +22,7 @@ function Match:startRound()
 end
 
 function Match:reset(phase)
+    if phase=="Waiting" then self.session={wins={0,0},draws=0,played=0,complete=false} end
     self.chestResults={}
     self.bodies = {Movement.body(self.map.spawns[1],self.cfg),Movement.body(self.map.spawns[2],self.cfg)}
     self.phase,self.votes,self.bullets,self.serial,self.winner,self.reason = phase,{}, {},0,nil,nil
@@ -32,17 +34,36 @@ end
 
 function Match:join(key)
     for i=1,2 do if self.seats[i] == key then return i end end
+    if self.session.complete then return nil end
     local seat = not self.seats[1] and 1 or not self.seats[2] and 2 or nil
     if not seat then return nil end
     self.seats[seat]=key
-    if self.seats[3-seat] then self:startRound() else self:reset("Waiting") end
+    if self.seats[3-seat] then
+        -- A new pairing always starts a fresh session; rematches use startRound directly.
+        self.session={wins={0,0},draws=0,played=0,complete=false}
+        self:startRound()
+    else self:reset("Waiting") end
     return seat
 end
 
 function Match:finish(winner,reason)
     if self.phase ~= "Playing" then return end
     self.phase,self.winner,self.reason,self.bullets,self.votes = "Results",winner,reason,{},{}
+    local session=self.session
+    session.played+=1
+    if winner==0 then session.draws+=1 else session.wins[winner]+=1 end
+    session.complete=session.played>=self.cfg.SessionMatchLimit
+    if session.complete then session.remaining=self.cfg.SessionReturnDelay end
     if self.finished then self.finished(self) end
+end
+
+-- Snapshot only public session fields; never expose the mutable score table.
+function Match:sessionView(now)
+    local session=self.session
+    return {wins=table.clone(session.wins),draws=session.draws,played=session.played,
+        game=self.phase=="Results" and session.played or math.min(session.played+1,self.cfg.SessionMatchLimit),
+        limit=self.cfg.SessionMatchLimit,complete=session.complete,
+        returnAt=session.complete and now+session.remaining or nil}
 end
 
 -- Find a flat, unobstructed shooting lane for Studio diagnostics.
@@ -70,6 +91,8 @@ end
 function Match:depart(seat)
     if not self.seats[seat] then return end
     self.seats[seat] = nil
+    -- Keep the final result/timer for the remaining player; never reopen its seat.
+    if self.phase=="Results" and self.session.complete then return end
     if self.phase == "Playing" and self.seats[3-seat] then self:finish(3-seat,"Disconnect")
     else self:reset("Waiting") end
 end
@@ -77,6 +100,7 @@ end
 function Match:intent(seat,round,kind,a,b)
     if not self.seats[seat] or self.round ~= round then return false end
     if kind == "rematch" and self.phase == "Results" then
+        if self.session.complete then return false end
         if not self.seats[3-seat] then self:reset("Waiting"); return true end
         self.votes[seat] = true
         if self.votes[3-seat] then self:startRound() end
@@ -104,7 +128,9 @@ function Match:intent(seat,round,kind,a,b)
 end
 
 function Match:step(dt)
-    if self.phase == "Selecting" then
+    if self.phase=="Results" and self.session.complete then
+        self.session.remaining=math.max(0,self.session.remaining-dt)
+    elseif self.phase == "Selecting" then
         self.count = math.max(0,self.count-dt)
         if self.count < 1e-7 then self.phase="Countdown"; self.count=self.cfg.Countdown end
     elseif self.phase == "Countdown" then
