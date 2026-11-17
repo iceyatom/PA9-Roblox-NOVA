@@ -8,13 +8,17 @@ local progression=require(script.Parent.ProgressionService).new()
 local inventory=require(script.Parent.InventoryService).new()
 local CrateDrop=require(shared.CrateDrop)
 local function recordStats(player,sim,outcome,seat)
-    inventory:recordStats(player,{key=("%s/%d/%d/%d"):format(inventory.session,sim.roomId,sim.round,player.UserId),
-        mapId=sim.map.id,mapName=sim.map.title or sim.map.id,outcome=outcome,shots=sim.bodies[seat].acceptedShots or 0})
+    local body=sim.bodies[seat]
+    -- Returns the quest rows this result moved, for the results screen.
+    return inventory:recordStats(player,{key=("%s/%d/%d/%d"):format(inventory.session,sim.roomId,sim.round,player.UserId),
+        mapId=sim.map.id,mapName=sim.map.title or sim.map.id,outcome=outcome,shots=body.acceptedShots or 0,hits=body.hits or 0,
+        flawless=outcome=="win" and sim.reason=="Elimination" and body.hp==sim.cfg.Health,time=os.time()})
 end
+inventory.questXP=function(player,amount) return progression:grant(player,amount,"Quest rewards") end
 local lobbies
 lobbies = require(script.Parent.Lobbies).new(map,Config,Maps.choose,function(sim)
     for i,p in sim.seats do
-        recordStats(p,sim,sim.winner==0 and "draw" or sim.winner==i and "win" or "loss",i)
+        sim.questRecaps[i]=recordStats(p,sim,sim.winner==0 and "draw" or sim.winner==i and "win" or "loss",i)
         local outcome=CrateDrop.outcome(sim.winner,sim.reason,i)
         local results=sim.chestResults
         if outcome and not results[i] then
@@ -74,7 +78,7 @@ local function broadcast(room)
         local p,b = sim.seats[i],sim.bodies[i]
         snap.players[i] = {uid=p and p.UserId,name=p and p.DisplayName,x=b.x,y=b.y,hp=b.hp,acceptedShots=b.acceptedShots or 0,vote=sim.votes[i] == true,
             winStreak=p and p:GetAttribute("WinStreak") or 0,
-            progression=p and progression:view(p),cosmetics=p and inventory:view(p),xpAward=sim.rewards[i],xpRecap=sim.xpRecaps[i]}
+            progression=p and progression:view(p),cosmetics=p and inventory:view(p),xpAward=sim.rewards[i],xpRecap=sim.xpRecaps[i],questRecap=sim.questRecaps[i]}
     end
     for i,b in sim.bullets do snap.shots[i]={b.id,b.x,b.y,b.seat,b.vx,b.vy} end
     for seat,p in sim.seats do

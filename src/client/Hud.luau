@@ -164,7 +164,7 @@ function Hud:update(snap,seat)
     local receipt=phase=="Results" and not blocked and snap.players[seat].xpRecap
     if receipt and receipt.total<=0 then receipt=nil end
     if receipt then
-        local height=108+self.xpRecap:start(tostring(snap.lobby)..":"..snap.round,receipt)+65
+        local height=108+self.xpRecap:start(tostring(snap.lobby)..":"..snap.round,receipt,snap.players[seat].questRecap)+65
         self.notice.Size=UDim2.fromOffset(500,height)
         self.notice.Position=UDim2.fromOffset(470,405-height/2)
         self.note.Size=UDim2.fromOffset(454,23)

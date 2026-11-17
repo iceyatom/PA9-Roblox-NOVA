@@ -60,6 +60,22 @@ Four global top-10 boards sit on the sidewall alongside High Score Practice: **M
 
 Run the local suite normally for the pure stats cases. In Studio Play, `require(game.ServerStorage.NOVAUnitTest.RunUnitTest)("Stats")` also runs the inventory-service queue fixtures. In Edit, `game:GetService("StudioTestService"):ExecuteMultiplayerTestAsync(1,"NOVA/stats")` runs the real two-client stats flow.
 
+## Quests
+
+Open **Quests** in the 3D lobby (below Career stats). The launcher shows a mint badge with the number of rewards ready to claim. The menu has **Daily**, **Weekly** and **Career** tabs. Each row shows the objective, a progress bar and the reward. Click a finished quest to claim it; the server checks the claim and grants the XP.
+
+- **Daily**: three quests from a pool of eight, 250–500 XP each. They reset at 00:00 UTC.
+- **Weekly**: three quests from a pool of eight, 1,500–3,000 XP each. They reset on Monday 00:00 UTC.
+- **Career**: six quests with five tiers each, paying 500, 1,000, 2,500, 5,000 and 10,000 XP. They read lifetime career stats, so existing players keep their history. The final tier also lists an item reward as **Coming soon**; no item is granted yet.
+
+Every player gets the same daily and weekly quests, derived from the day or week number, with no two quests of the same type in one set. A finished quest that is not claimed before its reset pays out automatically, and the menu says so the next time it opens. Double XP tokens do not double quest XP. Practice does not count.
+
+After a duel, the XP recap adds a **Quest progress** section with up to four quests that the match moved, finished ones first.
+
+Quest progress uses the same server match event as career stats and commits in the same inventory save, so a replayed result cannot count twice. Crate openings count in the crate's own transaction. Duels now also record shots landed and wins without taking a hit (`shotsHit`, `flawlessWins`); older profiles start both at zero. Quest state is stored under `quests` in the `NOVA_Inventory_v1` profile. XP goes to the separate progression profile only after the inventory save that records the claim, so a failed save cannot pay twice; a server crash between the two saves can lose that XP.
+
+`src/shared/Quests.luau` holds the pools, goals and XP values. To give a quest an item later, set `item` on the quest or tier and grant it in `Quests.claim`'s caller. Removing a quest from a pool drops it from saved lists on the next load.
+
 ## Daily check-in
 
 The lobby's **Daily check-in** menu opens on login when a reward is ready. Players claim once per **UTC calendar day**; the next reward unlocks at 00:00 UTC. Missing a full UTC date resets the next claim to day 1. Claiming just before and just after midnight is valid. Remaining online through midnight also allows the next claim. The menu previews each week's rewards, shows claimed days and the next unlock countdown, and supports touch scrolling and controller navigation. Check-ins are available in the 3D lobby.
@@ -207,10 +223,10 @@ Both the client and the server read the edited catalog. Crate details calculate 
 
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
-| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, ProgressionInfo, ProgressionArt, PrestigeRevealArt, XPRewards, RankIcons, InventoryCatalog, Inventory, InventoryEdits, InventoryEditorModel, SkinVisuals and InventoryArt |
+| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, ProgressionInfo, ProgressionArt, PrestigeRevealArt, XPRewards, RankIcons, InventoryCatalog, Inventory, InventoryEdits, InventoryEditorModel, SkinVisuals, InventoryArt, Stats and Quests |
 | `src/shared/maps` | `ReplicatedStorage.NOVA.Maps` | Map data modules for all five arenas |
 | `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences, ProgressionService, ProgressionStore, InventoryService, InventoryStore and StudioTest |
-| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, ProgressionMenu, PrestigeReveal, XPRecap, RankIcon, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu, InventoryMenu, InventoryRetirementNotice, InventoryPreview, InventoryStyle, CrateReveal, ItemUnlock, ReelAudio and Diagnostics |
+| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, ProgressionMenu, PrestigeReveal, XPRecap, RankIcon, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu, InventoryMenu, InventoryRetirementNotice, InventoryPreview, InventoryStyle, CrateReveal, ItemUnlock, ReelAudio, StatsMenu, QuestsMenu and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |
 

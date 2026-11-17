@@ -1,5 +1,13 @@
 # NOVA v1 acceptance record
 
+## Quests - November 16, 2026
+
+Added daily, weekly and five-tier career quests with XP rewards, a lobby Quests menu with click-to-claim rows and a ready-to-claim badge, and a Quest progress section in the post-match XP recap. Duels now record shots landed and flawless wins. Unclaimed finished quests pay out at reset. Final career tiers list an item reward as Coming soon; no item is granted.
+
+All **191 local logic checks passed** with the stock catalog fixture, including 12 new quest cases. In the Studio server, the 14 Stats cases passed and a service fixture confirmed that a duplicated match event counts once, the recap reports four rows, and a repeated claim pays 250 XP once. The full Studio run was 183/186; the three failures are catalog-dependent Inventory/BatchOne cases that also fail without this change when the saved item edits are loaded.
+
+In Studio Play, opening five real crates made Collector tier 1 claimable and showed the launcher badge. Clicking the row claimed it: the server granted 500 XP (level 1 to 4), the badge cleared and the row advanced to tier 2. The recap section was inspected with sample rows. The real two-client `NOVA/stats` run returned **passed=true** with quests wired in. Not checked: the recap section inside a real results screen by eye, phone layout, controller navigation, and live DataStore persistence. Sources were synchronized to Studio and the generated place rebuilt. The place was not saved or published.
+
 ## Duel session score and eleven-match limit - November 13, 2026
 
 Added per-opponent session wins, draws, completed-game totals and Match N / 11 to the duel's left rail. The first duel counts; rematches retain scores. Match eleven closes the session, server-rejects further votes, hides Rematch, and starts a 30-second automatic lobby return. Both seats detach before respawning; new queues/opponents reset scores, final-result departures cannot reopen the session, and other rooms remain independent. Existing reward and career-stat delivery remains in place.

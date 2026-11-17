@@ -155,6 +155,17 @@ function Service:award(player,won,doubled)
     return receipt.total,receipt
 end
 
+-- XP from outside a duel, such as claimed quests. Returns false until the profile can take it.
+function Service:grant(player,amount,label)
+    if not self:ready(player) then return false end
+    local r=self.records[player]
+    Rewards.apply(r.data,{{label=label,amount=amount}})
+    r.version+=1
+    player:SetAttribute("ProgressionStatus",self.storage and "Saving progression…" or "Studio preview / session progression")
+    self:publish(player)
+    return true
+end
+
 function Service:view(player)
     local r=self.records[player]
     return r and r.data and table.clone(r.data) or nil

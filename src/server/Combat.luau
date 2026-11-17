@@ -53,6 +53,8 @@ function Combat.step(sim,dt,previous)
         end
         if hit < wall then
             damage[targetSeat] += 1
+            local owner = sim.bodies[b.seat]
+            owner.hits = (owner.hits or 0)+1
         elseif wall == math.huge and x >= 0 and y >= 0 and x <= map.width and y <= map.height then
             keep += 1
             b.x,b.y = x,y

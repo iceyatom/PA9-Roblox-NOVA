@@ -28,6 +28,7 @@ function Match:reset(phase)
     self.phase,self.votes,self.bullets,self.serial,self.winner,self.reason = phase,{}, {},0,nil,nil
     self.rewards={}
     self.xpRecaps={}
+    self.questRecaps={}
     self.count = phase == "Countdown" and self.cfg.Countdown or 0
     if phase == "Countdown" then self.round += 1 end
 end
