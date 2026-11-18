@@ -7,13 +7,14 @@ local Input={}
 
 -- Both devices can hold jump at the same time; fire responds to a new press only.
 function Input.driver(send,getBindings)
-    local held,sticks={},{}
+    local held,sticks,touch={},{},{}
     local lastX,lastJump=0,false
     local function update()
         local b=getBindings()
         local x=b.console.move=="DPad" and ((held.DPadRight and 1 or 0)-(held.DPadLeft and 1 or 0)) or (sticks[b.console.move] or 0)
         if held[b.pc.left] or held[b.pc.right] then x=(held[b.pc.right] and 1 or 0)-(held[b.pc.left] and 1 or 0) end
-        local jump=held[b.pc.jump]==true or held[b.console.jump]==true
+        if touch.Left or touch.Right then x=(touch.Right and 1 or 0)-(touch.Left and 1 or 0) end
+        local jump=held[b.pc.jump]==true or held[b.console.jump]==true or touch.Jump==true
         if x~=lastX then lastX=x; send("move",x) end
         if jump~=lastJump then lastJump=jump; send("jump",jump) end
     end
@@ -31,16 +32,33 @@ function Input.driver(send,getBindings)
         end
         update()
     end
-    local function clear()
-        table.clear(held); table.clear(sticks)
+    local function handleTouch(action,down)
+        if action=="Fire" then
+            if down then send("fire") end
+            return
+        end
+        touch[action]=down or nil
         update()
     end
-    return handle,clear
+    local function clear()
+        table.clear(held); table.clear(sticks); table.clear(touch)
+        update()
+    end
+    return handle,clear,handleTouch
 end
 
-function Input.connect(send,active,settings)
-    local handle,reset=Input.driver(send,function() return settings.bindings end)
-    local function clear() reset() end
+function Input.connect(send,active,settings,playerGui)
+    local handle,reset,handleTouch=Input.driver(send,function() return settings.bindings end)
+    local showTouch,resetTouch
+    if UIS.TouchEnabled then
+        showTouch,resetTouch=require(script.Parent.MobileControls).new(playerGui,handleTouch,function()
+            return active() and not gui.MenuIsOpen and not UIS:GetFocusedTextBox()
+        end)
+    end
+    local function clear()
+        reset()
+        if resetTouch then resetTouch() end
+    end
     local function bind()
         clear()
         actions:UnbindAction("NOVA_DuelControls")
@@ -79,6 +97,6 @@ function Input.connect(send,active,settings)
     gui.MenuOpened:Connect(clear)
     UIS.WindowFocusReleased:Connect(clear)
     UIS.TextBoxFocused:Connect(clear)
-    return clear
+    return clear,showTouch
 end
 return Input

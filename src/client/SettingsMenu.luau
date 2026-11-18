@@ -5,6 +5,8 @@ local Gamepad=game:GetService("GamepadService")
 local Core=game:GetService("StarterGui")
 local W=require(script.Parent.Widgets)
 local Style=require(script.Parent.InventoryStyle)
+local MobilePanel=require(script.Parent.MobilePanel)
+local mobile=UIS.TouchEnabled
 local C=W.colors
 local Menu={}
 Menu.__index=Menu
@@ -57,6 +59,10 @@ function Menu.new(playerGui,settings,clear)
     self.overlay=overlay
     local panel=W.box(overlay,"Panel",0,0,0,0,C.panel)
     panel.Active=true;Style.surface(panel,12);self.panel=panel
+    if mobile then
+        MobilePanel.disableScroll(overlay)
+        MobilePanel.attach(overlay,panel)
+    end
     local icon=settingsIcon(panel)
     icon.Position=UDim2.fromOffset(24,16)
     self.title=W.text(panel,"Title",94,22,0,44,"Settings",29,C.white,Enum.Font.GothamBlack)
@@ -143,25 +149,32 @@ end
 
 function Menu:layout()
     local viewport=self.overlay.AbsoluteSize
-    -- Leave space for Roblox's player list and its Level and Prestige columns.
-    local playerListSpace=viewport.X>=680 and Core:GetCoreGuiEnabled(Enum.CoreGuiType.PlayerList) and 336 or 0
-    local compactLauncher=viewport.X-playerListSpace<480
-    self.launcher.Position=UDim2.new(1,-16-playerListSpace,0,16)
+    local compactLauncher=false
+    if self.launcher.Parent==self.gui then
+        -- Leave space for Roblox's player list and its Level and Prestige columns.
+        local playerListSpace=viewport.X>=680 and Core:GetCoreGuiEnabled(Enum.CoreGuiType.PlayerList) and 336 or 0
+        compactLauncher=viewport.X-playerListSpace<480
+        self.launcher.Position=UDim2.new(1,-16-playerListSpace,0,16)
+    end
     self.launcher.Size=UDim2.fromOffset(compactLauncher and 68 or 220,72)
     self.launcher.TextSize=compactLauncher and 15 or 26
 
-    local width=math.clamp(viewport.X-24,280,940)
+    local width=mobile and 880 or math.clamp(viewport.X-24,280,940)
     local narrow=width<600
     local margin=narrow and 16 or 24
     local inner=width-2*margin
     local tabWidth=(inner-12)/2
     local rowHeight=narrow and 100 or 70
-    local rowTop=narrow and 214 or 188
+    local rowTop=narrow and 214 or mobile and 174 or 188
     local footer=rowTop+3*(rowHeight+12)+4
     local height=footer+(narrow and 120 or 72)
 
-    rect(self.panel,math.max(12,(viewport.X-width)/2),math.max(12,(viewport.Y-height)/2),width,height)
-    self.overlay.CanvasSize=UDim2.fromOffset(0,height+24)
+    if mobile then
+        self.panel.Size=UDim2.fromOffset(width,height)
+    else
+        rect(self.panel,math.max(12,(viewport.X-width)/2),math.max(12,(viewport.Y-height)/2),width,height)
+        self.overlay.CanvasSize=UDim2.fromOffset(0,height+24)
+    end
     rect(self.title,94,22,width-174,44)
     self.title.TextSize=narrow and 25 or 29
     rect(self.close,width-margin-52,24,52,40)
@@ -255,8 +268,9 @@ function Menu:setOpen(open)
         self.playerListWasEnabled=Core:GetCoreGuiEnabled(Enum.CoreGuiType.PlayerList)
         Core:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList,false)
         if self.controls then self.controls:Disable() end
-        if isGamepad(UIS:GetLastInputType()) then self.device="console" end
-        Gui.SelectedObject=self.tabs[self.device]
+        local usingGamepad=isGamepad(UIS:GetLastInputType())
+        if usingGamepad then self.device="console" end
+        Gui.SelectedObject=(not mobile or usingGamepad) and self.tabs[self.device] or nil
     else
         if self.playerListWasEnabled~=nil then Core:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList,self.playerListWasEnabled) end
         if self.controls then self.controls:Enable() end

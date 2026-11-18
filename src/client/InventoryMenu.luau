@@ -11,6 +11,8 @@ local Model=require(shared.Inventory)
 local W=require(script.Parent.Widgets)
 local Preview=require(script.Parent.InventoryPreview)
 local Style=require(script.Parent.InventoryStyle)
+local MobilePanel=require(script.Parent.MobilePanel)
+local mobile=UIS.TouchEnabled
 local C=W.colors
 local Menu={}; Menu.__index=Menu
 local function gamepad() return UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" end
@@ -41,6 +43,7 @@ function Menu.new(playerGui,clear,beforeOpen)
     local panel=W.box(origin,"Panel",-520,-325,1040,650,C.panel); self.panel=panel; panel.Active=true
     self.pop=Instance.new("UIScale"); self.pop.Parent=panel
     Style.surface(panel,12)
+    if mobile then MobilePanel.disableScroll(overlay) end
     self.origin=origin; self.fit=fit; self.launcherScale=launcherScale
     overlay:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:resize() end)
     Preview.icon(panel,"crates",18,10,62)
@@ -49,17 +52,25 @@ function Menu.new(playerGui,clear,beforeOpen)
     self.currency.TextXAlignment=Enum.TextXAlignment.Right
     self.close=Style.button(panel,"Close",954,24,62,40,"×",false); self.close.TextSize=26
     self.tabs={}
+    local mobileNames={bullets="Bullets",backgrounds="Cards",sounds="Sounds"}
     for i,category in Catalog.categories do
         local tab=Style.button(panel,"Tab_"..category.id,24+(i-1)*166,92,162,44,"",false)
         Preview.icon(tab,category.id,4,6,32)
-        W.text(tab,"Label",42,0,116,44,category.name,18,C.white,Enum.Font.GothamBold)
+        W.text(tab,"Label",42,0,116,44,mobile and (mobileNames[category.id] or category.name) or category.name,18,C.white,Enum.Font.GothamBold)
         tab.Activated:Connect(function() self:setCategory(i) end); self.tabs[i]=tab
     end
     local setupTab=Style.button(panel,"Tab_ClassSetup",0,92,138,44,"",false)
     Preview.icon(setupTab,"skins",4,6,32)
-    W.text(setupTab,"Label",42,0,90,44,"Class setup",16,C.white,Enum.Font.GothamBold)
+    W.text(setupTab,"Label",42,0,90,44,mobile and "Class" or "Class setup",16,C.white,Enum.Font.GothamBold)
     setupTab.Activated:Connect(function() self:setCategory(#Catalog.categories+1) end)
     table.insert(self.tabs,setupTab)
+    if mobile then
+        local boosts=Style.button(panel,"Tab_Boosts",0,92,138,44,"",false)
+        Preview.icon(boosts,Catalog.byId[Catalog.tokens[1]],4,6,32)
+        W.text(boosts,"Label",42,0,90,44,"Boosts",16,C.white,Enum.Font.GothamBold)
+        boosts.Activated:Connect(function() self:setCategory(#Catalog.categories+2) end)
+        table.insert(self.tabs,boosts)
+    end
     for _,tab in self.tabs do
         tab.Label.TextScaled=true
         local limit=Instance.new("UITextSizeConstraint");limit.MinTextSize=11;limit.MaxTextSize=18;limit.Parent=tab.Label
@@ -70,21 +81,29 @@ function Menu.new(playerGui,clear,beforeOpen)
     search.ClearTextOnFocus=false; search.TextSize=18; search.Font=Enum.Font.Gotham; search.ZIndex=5; search.Parent=panel
     Style.surface(search,8)
     self.search=search
-    search:GetPropertyChangedSignal("Text"):Connect(function() self.query=search.Text:lower(); self:refresh() end)
+    search:GetPropertyChangedSignal("Text"):Connect(function()
+        self.query=search.Text:lower()
+        self:refreshFilters()
+    end)
     self.rarityButton=Style.button(panel,"RarityFilter",386,152,174,44,"All rarities",false)
     self.sortButton=Style.button(panel,"Sort",572,152,222,44,"Sort: Equipped",false)
     self.favoriteFilter=Style.button(panel,"FavoritesFilter",806,152,210,44,"Favorites: All",false)
     self.ownershipFilter=Style.button(panel,"OwnershipFilter",826,152,190,44,"Unlocked",false)
     self.ownershipFilter.Activated:Connect(function()
-        self.ownership=(self.ownership+1)%3; self.scroll.CanvasPosition=Vector2.zero; self:refresh()
+        self.ownership=(self.ownership+1)%3; self.scroll.CanvasPosition=Vector2.zero; self:refreshFilters()
     end)
-    self.rarityButton.Activated:Connect(function() self.rarity=(self.rarity+1)%(#Catalog.rarities+1); self:refresh() end)
-    self.sortButton.Activated:Connect(function() self.sort=self.sort%3+1; self:refresh() end)
-    self.favoriteFilter.Activated:Connect(function() self.onlyFavorites=not self.onlyFavorites; self:refresh() end)
+    self.rarityButton.Activated:Connect(function() self.rarity=(self.rarity+1)%(#Catalog.rarities+1); self:refreshFilters() end)
+    self.sortButton.Activated:Connect(function() self.sort=self.sort%3+1; self:refreshFilters() end)
+    self.favoriteFilter.Activated:Connect(function() self.onlyFavorites=not self.onlyFavorites; self:refreshFilters() end)
     local scroll=Instance.new("ScrollingFrame"); scroll.Name="Items"; scroll.Position=UDim2.fromOffset(24,210)
     scroll.Size=UDim2.fromOffset(628,382); scroll.BackgroundTransparency=1; scroll.BorderSizePixel=0
     scroll.ScrollBarThickness=4; scroll.ScrollBarImageColor3=C.purple; scroll.ScrollingDirection=Enum.ScrollingDirection.Y
     scroll.CanvasSize=UDim2.fromOffset(0,0); scroll.Active=true; scroll.Parent=panel; self.scroll=scroll
+    if mobile then
+        MobilePanel.disableScroll(scroll)
+        self.pager=MobilePanel.pager(panel,function() self.selected=nil; self:refresh() end)
+        self.pager.root.Position=UDim2.fromOffset(188,530)
+    end
     self.empty=wrapped(panel,"Empty",48,300,570,92,"Loading inventory…",18,C.muted); self.empty.TextXAlignment=Enum.TextXAlignment.Center
     self.count=W.text(panel,"Count",24,594,628,22,"",14,C.muted,Enum.Font.GothamBold)
     local details=W.box(panel,"Details",676,210,340,402,C.ink); self.details=details
@@ -209,8 +228,8 @@ function Menu.new(playerGui,clear,beforeOpen)
     CAS:BindActionAtPriority("NOVA_InventoryTabs",function(_,state,input)
         if not self.opened then return Enum.ContextActionResult.Pass end
         if state==Enum.UserInputState.Begin and not self.reveal.active and not self.focus.root and not self.contents.root then
-            self:setCategory(((self.classPage and #self.tabs or self.category)-1+(input.KeyCode==Enum.KeyCode.ButtonR1 and 1 or -1))%#self.tabs+1)
-            Gui.SelectedObject=self.tabs[self.classPage and #self.tabs or self.category]
+            self:setCategory(((self.classPage or self.category)-1+(input.KeyCode==Enum.KeyCode.ButtonR1 and 1 or -1))%#self.tabs+1)
+            Gui.SelectedObject=self.tabs[self.classPage or self.category]
         end
         return Enum.ContextActionResult.Sink
     end,false,Enum.ContextActionPriority.High.Value+45,Enum.KeyCode.ButtonL1,Enum.KeyCode.ButtonR1)
@@ -244,7 +263,7 @@ function Menu:resize()
     if self.lastWidth and math.abs(width-self.lastWidth)>1 and self.reveal.active then self.reveal:hide() end
     self.lastWidth=width
     self.launcherScale.Scale=math.min(1,math.max(.5,(self.gui.AbsoluteSize.X-32)/220))
-    local compact=width<1000 or height<560
+    local compact=not mobile and (width<1000 or height<560)
     local panelWidth=compact and math.min(720,math.max(340,width-24)) or 1040
     local function rect(object,x,y,w,h) object.Position=UDim2.fromOffset(x,y); object.Size=UDim2.fromOffset(w,h) end
     self.compact=compact; self.columns=compact and (panelWidth<580 and 2 or 3) or 3
@@ -258,10 +277,12 @@ function Menu:resize()
     local tabWidth=(panelWidth-48-(tabColumns-1)*4)/tabColumns
     for i,tab in self.tabs do
         rect(tab,24+((i-1)%tabColumns)*(tabWidth+4),92+math.floor((i-1)/tabColumns)*48,tabWidth,44)
-        tab.Sprite.Visible=not compact
-        rect(tab.Label,compact and 3 or 42,0,compact and tabWidth-6 or tabWidth-46,44)
+        local textOnly=mobile or compact
+        tab.Sprite.Visible=not textOnly
+        rect(tab.Label,textOnly and 3 or 42,0,textOnly and tabWidth-6 or tabWidth-46,44)
         tab.Label.TextSize=compact and (panelWidth<580 and 14 or 16) or 15
-        tab.Label.TextXAlignment=compact and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left
+        tab.Label.TextXAlignment=textOnly and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left
+        if mobile then tab.Label.TextTruncate=Enum.TextTruncate.None end
     end
     local filterY=92+math.ceil(#self.tabs/tabColumns)*48+12
     if compact then
@@ -283,8 +304,9 @@ function Menu:resize()
         rect(self.ownershipFilter,826,152,190,44)
         self.sortButton.TextSize=15; self.favoriteFilter.TextSize=15
         self.rarityButton.TextSize=18; self.sortButton.TextSize=18; self.favoriteFilter.TextSize=18
-        rect(self.scroll,24,210,628,382); rect(self.empty,48,300,570,92)
-        rect(self.count,24,594,628,22); rect(self.details,676,210,340,402); rect(self.status,24,622,992,20)
+        rect(self.scroll,24,210,628,mobile and 312 or 382); rect(self.empty,48,300,570,92)
+        rect(self.count,24,mobile and 582 or 594,628,22)
+        rect(self.details,676,210,340,402); rect(self.status,24,622,992,20)
     end
     local dw=self.details.Size.X.Offset
     rect(self.preview,14,4,dw-28,142); rect(self.itemName,18,154,dw-36,30)
@@ -292,11 +314,12 @@ function Menu:resize()
     rect(self.previewButton,18,298,dw-36,40); rect(self.action,18,348,dw-144,40); rect(self.favorite,dw-114,348,96,40)
     local panelHeight=compact and self.detailsY+460 or 650
     self.setupTop=compact and filterY or 152
-    if self.classPage then
+    if self.classPage and not mobile then
         panelHeight=math.max(650,self.setupTop+require(script.Parent.ClassSetup).height(panelWidth-48)+24)
     end
     self.panel.Size=UDim2.fromOffset(panelWidth,panelHeight)
-    self.fit.Scale=compact and math.min(1,(width-24)/panelWidth) or math.max(.01,math.min(1.3,(width-48)/1040,(height-48)/panelHeight))
+    self.fit.Scale=mobile and MobilePanel.fit(self.overlay.AbsoluteSize,panelWidth,panelHeight)
+        or compact and math.min(1,(width-24)/panelWidth) or math.max(.01,math.min(1.3,(width-48)/1040,(height-48)/panelHeight))
     self.overlay.ScrollingEnabled=compact
     self.overlay.CanvasSize=compact and UDim2.fromOffset(0,panelHeight*self.fit.Scale+24) or UDim2.fromOffset(0,0)
     self.origin.Position=compact and UDim2.new(.5,0,0,12) or UDim2.fromScale(.5,.5)
@@ -305,20 +328,30 @@ function Menu:resize()
 end
 function Menu:setCategory(index)
     if self.reveal.active or self.contents.root then return end
-    self.classPage=index==#self.tabs
+    self.classPage=index>#Catalog.categories and index or nil
     if not self.classPage then self.category=index end
+    if self.pager then self.pager.page=1 end
     self.selected=nil; self.scroll.CanvasPosition=Vector2.zero
     if self.compact then self.overlay.CanvasPosition=Vector2.zero end
     self.message=nil; self:resize()
 end
+function Menu:refreshFilters()
+    if self.pager then self.pager.page=1; self.selected=nil end
+    self:refresh()
+end
 function Menu:refresh()
     if not self.status then return end
     local data=self.data
-    local classPage=self.classPage==true
+    local classPage=self.classPage~=nil
     for _,object in {self.search,self.rarityButton,self.sortButton,self.favoriteFilter,self.ownershipFilter,self.scroll,self.empty,self.count,self.details,self.status} do object.Visible=not classPage end
-    for i,tab in self.tabs do tab.BackgroundColor3=(classPage and i==#self.tabs or not classPage and i==self.category) and C.purple or C.line end
-    self.setup:update(data,self.panel.Size.X.Offset-48,self.setupTop or 152,classPage and self.opened==true,self.profile and self.profile.ready and not self.busy)
-    if classPage then return end
+    for i,tab in self.tabs do tab.BackgroundColor3=i==(self.classPage or self.category) and C.purple or C.line end
+    local setupView=mobile and (self.classPage==#Catalog.categories+2 and "boosts" or "gear") or nil
+    self.setup:update(data,self.panel.Size.X.Offset-48,self.setupTop or 152,classPage and self.opened==true,
+        self.profile and self.profile.ready and not self.busy,setupView)
+    if classPage then
+        if self.pager then self.pager.root.Visible=false end
+        return
+    end
     local category=Catalog.categories[self.category].id
     self.currency.Text=("%d Shards"):format(data and data.shards or 0)
     self.rarityButton.Text=self.rarity==0 and "All rarities" or Catalog.rarities[self.rarity]
@@ -353,10 +386,18 @@ function Menu:refresh()
         end
         return a.name<b.name
     end)
-    if not table.find(items,Catalog.byId[self.selected]) then self.selected=items[1] and items[1].id or nil end
+    local cw,columns=self.cardWidth or 196,self.columns or 3
+    local first,last=1,#items
+    local selectedIndex=table.find(items,Catalog.byId[self.selected])
+    if self.pager then
+        if selectedIndex then self.pager.page=math.ceil(selectedIndex/(columns*2)) end
+        first,last=self.pager:range(#items,columns*2)
+    end
+    if not selectedIndex then self.selected=items[first] and items[first].id or nil end
     local focused
-    for i,item in items do
-        local cw,columns=self.cardWidth or 196,self.columns or 3
+    for index=first,last do
+        local item=items[index]
+        local i=index-first+1
         local card=Style.button(self.scroll,item.id,2+((i-1)%columns)*(cw+10),2+math.floor((i-1)/columns)*156,cw,144,"",false)
         card:SetAttribute("ItemId",item.id); card:SetAttribute("InventoryCard",true); card.BackgroundColor3=C.ink
         local border=card:FindFirstChildOfClass("UIStroke")
@@ -384,7 +425,7 @@ function Menu:refresh()
         self.cards[i]=card; if focusId==item.id then focused=card end
     end
     if focusId then Gui.SelectedObject=focused or (gamepad() and self.tabs[self.category] or nil) end
-    self.scroll.CanvasSize=UDim2.fromOffset(0,4+math.ceil(#items/(self.columns or 3))*156)
+    if not mobile then self.scroll.CanvasSize=UDim2.fromOffset(0,4+math.ceil(#items/columns)*156) end
     self.empty.Visible=#items==0
     self.empty.Text=not data and (self.profile and self.profile.status or "Loading inventory…")
         or (self.query~="" or self.rarity~=0 or self.onlyFavorites or self.ownership~=0) and "No items match these filters."
@@ -540,7 +581,7 @@ function Menu:setOpen(open)
             local humanoid=player.Character and player.Character:FindFirstChildOfClass("Humanoid")
             if humanoid then humanoid:Move(Vector3.zero,false); humanoid.Jump=false end
         end)
-        Gui.SelectedObject=gamepad() and self.tabs[self.classPage and #self.tabs or self.category] or nil
+        Gui.SelectedObject=gamepad() and self.tabs[self.classPage or self.category] or nil
         if self.popTween then self.popTween:Cancel() end
         self.pop.Scale=.94
         self.popTween=Tween:Create(self.pop,TweenInfo.new(.18,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Scale=1})

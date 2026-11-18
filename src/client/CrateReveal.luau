@@ -80,7 +80,7 @@ function Reveal:show(receipt)
     local identity=(itemTypes[item.category] or "Item").."  /  "..item.rarity
     local width=self.panel.Size.X.Offset
     local screen=self.panel:FindFirstAncestorWhichIsA("ScreenGui")
-    local short=screen and screen.AbsoluteSize.Y<560
+    local short=not UIS.TouchEnabled and screen and screen.AbsoluteSize.Y<560
     local height=short and math.max(300,screen.AbsoluteSize.Y-24) or 650
     local root=W.box(self.panel,"CrateReveal",0,0,width,math.max(650,self.panel.Size.Y.Offset),C.ink,40); root.Active=true; self.overlay=root
     root:SetAttribute("ContentHeight",height)

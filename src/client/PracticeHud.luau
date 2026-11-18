@@ -12,8 +12,8 @@ local Tween=game:GetService("TweenService")
 local PracticeHud={}
 PracticeHud.__index=PracticeHud
 
-function PracticeHud.new(playerGui,send)
-    local self=setmetatable({send=send,pulses={}},PracticeHud)
+function PracticeHud.new(playerGui,send,mobile)
+    local self=setmetatable({send=send,pulses={},mobile=mobile},PracticeHud)
     local gui=Instance.new("ScreenGui")
     gui.Name="NOVAPractice"; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true; gui.DisplayOrder=11
     gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.Enabled=false; gui.Parent=playerGui
@@ -106,7 +106,7 @@ function PracticeHud:update(snap)
     end
     self.snap=snap; self.gui.Enabled=true
     self.score.Text=tostring(snap.score)
-    self.fire.Visible=snap.phase=="Playing"
+    self.fire.Visible=not self.mobile and snap.phase=="Playing"
     self.result.Visible=snap.phase=="Results"
     self.final.Text=("%d SHOTS"):format(snap.score)
     self.best.Text=("PERSONAL BEST / %d"):format(snap.best or snap.score)

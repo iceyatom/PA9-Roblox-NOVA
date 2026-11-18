@@ -1,6 +1,8 @@
 local Players=game:GetService("Players")
 local Run=game:GetService("RunService")
 local core=game:GetService("StarterGui")
+local UIS=game:GetService("UserInputService")
+local mobile=UIS.TouchEnabled
 -- Cursor opt-in is exposed on some engine channels; otherwise CoreScripts own the default.
 pcall(function() core.VirtualCursorMode=Enum.VirtualCursorMode.Enabled end)
 local player=Players.LocalPlayer
@@ -11,10 +13,10 @@ local practiceInput=shared:WaitForChild("PracticeInput")
 local practiceState=shared:WaitForChild("PracticeState")
 local hud=require(script.Parent.Hud).new(player:WaitForChild("PlayerGui"))
 local arena=require(script.Parent.Arena).new(hud.stage)
-local roller=require(script.Parent.MapRoller).new(hud.stage)
+local roller=require(script.Parent.MapRoller).new(hud.stage,mobile)
 hud.mapCode.Text=("MAP   /   %s"):format(arena.map.code)
 hud.mapTitle.Text=arena.map.title
-local lobbyCard=require(script.Parent.LobbyHud).new(player.PlayerGui)
+local lobbyCard=require(script.Parent.LobbyHud).new(player.PlayerGui,mobile)
 local lobbyMusic=require(script.Parent.LobbyMusic).new()
 local snapshot,seat,sequence
 local practice,practiceSnapshot,practiceSequence
@@ -31,10 +33,10 @@ local function fire(kind,a,b)
 end
 local settings=require(script.Parent.ControlSettings).new()
 hud.resultBanner.getBindings=function() return settings.bindings end
-practice=require(script.Parent.PracticeHud).new(player.PlayerGui,fire)
-local clear=require(script.Parent.Input).connect(fire,function()
-    return not settings.opened and ((practiceSnapshot and practiceSnapshot.phase=="Playing") or (snapshot and snapshot.phase=="Playing"))
-end,settings)
+practice=require(script.Parent.PracticeHud).new(player.PlayerGui,fire,mobile)
+local clear,showTouch=require(script.Parent.Input).connect(fire,function()
+    return not settings.opened and ((practiceSnapshot and practiceSnapshot.phase=="Playing") or (seat and snapshot.phase=="Playing"))
+end,settings,player.PlayerGui)
 local settingsMenu=require(script.Parent.SettingsMenu).new(player.PlayerGui,settings,clear)
 local progressionHud,progressionMenu=require(script.Parent.ProgressionHud).new(player.PlayerGui,clear)
 local inventory=require(script.Parent.InventoryMenu).new(player.PlayerGui,clear)
@@ -49,6 +51,11 @@ local daily=require(script.Parent.DailyRewardsMenu).new(player.PlayerGui,clear,n
 local stats=require(script.Parent.StatsMenu).new(player.PlayerGui,clear,nil,inventoryProfile)
 local quests=require(script.Parent.QuestsMenu).new(player.PlayerGui,clear,nil,inventoryProfile)
 local menus={progressionMenu,inventory,shop,daily,stats,quests,settingsMenu}
+local mobileLobby
+if mobile then
+    mobileLobby=require(script.Parent.MobileLobby).new(player.PlayerGui,
+        {progressionMenu,inventory,shop,daily},{settingsMenu,quests,stats},shop.chipRow)
+end
 local function openMenu()
     for _,menu in menus do
         if menu.gui:GetAttribute("MenuOpen") then return menu end
@@ -109,6 +116,7 @@ local function setMode(duel)
     settingsMenu:setAvailable(not duel)
     hud.gui.Enabled=duel
     lobbyCard.Enabled=not duel
+    if mobileLobby then mobileLobby.Enabled=not duel end
     progressionHud.Enabled=not duel
     if duel then progressionMenu:setOpen(false) end
     inventory:setAvailable(not duel)
@@ -140,6 +148,7 @@ state.OnClientEvent:Connect(function(nextState)
         clear()
         roller:hide()
         setMode(false)
+        if showTouch then showTouch(false,false) end
         arena:clearShots()
         if openAfterLobby then openAfterLobby=false; inventory:openVictoryChest() end
         return
@@ -167,6 +176,7 @@ state.OnClientEvent:Connect(function(nextState)
         end
     end
     hud:update(snapshot,seat)
+    if showTouch then showTouch(snapshot.phase=="Playing",false) end
     if not settings.opened and (newDuel or previous.phase~=snapshot.phase)
         and game:GetService("UserInputService"):GetLastInputType().Name:sub(1,7)=="Gamepad" then
         game:GetService("GuiService").SelectedObject=settingsMenu.selectionOnClose()
@@ -178,6 +188,7 @@ practiceState.OnClientEvent:Connect(function(nextState)
     if nextState.phase=="Lobby" then
         practiceSnapshot=nil; snapshot,seat=nil,nil
         clear(); practice:hide(); setMode(false)
+        if showTouch then showTouch(false,false) end
         return
     end
     snapshot,seat=nil,nil
@@ -186,6 +197,7 @@ practiceState.OnClientEvent:Connect(function(nextState)
     if not previous or previous.id~=nextState.id or previous.phase~=nextState.phase then clear() end
     setMode(true); hud.gui.Enabled=false; roller:hide()
     practice:update(nextState)
+    if showTouch then showTouch(nextState.phase=="Playing",true) end
     if not settings.opened and (not previous or previous.phase~=nextState.phase)
         and game:GetService("UserInputService"):GetLastInputType().Name:sub(1,7)=="Gamepad" then
         game:GetService("GuiService").SelectedObject=settingsMenu.selectionOnClose()

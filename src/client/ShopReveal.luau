@@ -56,7 +56,8 @@ function Reveal:show(receipt,presentation)
     local section=Shop.sectionById[product.section]
     local width=self.panel.Size.X.Offset
     local screen=self.panel:FindFirstAncestorWhichIsA("ScreenGui")
-    local short=screen~=nil and screen.AbsoluteSize.Y<560
+    local fitted=UIS.TouchEnabled and self.panel.Size.Y.Offset>=650
+    local short=not fitted and screen~=nil and screen.AbsoluteSize.Y<560
     local height=short and math.max(300,screen.AbsoluteSize.Y-24) or 650
     local root=W.box(self.panel,"ShopReveal",0,0,width,math.max(650,self.panel.Size.Y.Offset),C.ink,40)
     root.Active=true; Style.round(root,12); self.overlay=root
@@ -141,7 +142,7 @@ function Reveal:showDaily(reward,data)
     local headline=pack and "EXCLUSIVE SKIN PACK" or crates and ("%d CRATE%s"):format(reward.quantity,reward.quantity==1 and "" or "S")
         or ("%d × %d MINUTES\n%s"):format(reward.quantity,reward.minutes,name)
     local note=pack and (data.daily.packDelivered and "Your skin pack is in your inventory." or "Pack reserved. Delivered when it releases.")
-        or crates and "Added to your inventory." or "Tokens saved. Activate from Class setup."
+        or crates and "Added to your inventory." or (UIS.TouchEnabled and "Tokens saved. Activate from Boosts." or "Tokens saved. Activate from Class setup.")
     local item
     if pack then
         local ids=require(shared.DailyRewards).PackItems

@@ -11,6 +11,8 @@ local Quests=require(shared.Quests)
 local SeasonOne=require(shared.SeasonOne)
 local W=require(script.Parent.Widgets)
 local Style=require(script.Parent.InventoryStyle)
+local MobilePanel=require(script.Parent.MobilePanel)
+local mobile=UIS.TouchEnabled
 local Reveal=require(script.Parent.ShopReveal)
 local C=W.colors
 local Menu={};Menu.__index=Menu
@@ -50,13 +52,18 @@ function Menu.new(playerGui,clear,beforeOpen,getProfile)
     overlay.ScrollBarThickness=4;overlay.ScrollBarImageColor3=C.purple;overlay.ScrollingDirection=Enum.ScrollingDirection.Y
     overlay.Active=true;overlay.Visible=false;overlay.Parent=gui;self.overlay=overlay
     self.panel=W.box(overlay,"Panel",0,0,1080,700,C.panel);self.panel.Active=true;Style.surface(self.panel,12)
+    if mobile then
+        MobilePanel.disableScroll(overlay)
+        MobilePanel.attach(overlay,self.panel)
+        self.pager=MobilePanel.pager(self.panel,function() self:refresh() end)
+    end
     self.title=label(self.panel,"Title","Quests",36,C.white);self.title.Font=Enum.Font.GothamBlack
     self.close=Style.button(self.panel,"Close",0,0,56,44,"×",false);self.close.TextSize=28
     self.summary=label(self.panel,"Summary","",20,C.mint)
     self.tabs={}
     for i,tab in tabs do
         local button=Style.button(self.panel,"Tab"..i,0,0,0,48,tab.name,false);button.TextSize=22
-        button.Activated:Connect(function() self.tab=i;self.message="";self:refresh() end);self.tabs[i]=button
+        button.Activated:Connect(function() self:setTab(i) end);self.tabs[i]=button
     end
     self.reset=label(self.panel,"Reset","",18,C.muted)
     self.list=W.box(self.panel,"List",24,200,1032,300)
@@ -83,6 +90,7 @@ function Menu.new(playerGui,clear,beforeOpen,getProfile)
     local revealPanel=W.box(self.revealLayer,"Panel",0,0,900,650,C.ink)
     revealPanel.AnchorPoint=Vector2.new(.5,.5);revealPanel.Position=UDim2.fromScale(.5,.5)
     revealPanel.ClipsDescendants=true;Style.surface(revealPanel,12)
+    if mobile then MobilePanel.attach(self.revealLayer,revealPanel) end
     self.reveal=Reveal.new(revealPanel,function() self:hideReveal() end)
     self.launcher.Activated:Connect(function() self:setOpen(not self.opened) end)
     self.close.Activated:Connect(function() self:setOpen(false) end)
@@ -104,8 +112,8 @@ function Menu.new(playerGui,clear,beforeOpen,getProfile)
     CAS:BindActionAtPriority("NOVA_QuestsTabs",function(_,state,input)
         if not self.opened then return Enum.ContextActionResult.Pass end
         if state==Enum.UserInputState.Begin and not self.reveal.active then
-            self.tab=(self.tab-1+(input.KeyCode==Enum.KeyCode.ButtonL1 and -1 or 1))%#tabs+1
-            self.message="";self:refresh();Gui.SelectedObject=self.tabs[self.tab]
+            self:setTab((self.tab-1+(input.KeyCode==Enum.KeyCode.ButtonL1 and -1 or 1))%#tabs+1)
+            Gui.SelectedObject=self.tabs[self.tab]
         end
         return Enum.ContextActionResult.Sink
     end,false,Enum.ContextActionPriority.High.Value+45,Enum.KeyCode.ButtonL1,Enum.KeyCode.ButtonR1)
@@ -153,8 +161,10 @@ function Menu:hideReveal()
     if gamepad() and self.opened then Gui.SelectedObject=self.firstRow or self.close end
 end
 function Menu:showBonus(reward)
-    local screen=self.gui.AbsoluteSize
-    self.reveal.panel.Size=UDim2.fromOffset(math.min(900,math.max(300,screen.X-24)),screen.Y<560 and math.max(300,screen.Y-24) or 650)
+    if not mobile then
+        local screen=self.gui.AbsoluteSize
+        self.reveal.panel.Size=UDim2.fromOffset(math.min(900,math.max(300,screen.X-24)),screen.Y<560 and math.max(300,screen.Y-24) or 650)
+    end
     self.overlay.Visible=false;self.revealLayer.Visible=true
     self.reveal:show({owned=reward.owned},{
         product={id="quest:"..reward.kind,section="crates",quantity=reward.quantity},
@@ -181,6 +191,12 @@ function Menu:requestClaim(action,key)
         if gamepad() and self.opened and not self.reveal.active then Gui.SelectedObject=self.firstRow or self.close end
     end)
 end
+function Menu:setTab(tab)
+    self.tab=tab
+    if self.pager then self.pager.page=1 end
+    self.message=""
+    self:refresh()
+end
 function Menu:layoutBonus(id,rotation,top,width,narrow)
     self.bonusCard.Visible=rotation~=nil
     if not rotation then return 0 end
@@ -188,8 +204,8 @@ function Menu:layoutBonus(id,rotation,top,width,narrow)
     for _,row in rotation.list do if row.complete then complete+=1 end end
     local ready=rotation.bonusKey~=nil
     local locked=not ready and not rotation.bonusAwarded
-    local height=narrow and 142 or 112
-    local iconSize=narrow and 62 or 84
+    local height=mobile and 82 or narrow and 142 or 112
+    local iconSize=mobile and 56 or narrow and 62 or 84
     local textX=iconSize+24
     local textWidth=width-textX-(narrow and 12 or 194)
     self.bonusCard:FindFirstChildOfClass("UIStroke").Color=ready and C.mint or C.line
@@ -206,9 +222,9 @@ function Menu:layoutBonus(id,rotation,top,width,narrow)
     self.bonusStatus.Text=rotation.bonusAwarded and "Claimed" or "Locked"
     rect(self.bonusCard,24,top,width,height)
     rect(self.bonusIcon,12,narrow and 10 or 14,iconSize,iconSize)
-    rect(self.bonusProgress,textX,12,textWidth,38)
-    rect(self.bonusTitle,textX,50,textWidth,30)
-    local buttonX,buttonY,buttonWidth=narrow and 12 or width-174,narrow and 88 or 32,narrow and width-24 or 158
+    rect(self.bonusProgress,textX,mobile and 8 or 12,textWidth,mobile and 26 or 38)
+    rect(self.bonusTitle,textX,mobile and 36 or 50,textWidth,30)
+    local buttonX,buttonY,buttonWidth=narrow and 12 or width-174,narrow and 88 or mobile and 19 or 32,narrow and width-24 or 158
     rect(self.bonusButton,buttonX,buttonY,buttonWidth,44)
     rect(self.bonusStatus,buttonX,buttonY,buttonWidth,44)
     if self.bonusButton.Selectable then self.firstRow=self.firstRow or self.bonusButton end
@@ -224,7 +240,7 @@ function Menu:refresh()
     self.shownDaily=view and view.daily.period;self.shownWeekly=view and view.weekly.period
     if not self.opened then return end
     local profile=self:profile()
-    local width=math.min(1080,math.max(300,self.overlay.AbsoluteSize.X-24));local inner=width-48
+    local width=mobile and 980 or math.min(1080,math.max(300,self.overlay.AbsoluteSize.X-24));local inner=width-48
     local narrow=width<700
     rect(self.title,24,20,width-110,48);self.title.TextSize=width<500 and 30 or 36
     rect(self.close,width-80,22,56,44)
@@ -255,14 +271,19 @@ function Menu:refresh()
     self.firstRow=nil
     local id=tabs[self.tab].id
     local rows=view and (view[id].list or view[id]) or {}
-    local rowHeight=narrow and 176 or 112
+    local rowHeight=mobile and 82 or narrow and 176 or 112
+    local rowStep=rowHeight+(mobile and 8 or 12)
+    local pageSize=3
+    local first,last=1,#rows
+    if self.pager then first,last=self.pager:range(#rows,pageSize) end
     if #rows==0 then
         local empty=label(self.list,"Empty",view and "No quests right now. Check back after the next reset." or "Loading quests…",22,C.muted)
         rect(empty,16,12,inner-32,80)
     end
-    for i,row in rows do
+    for i=first,last do
+        local row=rows[i]
         local claimable=row.complete and not row.claimed
-        local card=W.button(self.list,"Quest"..i,0,(i-1)*(rowHeight+12),inner,rowHeight,"",false)
+        local card=W.button(self.list,"Quest"..i,0,(i-first)*rowStep,inner,rowHeight,"",false)
         card.BackgroundColor3=C.ink;card.AutoButtonColor=claimable;card.Active=claimable;card.Selectable=claimable
         card:SetAttribute("QuestKey",row.key);card:SetAttribute("Claimable",claimable)
         Style.round(card,10);W.stroke(card,claimable and C.mint or C.line,claimable and 2 or 1)
@@ -273,34 +294,44 @@ function Menu:refresh()
         local side=narrow and inner-32 or 230
         local main=narrow and inner-32 or inner-side-48
         local heading=row.kind=="career" and ("%s  ·  Tier %d / %d"):format(row.title,row.tier,row.tiers) or row.title
-        local title=label(card,"Title",heading,narrow and 22 or 24,row.claimed and C.muted or C.white);rect(title,16,10,main,30)
+        local title=label(card,"Title",heading,narrow and 22 or 24,row.claimed and C.muted or C.white);rect(title,16,mobile and 3 or 10,main,mobile and 28 or 30)
         title.TextWrapped=false;title.TextTruncate=Enum.TextTruncate.AtEnd
-        local detail=label(card,"Detail",row.text,18,C.muted);rect(detail,16,42,main,24)
-        local track=W.box(card,"Track",16,76,main-110,12,C.line);Style.round(track,6);track.ZIndex=6
+        local detail=label(card,"Detail",row.text,18,C.muted);rect(detail,16,mobile and 30 or 42,main,mobile and 22 or 24)
+        local track=W.box(card,"Track",16,mobile and 60 or 76,main-110,12,C.line);Style.round(track,6);track.ZIndex=6
         local fill=W.box(track,"Fill",0,0,0,12,row.complete and C.mint or C.purple);Style.round(fill,6);fill.ZIndex=7
         fill.Size=UDim2.new(math.clamp(row.progress/row.goal,0,1),0,1,0);fill.Visible=row.progress>0
         local amount=label(card,"Progress",("%s / %s"):format(Quests.commas(row.progress),Quests.commas(row.goal)),18,row.complete and C.mint or C.white)
-        rect(amount,main-84,68,100,28);amount.TextXAlignment=Enum.TextXAlignment.Right
-        local sideX,sideY=narrow and 16 or inner-side-16,narrow and 104 or 10
+        rect(amount,main-84,mobile and 52 or 68,100,28);amount.TextXAlignment=Enum.TextXAlignment.Right
+        local sideX,sideY=narrow and 16 or inner-side-16,narrow and 104 or mobile and 4 or 10
         local reward=label(card,"Reward",rewardText(row),(row.item or row.finalItem) and 18 or 22,row.claimed and C.muted or C.mint)
-        rect(reward,sideX,sideY,narrow and main-150 or side,narrow and 60 or 48)
+        rect(reward,sideX,sideY,narrow and main-150 or side,narrow and 60 or mobile and 34 or 48)
         reward.TextXAlignment=narrow and Enum.TextXAlignment.Left or Enum.TextXAlignment.Right
         local state=label(card,"State",row.claimed and (row.kind=="career" and "ALL TIERS CLAIMED" or "CLAIMED")
             or claimable and (self.busy and "CLAIMING…" or "CLAIM REWARD") or "IN PROGRESS",16,claimable and C.white or C.muted)
         state.TextXAlignment=Enum.TextXAlignment.Center;state.TextWrapped=false
         state.BackgroundTransparency=0;state.BackgroundColor3=claimable and C.purple or C.panel;Style.round(state,8)
-        if narrow then rect(state,inner-16-140,116,140,40) else rect(state,inner-16-190,62,190,38) end
+        if narrow then rect(state,inner-16-140,116,140,40) else rect(state,inner-16-190,mobile and 42 or 62,190,mobile and 34 or 38) end
     end
-    local height=math.max(110,#rows*(rowHeight+12));rect(self.list,24,top,inner,height)
+    local visibleRows=self.pager and self.pager.root.Visible and pageSize or last-first+1
+    local height=math.max(mobile and 90 or 110,visibleRows*rowStep)
+    rect(self.list,24,top,inner,height)
+    if self.pager and self.pager.root.Visible then
+        self.pager.root.Position=UDim2.fromOffset((width-300)/2,top+height)
+        height+=50
+    end
     local noteY=top+height+12+self:layoutBonus(id,view and id~="career" and view[id] or nil,top+height,inner,narrow)
     self.note.Text=self.message~="" and self.message
         or "Duels count when they finish. Practice does not count. Quest XP is not doubled by Double XP tokens."
     self.note.TextColor3=self.message~="" and C.white or C.muted
-    local noteHeight=math.max(52,Text:GetTextSize(self.note.Text,18,self.note.Font,Vector2.new(inner,10000)).Y+8)
+    local noteHeight=math.max(mobile and 34 or 52,Text:GetTextSize(self.note.Text,18,self.note.Font,Vector2.new(inner,10000)).Y+8)
     rect(self.note,24,noteY,inner,noteHeight)
     local panelHeight=noteY+noteHeight+32
-    rect(self.panel,math.max(12,(self.overlay.AbsoluteSize.X-width)/2),math.max(12,(self.overlay.AbsoluteSize.Y-panelHeight)/2),width,panelHeight)
-    self.overlay.CanvasSize=UDim2.fromOffset(0,panelHeight+24)
+    if mobile then
+        self.panel.Size=UDim2.fromOffset(width,panelHeight)
+    else
+        rect(self.panel,math.max(12,(self.overlay.AbsoluteSize.X-width)/2),math.max(12,(self.overlay.AbsoluteSize.Y-panelHeight)/2),width,panelHeight)
+        self.overlay.CanvasSize=UDim2.fromOffset(0,panelHeight+24)
+    end
 end
 function Menu:setAvailable(available)
     self.available=available;self.gui.Enabled=available;if not available then self:setOpen(false) end
@@ -317,6 +348,7 @@ function Menu:setOpen(open)
     local core=game:GetService("StarterGui")
     if open then
         self.overlay.CanvasPosition=Vector2.zero;self.message=""
+        if self.pager then self.pager.page=1 end
         -- Open on the first tab that has something to claim.
         local view=self:view()
         for i,tab in tabs do

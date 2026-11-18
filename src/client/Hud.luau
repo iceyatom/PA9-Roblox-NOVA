@@ -41,31 +41,35 @@ function Hud.new(playerGui)
     self.phaseLabel.TextXAlignment=Enum.TextXAlignment.Right
     -- Left rail: identity and player seats.
     local x=35
-    W.text(stage,"Wordmark",x,161,230,63,"NOVA",59,C.white,heavy)
-    W.text(stage,"Mode",x+3,225,225,25,"1v1",16,C.purple)
-    W.box(stage,"RailRule",x,278,210,1,C.line)
+    local mobile=UIS.TouchEnabled
+    local identity=mobile and W.box(stage,"Identity",0,0,0,0) or stage
+    W.text(identity,"Wordmark",x,161,230,63,"NOVA",59,C.white,heavy)
+    W.text(identity,"Mode",x+3,225,225,25,"1v1",16,C.purple)
+    W.box(identity,"RailRule",x,278,210,1,C.line)
+    self.mobileIdentity=mobile and identity or nil
     self.seats={}
     for i=1,2 do
         local y=304+(i-1)*143
+        local rail=mobile and W.box(stage,"SeatRail"..i,0,0,0,0) or stage
         local col=i==1 and C.blue or C.red
-        local card=W.box(stage,"PlayerCard"..i,x-5,y-4,220,132,C.panel)
+        local card=W.box(rail,"PlayerCard"..i,x-5,y-4,220,132,C.panel)
         card.BackgroundColor3=Color3.new(1,1,1)
         card.BackgroundTransparency=1
         local gradient=Instance.new("UIGradient"); gradient.Rotation=25; gradient.Parent=card
-        W.box(stage,"SeatColor",x,y+4,5,17,col)
-        local who=W.text(stage,"Seat"..i,x+16,y,195,26,"PLAYER 0"..i,16,C.muted)
-        local streak=WinStreak.new(stage,"WinStreak"..i,x+143,y-1,66,28)
+        W.box(rail,"SeatColor",x,y+4,5,17,col)
+        local who=W.text(rail,"Seat"..i,x+16,y,195,26,"PLAYER 0"..i,16,C.muted)
+        local streak=WinStreak.new(rail,"WinStreak"..i,x+143,y-1,66,28)
         local avatar=Instance.new("ImageLabel")
         avatar.Name="Portrait"..i; avatar.Position=UDim2.fromOffset(x,y+32); avatar.Size=UDim2.fromOffset(36,36)
-        avatar.BackgroundColor3=C.panel; avatar.BorderSizePixel=0; avatar.ZIndex=3; avatar.Parent=stage
+        avatar.BackgroundColor3=C.panel; avatar.BorderSizePixel=0; avatar.ZIndex=3; avatar.Parent=rail
         W.round(avatar)
-        local name=W.text(stage,"Callsign"..i,x+45,y+30,162,32,"Open seat",21,C.white,bold)
-        local rankIcon=RankIcon.new(stage,"RankIcon"..i,x,y+66,30)
-        local rank=W.text(stage,"Rank"..i,x+38,y+68,169,18,"",11,C.muted)
-        local hp=W.text(stage,"Vitals"..i,x,y+94,207,18,"AWAITING PLAYER",12,C.muted)
+        local name=W.text(rail,"Callsign"..i,x+45,y+30,162,32,"Open seat",21,C.white,bold)
+        local rankIcon=RankIcon.new(rail,"RankIcon"..i,x,y+66,30)
+        local rank=W.text(rail,"Rank"..i,x+38,y+68,169,18,"",11,C.muted)
+        local hp=W.text(rail,"Vitals"..i,x,y+94,207,18,"AWAITING PLAYER",12,C.muted)
         local cells={}
-        for j=1,10 do cells[j]=W.box(stage,"HP",x+(j-1)*20.7,y+115,17,5,C.line) end
-        self.seats[i]={who=who,name=name,rank=rank,rankIcon=rankIcon,avatar=avatar,hp=hp,cells=cells,color=col,card=card,gradient=gradient,streak=streak}
+        for j=1,10 do cells[j]=W.box(rail,"HP",x+(j-1)*20.7,y+115,17,5,C.line) end
+        self.seats[i]={who=who,name=name,rank=rank,rankIcon=rankIcon,avatar=avatar,hp=hp,cells=cells,color=col,card=card,gradient=gradient,streak=streak,mobileRail=mobile and rail or nil}
     end
     local session=W.box(stage,"SessionScore",x,609,220,158)
     self.sessionPanel=session
@@ -86,18 +90,24 @@ function Hud.new(playerGui)
     self.sessionReturn=W.text(session,"Return",0,135,220,22,"",14,C.mint,bold)
     session.Visible=false
     -- Right rail: persistent legend for the four collision behaviors.
+    local guide=mobile and W.box(stage,"GuideRail",0,0,0,0) or stage
+    self.mobileGuide=mobile and guide or nil
     local rx=1195
-    W.text(stage,"FieldGuide",rx,229,218,30,"Field guide",26,C.white,bold)
-    W.box(stage,"LegendRule",rx,276,207,1,C.line)
+    W.text(guide,"FieldGuide",rx,229,218,30,"Field guide",26,C.white,bold)
+    W.box(guide,"LegendRule",rx,276,207,1,C.line)
     local keys={{"Solid wall","Blocks all",C.purple},{"Phase wall","Blocks players",C.dark},
         {"Shot shield","Blocks shots",C.light},{"Launch pad","Boosts upward",C.mint}}
     for i,row in keys do
         local y=301+(i-1)*67
-        W.box(stage,"Swatch",rx,y+6,12,12,row[3])
-        W.text(stage,"Tile",rx+24,y,184,25,row[1],19,C.white,bold)
-        W.text(stage,"Mask",rx+24,y+25,184,21,row[2],15,C.muted)
+        W.box(guide,"Swatch",rx,y+6,12,12,row[3])
+        W.text(guide,"Tile",rx+24,y,184,25,row[1],19,C.white,bold)
+        W.text(guide,"Mask",rx+24,y+25,184,21,row[2],15,C.muted)
     end
     self.notice=W.box(stage,"MatchNotice",520,389,400,111,C.panel,8)
+    if mobile then
+        self.noticeScale=Instance.new("UIScale")
+        self.noticeScale.Parent=self.notice
+    end
     W.stroke(self.notice,C.line)
     W.box(self.notice,"Signal",0,0,4,111,C.purple)
     self.kicker=W.text(self.notice,"Status",23,12,355,22,"DUEL LOBBY",15,C.purple)
@@ -136,6 +146,15 @@ end
 function Hud:update(snap,seat)
     self.snap=snap; self.seat=seat
     local phase=snap.phase
+    if self.mobileIdentity and phase~=self.layoutPhase then
+        self.layoutPhase=phase
+        local playing=phase=="Playing"
+        self.mobileIdentity.Visible=not playing
+        self.mobileGuide.Visible=phase~="Selecting"
+        self.seats[1].mobileRail.Position=UDim2.fromOffset(0,playing and -170 or 0)
+        self.seats[2].mobileRail.Position=UDim2.fromOffset(0,playing and -185 or 0)
+        self.sessionPanel.Position=UDim2.fromOffset(35,playing and 390 or 609)
+    end
     local session=snap.session
     local complete=session and session.complete
     self.sessionPanel.Visible=session~=nil and (phase~="Waiting" or session.played>0)
@@ -158,7 +177,9 @@ function Hud:update(snap,seat)
     local rival=snap.players[3-seat]
     -- Offered to a lone player, and after a bot duel to change difficulty.
     local pick=not blocked and not complete and (phase=="Waiting" or phase=="Results" and (rival.bot~=nil or not rival.uid))
-    local pickHeight=pick and 102 or 0
+    local mobileQueue=self.noticeScale~=nil and phase=="Waiting"
+    local botHeight=mobileQueue and 52 or 32
+    local pickHeight=pick and (mobileQueue and 142 or 102) or 0
     for i,p in snap.players do
         local side=self.seats[i]
         local background=Cosmetics.get(p.cosmetics,"backgrounds")
@@ -198,7 +219,8 @@ function Hud:update(snap,seat)
     self.rematch.Active=not blocked and not complete;self.rematch.Selectable=not blocked and not complete
     self.leave.Active=not blocked;self.leave.Selectable=not blocked
     self.leave.Position=UDim2.fromOffset(phase=="Waiting" and 23 or 244,109+pickHeight)
-    self.leave.Size=UDim2.fromOffset(phase=="Waiting" and 160 or 130,37)
+    if mobileQueue then self.notice.Size+=UDim2.fromOffset(0,13) end
+    self.leave.Size=UDim2.fromOffset(phase=="Waiting" and 160 or 130,mobileQueue and 50 or 37)
     self.rematch.Size=UDim2.fromOffset(receipt and 280 or 209,37)
     if receipt then
         local y=self.notice.Size.Y.Offset-51
@@ -213,19 +235,28 @@ function Hud:update(snap,seat)
         local inner=self.notice.Size.X.Offset-46
         local cell=(inner-8)/2
         self.botPanel.Position=UDim2.fromOffset(23,self.rematch.Position.Y.Offset-pickHeight)
-        self.botPanel.Size=UDim2.fromOffset(inner,94)
+        self.botPanel.Size=UDim2.fromOffset(inner,pickHeight-8)
         self.botLabel.Size=UDim2.fromOffset(inner,18)
         self.botLabel.Text=phase=="Results" and (rival.bot and "CHANGE DIFFICULTY" or "OR DUEL A BOT")
             or snap.private and "CHOOSE A DIFFICULTY" or "PLAY A BOT WHILE YOU WAIT"
         for i,entry in self.botButtons do
-            entry.button.Position=UDim2.fromOffset((i-1)%2*(cell+8),22+math.floor((i-1)/2)*36)
-            entry.button.Size=UDim2.fromOffset(cell,32)
+            entry.button.Position=UDim2.fromOffset((i-1)%2*(cell+8),22+math.floor((i-1)/2)*(botHeight+4))
+            entry.button.Size=UDim2.fromOffset(cell,botHeight)
             entry.button.BackgroundColor3=rival.bot==entry.level and C.purple or C.line
         end
     end
     if complete then
         self.leave.Size=UDim2.fromOffset(160,37)
         self.leave.Position=UDim2.fromOffset((self.notice.Size.X.Offset-160)/2,self.leave.Position.Y.Offset)
+    end
+    if self.noticeScale then
+        local preMatch=phase=="Waiting" or phase=="Countdown"
+        self.noticeScale.Scale=preMatch and 1.18 or 1
+        if preMatch then
+            local size=self.notice.Size
+            self.notice.Position=UDim2.fromOffset(720-size.X.Offset*self.noticeScale.Scale/2,
+                math.min(389,750-size.Y.Offset*self.noticeScale.Scale))
+        end
     end
     self.noticeHome=self.notice.Position
     self.chestRoll:update(phase=="Results" and not blocked and snap.chest or nil,not blocked)
