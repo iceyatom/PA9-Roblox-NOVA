@@ -184,6 +184,8 @@ Press **F4** in a Studio client. **Show masks** displays tile and player bounds,
 
 Open `build/NOVA.rbxlx` in Studio. For a fresh checkout, run `python tools/build.py` at the repository root to generate that file using Python 3 and its standard library. In Studio, select **Server & Clients**, choose **2 clients**, and start the session. Solo Play intentionally opens a one-player lobby. Use keyboard and mouse or a connected gamepad. Tilt the left stick sideways past its dead zone to move at full speed. Releasing or reversing horizontal input stops or reverses movement on the next simulation tick, including in midair. Press Xbox A or PlayStation Cross (×) to jump. Pull RT/R2 once per shot.
 
+The lobby cycles through **Afterimage** and **Night Current**, two original instrumental house tracks made with synthesized sounds. Playback is local to each player and pauses when they enter a queue, a duel, or practice. It resumes when they return to the 3D lobby. The playlist and volume are in `src/client/LobbyMusic.luau`.
+
 Player positions display directly from server updates at 60 Hz. Jumps immediately apply their configured upward impulse and then follow gravity. Network travel time still affects when an input reaches the authoritative simulation.
 
 Hold Space or Xbox A / PlayStation Cross (×) to jump again automatically whenever the player lands on a solid surface. Release to finish the current arc and stop jumping. A short tap performs one jump. Opening the Roblox menu, losing focus or disconnecting the controller clears held input.

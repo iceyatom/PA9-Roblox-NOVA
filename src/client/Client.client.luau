@@ -15,6 +15,7 @@ local roller=require(script.Parent.MapRoller).new(hud.stage)
 hud.mapCode.Text=("MAP   /   %s"):format(arena.map.code)
 hud.mapTitle.Text=arena.map.title
 local lobbyCard=require(script.Parent.LobbyHud).new(player.PlayerGui)
+local lobbyMusic=require(script.Parent.LobbyMusic).new()
 local snapshot,seat,sequence
 local practice,practiceSnapshot,practiceSequence
 local function fire(kind,a,b)
@@ -103,6 +104,7 @@ local inDuel
 local function setMode(duel)
     if inDuel==duel then return end
     inDuel=duel
+    lobbyMusic:setActive(not duel)
     settingsMenu:setAvailable(not duel)
     hud.gui.Enabled=duel
     lobbyCard.Enabled=not duel
