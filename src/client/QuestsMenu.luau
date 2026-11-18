@@ -8,8 +8,10 @@ local Text=game:GetService("TextService")
 local player=Players.LocalPlayer
 local shared=game.ReplicatedStorage.NOVA
 local Quests=require(shared.Quests)
+local SeasonOne=require(shared.SeasonOne)
 local W=require(script.Parent.Widgets)
 local Style=require(script.Parent.InventoryStyle)
+local Reveal=require(script.Parent.ShopReveal)
 local C=W.colors
 local Menu={};Menu.__index=Menu
 local tabs={{id="daily",name="Daily"},{id="weekly",name="Weekly"},{id="career",name="Career"}}
@@ -58,21 +60,50 @@ function Menu.new(playerGui,clear,beforeOpen,getProfile)
     end
     self.reset=label(self.panel,"Reset","",18,C.muted)
     self.list=W.box(self.panel,"List",24,200,1032,300)
+    self.bonusCard=W.box(self.panel,"ChallengeBonus",0,0,0,0,C.ink)
+    Style.surface(self.bonusCard,10)
+    self.bonusIcon=Instance.new("ImageLabel")
+    self.bonusIcon.Name="CrateIcon";self.bonusIcon.BackgroundTransparency=1
+    self.bonusIcon.ScaleType=Enum.ScaleType.Fit;self.bonusIcon.Image=SeasonOne.icon;self.bonusIcon.Parent=self.bonusCard
+    self.bonusProgress=label(self.bonusCard,"Progress","",18,C.white)
+    self.bonusTitle=label(self.bonusCard,"Reward","",22,C.white)
+    self.bonusButton=Style.button(self.bonusCard,"ClaimCrates",0,0,0,0,"Claim crates",true)
+    self.bonusStatus=label(self.bonusCard,"Status","",16,C.muted)
+    self.bonusStatus.TextXAlignment=Enum.TextXAlignment.Center
+    self.bonusButton.Activated:Connect(function()
+        local view=self:view()
+        local id=tabs[self.tab].id
+        local rotation=view and id~="career" and view[id]
+        if rotation and rotation.bonusKey then self:requestClaim("claimQuestSet",rotation.bonusKey) end
+    end)
     self.note=label(self.panel,"Note","",18,C.muted)
+    self.revealLayer=W.box(gui,"QuestCelebration",0,0,0,0,C.ink,40)
+    self.revealLayer.Size=UDim2.fromScale(1,1);self.revealLayer.BackgroundTransparency=.08
+    self.revealLayer.Active=true;self.revealLayer.Visible=false
+    local revealPanel=W.box(self.revealLayer,"Panel",0,0,900,650,C.ink)
+    revealPanel.AnchorPoint=Vector2.new(.5,.5);revealPanel.Position=UDim2.fromScale(.5,.5)
+    revealPanel.ClipsDescendants=true;Style.surface(revealPanel,12)
+    self.reveal=Reveal.new(revealPanel,function() self:hideReveal() end)
     self.launcher.Activated:Connect(function() self:setOpen(not self.opened) end)
     self.close.Activated:Connect(function() self:setOpen(false) end)
     Gui.MenuOpened:Connect(function() self:setOpen(false) end)
     Gui:GetPropertyChangedSignal("SelectedObject"):Connect(function()
-        if self.opened and Gui.SelectedObject and not Gui.SelectedObject:IsDescendantOf(self.overlay) then Gui.SelectedObject=self.close end
+        local selected=Gui.SelectedObject
+        if not self.opened or not selected then return end
+        if self.reveal.active then
+            if not selected:IsDescendantOf(revealPanel) then Gui.SelectedObject=nil end
+        elseif not selected:IsDescendantOf(self.overlay) then Gui.SelectedObject=self.close end
     end)
     CAS:BindActionAtPriority("NOVA_QuestsClose",function(_,state)
         if not self.opened then return Enum.ContextActionResult.Pass end
-        if state==Enum.UserInputState.Begin then self:setOpen(false) end
+        if state==Enum.UserInputState.Begin then
+            if self.reveal.active then self:hideReveal() else self:setOpen(false) end
+        end
         return Enum.ContextActionResult.Sink
     end,false,Enum.ContextActionPriority.High.Value+45,Enum.KeyCode.Escape,Enum.KeyCode.ButtonB)
     CAS:BindActionAtPriority("NOVA_QuestsTabs",function(_,state,input)
         if not self.opened then return Enum.ContextActionResult.Pass end
-        if state==Enum.UserInputState.Begin then
+        if state==Enum.UserInputState.Begin and not self.reveal.active then
             self.tab=(self.tab-1+(input.KeyCode==Enum.KeyCode.ButtonL1 and -1 or 1))%#tabs+1
             self.message="";self:refresh();Gui.SelectedObject=self.tabs[self.tab]
         end
@@ -81,7 +112,9 @@ function Menu.new(playerGui,clear,beforeOpen,getProfile)
     shared:WaitForChild("InventoryState").OnClientEvent:Connect(function(profile)
         if not self.latest or profile.version>=self.latest.version then self.latest=profile end;self:refresh()
     end)
-    overlay:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:refresh() end)
+    overlay:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+        if self.reveal.active then self:hideReveal() else self:refresh() end
+    end)
     -- Countdown text ticks every second; rows rebuild only when a reset passes.
     task.spawn(function()
         while gui.Parent do
@@ -105,26 +138,84 @@ function Menu:view()
 end
 function Menu:countdown(view)
     local tab=tabs[self.tab].id
-    self.reset.Text=not view and "" or tab=="career" and "Career quests never reset. Each one has five tiers with bigger rewards."
-        or ("New %s quests in %s. Finished quests you have not claimed pay out automatically."):format(tab,duration(view[tab].resetAt-os.time()))
+    if not view then
+        self.reset.Text=""
+    elseif tab=="career" then
+        self.reset.Text="Career quests never reset. Each one has five tiers with bigger rewards."
+    else
+        self.reset.Text=("New %s quests in %s. Unclaimed rewards pay out at reset."):format(tab,duration(view[tab].resetAt-os.time()))
+    end
 end
-function Menu:claim(row)
-    if self.busy or not row.complete or row.claimed then return end
-    self.busy=true;self.message="Claiming…";self:refresh()
+function Menu:hideReveal()
+    self.reveal:hide();self.revealLayer.Visible=false
+    self.overlay.Visible=self.opened
+    self:refresh()
+    if gamepad() and self.opened then Gui.SelectedObject=self.firstRow or self.close end
+end
+function Menu:showBonus(reward)
+    local screen=self.gui.AbsoluteSize
+    self.reveal.panel.Size=UDim2.fromOffset(math.min(900,math.max(300,screen.X-24)),screen.Y<560 and math.max(300,screen.Y-24) or 650)
+    self.overlay.Visible=false;self.revealLayer.Visible=true
+    self.reveal:show({owned=reward.owned},{
+        product={id="quest:"..reward.kind,section="crates",quantity=reward.quantity},
+        title=reward.kind=="daily" and "DAILY CHALLENGES COMPLETE" or "WEEKLY CHALLENGES COMPLETE",
+        headline=("%d SEASON 1 CRATES"):format(reward.quantity),
+        note=("Added to inventory. You now own %s."):format(Quests.commas(reward.owned)),
+    })
+end
+function Menu:requestClaim(action,key)
+    if self.busy or self.reveal.active then return end
+    self.busy=action;self.message="Claiming…";self:refresh()
     task.spawn(function()
-        local ok,response=pcall(function() return shared.InventoryRequest:InvokeServer("claimQuest",row.key) end)
+        local ok,response=pcall(function() return shared.InventoryRequest:InvokeServer(action,key) end)
         self.busy=false
         if ok and response.profile and (not self.latest or response.profile.version>=self.latest.version) then self.latest=response.profile end
-        if ok and response.ok and response.quest then
+        if ok and response.ok and response.questSet then
+            self.message=("Added %d Season 1 Crates to your inventory."):format(response.questSet.quantity)
+            if self.opened then self:showBonus(response.questSet) end
+        elseif ok and response.ok and response.quest then
             self.message=("Claimed +%s XP from %s.%s"):format(Quests.commas(response.quest.xp),response.quest.title,
                 response.quest.item and " Its item reward is coming soon." or "")
         else self.message=ok and response.message or "Could not reach the server. Try again." end
         self:refresh()
-        if gamepad() and self.opened then Gui.SelectedObject=self.firstRow or self.close end
+        if gamepad() and self.opened and not self.reveal.active then Gui.SelectedObject=self.firstRow or self.close end
     end)
 end
+function Menu:layoutBonus(id,rotation,top,width,narrow)
+    self.bonusCard.Visible=rotation~=nil
+    if not rotation then return 0 end
+    local complete=0
+    for _,row in rotation.list do if row.complete then complete+=1 end end
+    local ready=rotation.bonusKey~=nil
+    local locked=not ready and not rotation.bonusAwarded
+    local height=narrow and 142 or 112
+    local iconSize=narrow and 62 or 84
+    local textX=iconSize+24
+    local textWidth=width-textX-(narrow and 12 or 194)
+    self.bonusCard:FindFirstChildOfClass("UIStroke").Color=ready and C.mint or C.line
+    self.bonusIcon.ImageColor3=locked and C.muted or C.white
+    self.bonusIcon.ImageTransparency=locked and .55 or 0
+    self.bonusProgress.Text=("Challenges completed: %d out of %d"):format(complete,id=="daily" and Quests.DailyCount or Quests.WeeklyCount)
+    self.bonusProgress.TextColor3=ready and C.mint or C.muted
+    self.bonusTitle.Text=("%d Season 1 Crates"):format(Quests.SetBonusCrates[id])
+    self.bonusTitle.TextColor3=locked and C.muted or C.white
+    self.bonusButton.Visible=ready;self.bonusButton.Active=ready and not self.busy
+    self.bonusButton.Selectable=self.bonusButton.Active
+    self.bonusButton.Text=self.busy=="claimQuestSet" and "Claiming…" or "Claim crates"
+    self.bonusStatus.Visible=not ready
+    self.bonusStatus.Text=rotation.bonusAwarded and "Claimed" or "Locked"
+    rect(self.bonusCard,24,top,width,height)
+    rect(self.bonusIcon,12,narrow and 10 or 14,iconSize,iconSize)
+    rect(self.bonusProgress,textX,12,textWidth,38)
+    rect(self.bonusTitle,textX,50,textWidth,30)
+    local buttonX,buttonY,buttonWidth=narrow and 12 or width-174,narrow and 88 or 32,narrow and width-24 or 158
+    rect(self.bonusButton,buttonX,buttonY,buttonWidth,44)
+    rect(self.bonusStatus,buttonX,buttonY,buttonWidth,44)
+    if self.bonusButton.Selectable then self.firstRow=self.firstRow or self.bonusButton end
+    return height+12
+end
 function Menu:refresh()
-    if not self.note then return end
+    if not self.note or self.reveal.active then return end
     local view=self:view()
     self.launcherScale.Scale=math.min(1,math.max(.5,(self.gui.AbsoluteSize.X-32)/220))
     self.launcher.Position=self.gui.AbsoluteSize.Y<500 and UDim2.new(1,-236,1,-248) or UDim2.fromOffset(16,416)
@@ -151,6 +242,7 @@ function Menu:refresh()
         local rows=view and (view[tabs[i].id].list or view[tabs[i].id]) or {}
         local ready=0
         for _,row in rows do if row.complete and not row.claimed then ready+=1 end end
+        if view and view[tabs[i].id].bonusKey then ready+=1 end
         tab.Text=ready>0 and ("%s (%d)"):format(tabs[i].name,ready) or tabs[i].name
         tab.TextSize=narrow and 18 or 22
         rect(tab,24+(i-1)*(tabWidth+12),tabY,tabWidth,48);tab.BackgroundColor3=self.tab==i and C.purple or C.line
@@ -176,7 +268,7 @@ function Menu:refresh()
         Style.round(card,10);W.stroke(card,claimable and C.mint or C.line,claimable and 2 or 1)
         if claimable then
             self.firstRow=self.firstRow or card
-            card.Activated:Connect(function() self:claim(row) end)
+            card.Activated:Connect(function() self:requestClaim("claimQuest",row.key) end)
         end
         local side=narrow and inner-32 or 230
         local main=narrow and inner-32 or inner-side-48
@@ -200,12 +292,13 @@ function Menu:refresh()
         if narrow then rect(state,inner-16-140,116,140,40) else rect(state,inner-16-190,62,190,38) end
     end
     local height=math.max(110,#rows*(rowHeight+12));rect(self.list,24,top,inner,height)
+    local noteY=top+height+12+self:layoutBonus(id,view and id~="career" and view[id] or nil,top+height,inner,narrow)
     self.note.Text=self.message~="" and self.message
         or "Duels count when they finish. Practice does not count. Quest XP is not doubled by Double XP tokens."
     self.note.TextColor3=self.message~="" and C.white or C.muted
     local noteHeight=math.max(52,Text:GetTextSize(self.note.Text,18,self.note.Font,Vector2.new(inner,10000)).Y+8)
-    rect(self.note,24,top+height+12,inner,noteHeight)
-    local panelHeight=top+height+noteHeight+44
+    rect(self.note,24,noteY,inner,noteHeight)
+    local panelHeight=noteY+noteHeight+32
     rect(self.panel,math.max(12,(self.overlay.AbsoluteSize.X-width)/2),math.max(12,(self.overlay.AbsoluteSize.Y-panelHeight)/2),width,panelHeight)
     self.overlay.CanvasSize=UDim2.fromOffset(0,panelHeight+24)
 end
@@ -227,7 +320,7 @@ function Menu:setOpen(open)
         -- Open on the first tab that has something to claim.
         local view=self:view()
         for i,tab in tabs do
-            local ready=false
+            local ready=view and view[tab.id].bonusKey~=nil
             for _,row in view and (view[tab.id].list or view[tab.id]) or {} do ready=ready or row.complete and not row.claimed end
             if ready then self.tab=i;break end
         end
@@ -245,6 +338,7 @@ function Menu:setOpen(open)
             if ok and response.profile and (not self.latest or response.profile.version>=self.latest.version) then self.latest=response.profile;self:refresh() end
         end)
     else
+        self.reveal:hide();self.revealLayer.Visible=false
         CAS:UnbindAction("NOVA_QuestsMovement");Run:UnbindFromRenderStep("NOVA_QuestsMovement")
         if self.controls then self.controls:Enable() end
         if self.playerListWasEnabled~=nil then core:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList,self.playerListWasEnabled) end

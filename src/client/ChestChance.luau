@@ -99,10 +99,16 @@ function Chance:finish(receipt,generation)
         self.kicker.Text=doubled and "DOUBLE CRATES UNLOCKED!" or "CRATE UNLOCKED!";self.kicker.TextColor3=C.mint
         self.amount.Text=doubled and "+2 CRATES" or "+1 CRATE"
         self.caption.Text=doubled and "DOUBLE CRATES TOKEN APPLIED" or "ADDED TO YOUR INVENTORY"
-        self.detail.Text="Next win starts at "..percent(receipt.nextChance).."."
+        self.detail.Text=receipt.bot and "Your online crate chance is unchanged." or "Next win starts at "..percent(receipt.nextChance).."."
         self:tween(self.fill,reduced() and 0 or .45,{Value=100})
         self:tween(self.icon,reduced() and 0 or .45,{Size=UDim2.fromOffset(184,184),Position=UDim2.fromOffset(188,173)},Enum.EasingStyle.Back)
         self:tween(self.halo,reduced() and 0 or .35,{BackgroundTransparency=.86})
+    elseif receipt.bot then
+        -- Bot duels roll at a reduced chance and leave the saved chance alone.
+        self.kicker.Text="NO CRATE THIS TIME";self.kicker.TextColor3=C.red
+        self.caption.Text="BOT DUEL / HALF CHANCE"
+        self.detail.Text="Bot duels do not raise or reset your crate chance."
+        self.arrow.TextTransparency=.65
     else
         self.kicker.Text=receipt.outcome=="loss" and "CHANCE INCREASED" or "NO CRATE THIS TIME"
         self.kicker.TextColor3=receipt.outcome=="loss" and C.mint or C.red
@@ -131,7 +137,7 @@ function Chance:update(result,ready)
         self.halo.BackgroundTransparency=.96;self.arrow.TextTransparency=0;self.arrow.TextColor3=C.white
         self.rotor.Rotation=0;self.rotor.Visible=result.outcome=="win"
         self.kicker.Text=result.outcome=="win" and "VICTORY ROLL" or "DEFEAT BONUS";self.kicker.TextColor3=C.mint
-        self.caption.Text=result.outcome=="win" and "CHANCE ON THIS WIN" or "SAVED CRATE CHANCE"
+        self.caption.Text=result.bot and "BOT DUEL / HALF CHANCE" or result.outcome=="win" and "CHANCE ON THIS WIN" or "SAVED CRATE CHANCE"
         self.detail.Text="Saving your match reward…";self.amount.Text=percent(result.chance or Policy.BaseChance)
         self.fill.Value=-1;self.fill.Value=result.chance or Policy.BaseChance
         self.openButton.Visible=false;self.openButton.Active=false;self.openButton.Selectable=false;self.continueButton.Visible=false

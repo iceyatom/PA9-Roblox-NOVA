@@ -18,7 +18,17 @@ local function entry(x,y,dx,dy,x0,y0,x1,y1)
     return t <= math.min(b,d,1) and t or math.huge
 end
 
-function Combat.fire(sim, seat, sequence)
+-- True when a shot from one point to another clears every shot-blocking tile.
+function Combat.sight(map,cfg,x0,y0,x1,y1)
+    local radius=cfg.BulletRadius
+    for _,r in map.shot do
+        if entry(x0,y0,x1-x0,y1-y0,r.x-radius,r.y-radius,r.x2+radius,r.y2+radius)~=math.huge then return false end
+    end
+    return true
+end
+
+-- spread (radians) turns the aim; only server-run bots pass it.
+function Combat.fire(sim, seat, sequence, spread)
     local owner,target = sim.bodies[seat],sim.bodies[3-seat]
     if typeof(sequence) ~= "number" or sequence%1 ~= 0 or sequence <= owner.lastShot or sequence > 2147483647 then return false end
     owner.lastShot = sequence
@@ -27,6 +37,10 @@ function Combat.fire(sim, seat, sequence)
     if length < 1e-7 or length ~= length then return false end
     if not ShotLimiter.allow(owner,(sim.fireClock or os.clock)()) then return false end
     owner.acceptedShots=(owner.acceptedShots or 0)+1
+    if spread then
+        local c,s=math.cos(spread),math.sin(spread)
+        dx,dy=dx*c-dy*s,dx*s+dy*c
+    end
     sim.serial += 1
     local speed = sim.cfg.BulletSpeed
     table.insert(sim.bullets,{id=sim.serial,seat=seat,x=owner.x,y=owner.y,vx=dx/length*speed,vy=dy/length*speed})

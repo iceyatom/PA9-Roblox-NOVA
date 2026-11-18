@@ -7,6 +7,7 @@ local Portrait=require(script.Parent.Portrait)
 local RankIcon=require(script.Parent.RankIcon)
 local WinStreak=require(script.Parent.WinStreak)
 local Cosmetics=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
+local Bots=require(game.ReplicatedStorage.NOVA.Bots)
 local Hud={}
 Hud.__index=Hud
 local bold=Enum.Font.GothamBold
@@ -108,6 +109,20 @@ function Hud.new(playerGui)
     end)
     self.rematch=W.button(self.notice,"Rematch",23,109,209,37,"Rematch",true)
     self.leave=W.button(self.notice,"Leave",244,109,130,37,"Leave",false)
+    -- Difficulty buttons: start a bot duel while waiting, or change the bot between duels.
+    self.botPanel=W.box(self.notice,"BotPicker",23,109,354,94)
+    self.botLabel=W.text(self.botPanel,"Label",0,0,354,18,"",12,C.muted)
+    self.botButtons={}
+    for i,level in Bots.order do
+        local difficulty=Bots.levels[level]
+        local button=W.button(self.botPanel,"Bot_"..level,0,0,173,32,("%s · %d%% XP"):format(difficulty.name,difficulty.xpPercent),false)
+        button.TextSize=14
+        button.Activated:Connect(function() if self.onBot and button.Active then self.onBot(level) end end)
+        -- Hidden buttons must be inactive themselves: the fire input skips clicks over active buttons.
+        button.Visible=false;button.Active=false
+        self.botButtons[i]={button=button,level=level}
+    end
+    self.botPanel.Visible=false
     self.chestRoll=require(script.Parent.ChestChance).new(gui,function()
         if UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" then Gui.SelectedObject=self.snap and self.snap.session and self.snap.session.complete and self.leave or self.rematch end
     end,stage)
@@ -126,8 +141,10 @@ function Hud:update(snap,seat)
     self.sessionPanel.Visible=session~=nil and (phase~="Waiting" or session.played>0)
     if session then
         for i=1,2 do self.sessionWins[i].Text=tostring(session.wins[i]) end
-        self.sessionMatch.Text=(complete and "SESSION COMPLETE" or ("MATCH %d / %d"):format(session.game,session.limit))
-        self.sessionDraws.Text=("%d / %d played%s"):format(session.played,session.limit,
+        -- A limit of 0 means no limit (bot duels).
+        self.sessionMatch.Text=complete and "SESSION COMPLETE" or session.limit==0 and ("MATCH %d"):format(session.game)
+            or ("MATCH %d / %d"):format(session.game,session.limit)
+        self.sessionDraws.Text=(session.limit==0 and "%d played%s" or "%d / "..session.limit.." played%s"):format(session.played,
             session.draws>0 and (" · %d %s"):format(session.draws,session.draws==1 and "draw" or "draws") or "")
         self.sessionReturn.Visible=complete==true
     end
@@ -136,7 +153,12 @@ function Hud:update(snap,seat)
     elseif phase~="Waiting" or not self.resultBanner.blocked then self.resultBanner:hide() end
     local blocked=self.resultBanner.blocked or phase=="Results" and not self.resultBanner:ready(resultKey)
     local status=({Waiting="1 OF 2",Selecting="MAP SHUFFLE",Countdown="COUNTDOWN",Playing="LIVE",Results="FINAL"})[phase]
-    self.phaseLabel.Text=("LOBBY %02d / %s"):format(snap.lobby,status)
+    self.phaseLabel.Text=snap.private and ("BOT PRACTICE / %s"):format(phase=="Waiting" and "SETUP" or status)
+        or ("LOBBY %02d / %s%s"):format(snap.lobby,status,snap.botDuel and " / IN QUEUE" or "")
+    local rival=snap.players[3-seat]
+    -- Offered to a lone player, and after a bot duel to change difficulty.
+    local pick=not blocked and not complete and (phase=="Waiting" or phase=="Results" and (rival.bot~=nil or not rival.uid))
+    local pickHeight=pick and 102 or 0
     for i,p in snap.players do
         local side=self.seats[i]
         local background=Cosmetics.get(p.cosmetics,"backgrounds")
@@ -150,21 +172,21 @@ function Hud:update(snap,seat)
         side.who.TextSize=side.streak.Visible and 12 or 16
         side.who.Size=UDim2.fromOffset(side.streak.Visible and 122 or 195,26)
         side.name.Text=p.name or "Open seat"
-        side.rank.Text=p.uid and P.label(p.progression) or ""
-        RankIcon.set(side.rankIcon,p.uid and p.progression or nil)
+        side.rank.Text=p.bot and Bots.levels[p.bot].name.." bot" or p.uid and P.label(p.progression) or ""
+        RankIcon.set(side.rankIcon,p.uid and not p.bot and p.progression or nil)
         side.rank.TextColor3=p.progression and p.progression.master and C.mint or C.muted
-        Portrait.set(side.avatar,p.uid)
+        Portrait.set(side.avatar,not p.bot and p.uid or nil)
         side.hp.Text=p.uid and ("%02d / %02d HP"):format(p.hp,snap.maxHP) or "AWAITING PLAYER"
         for j,cell in side.cells do cell.BackgroundColor3=p.uid and j/10 <= p.hp/snap.maxHP and side.color or C.line end
     end
     self.notice.Visible=phase~="Playing" and phase~="Selecting" and not blocked
-    self.notice.Size=UDim2.fromOffset(400,(phase=="Results" or phase=="Waiting") and 160 or 111)
+    self.notice.Size=UDim2.fromOffset(400,((phase=="Results" or phase=="Waiting") and 160 or 111)+pickHeight)
     self.notice.Position=UDim2.fromOffset(520,389)
     self.note.Size=UDim2.fromOffset(360,23)
     local receipt=phase=="Results" and not blocked and snap.players[seat].xpRecap
     if receipt and receipt.total<=0 then receipt=nil end
     if receipt then
-        local height=108+self.xpRecap:start(tostring(snap.lobby)..":"..snap.round,receipt,snap.players[seat].questRecap)+65
+        local height=108+self.xpRecap:start(tostring(snap.lobby)..":"..snap.round,receipt,snap.players[seat].questRecap)+65+pickHeight
         self.notice.Size=UDim2.fromOffset(500,height)
         self.notice.Position=UDim2.fromOffset(470,405-height/2)
         self.note.Size=UDim2.fromOffset(454,23)
@@ -175,7 +197,7 @@ function Hud:update(snap,seat)
     self.leave.Visible=(phase=="Results" or phase=="Waiting") and not blocked
     self.rematch.Active=not blocked and not complete;self.rematch.Selectable=not blocked and not complete
     self.leave.Active=not blocked;self.leave.Selectable=not blocked
-    self.leave.Position=UDim2.fromOffset(phase=="Waiting" and 23 or 244,109)
+    self.leave.Position=UDim2.fromOffset(phase=="Waiting" and 23 or 244,109+pickHeight)
     self.leave.Size=UDim2.fromOffset(phase=="Waiting" and 160 or 130,37)
     self.rematch.Size=UDim2.fromOffset(receipt and 280 or 209,37)
     if receipt then
@@ -183,7 +205,23 @@ function Hud:update(snap,seat)
         self.rematch.Position=UDim2.fromOffset(23,y)
         self.leave.Position=UDim2.fromOffset(347,y)
     else
-        self.rematch.Position=UDim2.fromOffset(23,109)
+        self.rematch.Position=UDim2.fromOffset(23,109+pickHeight)
+    end
+    self.botPanel.Visible=pick
+    for _,entry in self.botButtons do entry.button.Visible=pick;entry.button.Active=pick;entry.button.Selectable=pick end
+    if pick then
+        local inner=self.notice.Size.X.Offset-46
+        local cell=(inner-8)/2
+        self.botPanel.Position=UDim2.fromOffset(23,self.rematch.Position.Y.Offset-pickHeight)
+        self.botPanel.Size=UDim2.fromOffset(inner,94)
+        self.botLabel.Size=UDim2.fromOffset(inner,18)
+        self.botLabel.Text=phase=="Results" and (rival.bot and "CHANGE DIFFICULTY" or "OR DUEL A BOT")
+            or snap.private and "CHOOSE A DIFFICULTY" or "PLAY A BOT WHILE YOU WAIT"
+        for i,entry in self.botButtons do
+            entry.button.Position=UDim2.fromOffset((i-1)%2*(cell+8),22+math.floor((i-1)/2)*36)
+            entry.button.Size=UDim2.fromOffset(cell,32)
+            entry.button.BackgroundColor3=rival.bot==entry.level and C.purple or C.line
+        end
     end
     if complete then
         self.leave.Size=UDim2.fromOffset(160,37)
@@ -192,8 +230,10 @@ function Hud:update(snap,seat)
     self.noticeHome=self.notice.Position
     self.chestRoll:update(phase=="Results" and not blocked and snap.chest or nil,not blocked)
     self:layoutResults()
-    self.leave.Text=phase=="Waiting" and "Leave queue" or "Lobby"
-    if phase=="Waiting" then
+    self.leave.Text=phase=="Waiting" and not snap.private and "Leave queue" or "Lobby"
+    if phase=="Waiting" and snap.private then
+        self.kicker.Text,self.title.Text,self.note.Text="BOT PRACTICE","Choose your opponent","Bot duels do not count for stats or quests."
+    elseif phase=="Waiting" then
         self.kicker.Text,self.title.Text,self.note.Text="IN QUEUE","Waiting for a rival","The duel starts with two players."
     elseif phase=="Countdown" then
         self.kicker.Text,self.note.Text="BOTH PLAYERS READY","Movement and fire unlock together."
@@ -204,7 +244,6 @@ function Hud:update(snap,seat)
         self.note.Text=snap.reason=="Disconnect" and "Your rival disconnected." or snap.winner==0 and "Both players landed the final hit." or "Ten hits. Duel complete."
         local reward=snap.players[seat].xpAward
         if reward and reward>0 and not receipt then self.note.Text=("+%d XP / %s"):format(reward,snap.reason=="Disconnect" and "Rival disconnected" or snap.winner==seat and "Victory bonus" or "Duel completed") end
-        local rival=snap.players[3-seat]
         self.rematch.Text=not rival.uid and "Find new rival" or snap.players[seat].vote and "Waiting for rival…" or rival.vote and "Accept rematch" or "Rematch"
     end
 end

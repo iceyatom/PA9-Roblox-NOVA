@@ -70,11 +70,27 @@ Open **Quests** in the 3D lobby (below Career stats). The launcher shows a mint 
 
 Every player gets the same daily and weekly quests, derived from the day or week number, with no two quests of the same type in one set. A finished quest that is not claimed before its reset pays out automatically, and the menu says so the next time it opens. Double XP tokens do not double quest XP. Practice does not count.
 
+The chest card below the daily and weekly quests tracks how many challenges are complete. Finish the full set to claim 3 daily or 10 weekly Season 1 Crates with the shop's chest reveal. An earned chest bonus left unclaimed goes to inventory when its rotation resets.
+
 After a duel, the XP recap adds a **Quest progress** section with up to four quests that the match moved, finished ones first.
 
 Quest progress uses the same server match event as career stats and commits in the same inventory save, so a replayed result cannot count twice. Crate openings count in the crate's own transaction. Duels now also record shots landed and wins without taking a hit (`shotsHit`, `flawlessWins`); older profiles start both at zero. Quest state is stored under `quests` in the `NOVA_Inventory_v1` profile. XP goes to the separate progression profile only after the inventory save that records the claim, so a failed save cannot pay twice; a server crash between the two saves can lose that XP.
 
 `src/shared/Quests.luau` holds the pools, goals and XP values. To give a quest an item later, set `item` on the quest or tier and grant it in `Quests.claim`'s caller. Removing a quest from a pool drops it from saved lists on the next load.
+
+## AI opponents
+
+Players can duel a server-run bot in two ways. While waiting alone in the 1v1 queue, the waiting screen offers four difficulty buttons under **Play a bot while you wait**. The player stays in the queue: when a real opponent arrives, the bot duel ends at once with no result or reward, and the real duel starts with a new map roll. The blue **Bot Practice** beacon to the left of the queue pad opens a private room that never matches with other players.
+
+The four difficulties are **Beginner**, **Intermediate**, **Experienced** and **Veteran**. They differ in fire rate, aim error, how often they notice and dodge incoming shots, reaction time, how much they stand still, and how quickly they move to find a clear shot. `src/shared/Bots.luau` holds these values. A bot sets the same move, jump and fire inputs a player can send and obeys the shared server fire limit. Its shots aim at the player with a small random error; it does not lead its target.
+
+After a bot duel, **Rematch** starts the next duel immediately and the difficulty buttons change the bot for the next duel. Bot duels have no 11-match limit. The session score still counts wins against the bot.
+
+Bot duels pay a share of PvP XP by difficulty. Completion and win payouts are 40 and 120 XP on Beginner, 60 and 180 on Intermediate, 80 and 240 on Experienced, and 100 and 300 on Veteran. An active Double XP token doubles these payouts. A win over a bot rolls for a crate at half the player's saved crate chance. Bot duels never raise or reset that saved chance, so they cannot be used to build it up for online play, and a loss to a bot has no crate effect. Bot duels do not count toward career stats, win streaks, leaderboards or quests.
+
+Bot crate receipts carry `bot=true` and a chance below the online minimum of 25%. A server running an older version rejects a profile that holds one, so publish this update to all servers together; the receipts expire after 24 hours.
+
+The local suite simulates bot-versus-bot duels to check that each difficulty beats the one below it, and that a Veteran bot defeats a player who stands still on every map in the rotation.
 
 ## Daily check-in
 
@@ -223,9 +239,9 @@ Both the client and the server read the edited catalog. Crate details calculate 
 
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
-| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, ProgressionInfo, ProgressionArt, PrestigeRevealArt, XPRewards, RankIcons, InventoryCatalog, Inventory, InventoryEdits, InventoryEditorModel, SkinVisuals, InventoryArt, Stats and Quests |
+| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, ProgressionInfo, ProgressionArt, PrestigeRevealArt, XPRewards, RankIcons, InventoryCatalog, Inventory, InventoryEdits, InventoryEditorModel, SkinVisuals, InventoryArt, Stats, Quests and Bots |
 | `src/shared/maps` | `ReplicatedStorage.NOVA.Maps` | Map data modules for all five arenas |
-| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences, ProgressionService, ProgressionStore, InventoryService, InventoryStore and StudioTest |
+| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences, ProgressionService, ProgressionStore, InventoryService, InventoryStore, Bot, BotWorld and StudioTest |
 | `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, ProgressionMenu, PrestigeReveal, XPRecap, RankIcon, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu, InventoryMenu, InventoryRetirementNotice, InventoryPreview, InventoryStyle, CrateReveal, ItemUnlock, ReelAudio, StatsMenu, QuestsMenu and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |

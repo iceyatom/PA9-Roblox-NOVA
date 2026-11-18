@@ -1,5 +1,7 @@
 local Movement = require(script.Parent.Movement)
 local Combat = require(script.Parent.Combat)
+local Bot = require(script.Parent.Bot)
+local Bots = require(game.ReplicatedStorage.NOVA.Bots)
 local Match = {}
 Match.__index = Match
 
@@ -40,6 +42,7 @@ function Match:join(key)
     if not seat then return nil end
     self.seats[seat]=key
     if self.seats[3-seat] then
+        self.botDuel=false
         -- A new pairing always starts a fresh session; rematches use startRound directly.
         self.session={wins={0,0},draws=0,played=0,complete=false}
         self:startRound()
@@ -53,7 +56,8 @@ function Match:finish(winner,reason)
     local session=self.session
     session.played+=1
     if winner==0 then session.draws+=1 else session.wins[winner]+=1 end
-    session.complete=session.played>=self.cfg.SessionMatchLimit
+    -- Bot duels have no match limit.
+    session.complete=not self.botDuel and session.played>=self.cfg.SessionMatchLimit
     if session.complete then session.remaining=self.cfg.SessionReturnDelay end
     if self.finished then self.finished(self) end
 end
@@ -62,8 +66,8 @@ end
 function Match:sessionView(now)
     local session=self.session
     return {wins=table.clone(session.wins),draws=session.draws,played=session.played,
-        game=self.phase=="Results" and session.played or math.min(session.played+1,self.cfg.SessionMatchLimit),
-        limit=self.cfg.SessionMatchLimit,complete=session.complete,
+        game=self.phase=="Results" and session.played or self.botDuel and session.played+1 or math.min(session.played+1,self.cfg.SessionMatchLimit),
+        limit=self.botDuel and 0 or self.cfg.SessionMatchLimit,complete=session.complete,
         returnAt=session.complete and now+session.remaining or nil}
 end
 
@@ -89,6 +93,28 @@ function Match:duelLane()
     end
 end
 
+-- Seat a bot opposite a lone player, or change the bot between duels.
+function Match:setBot(seat,level)
+    if type(level)~="string" or not Bots.levels[level] or not self.seats[seat] then return false end
+    local other=self.seats[3-seat]
+    if other and not Bots.is(other) then return false end
+    if (self.phase~="Waiting" and self.phase~="Results") or self.session.complete then return false end
+    self.seats[3-seat]=Bots.key(level)
+    if not other or not self.botDuel then self.session={wins={0,0},draws=0,played=0,complete=false} end
+    self.botDuel=true
+    self:startRound()
+    return true
+end
+
+-- Remove the bot with no result, leaving the player waiting for a real opponent.
+function Match:dropBot()
+    if not self.botDuel then return false end
+    for i=1,2 do if Bots.is(self.seats[i]) then self.seats[i]=nil end end
+    self.botDuel=false
+    self:reset("Waiting")
+    return true
+end
+
 function Match:depart(seat)
     if not self.seats[seat] then return end
     self.seats[seat] = nil
@@ -100,11 +126,12 @@ end
 
 function Match:intent(seat,round,kind,a,b)
     if not self.seats[seat] or self.round ~= round then return false end
+    if kind == "bot" then return self:setBot(seat,a) end
     if kind == "rematch" and self.phase == "Results" then
         if self.session.complete then return false end
         if not self.seats[3-seat] then self:reset("Waiting"); return true end
         self.votes[seat] = true
-        if self.votes[3-seat] then self:startRound() end
+        if self.votes[3-seat] or Bots.is(self.seats[3-seat]) then self:startRound() end
         return true
     end
     if self.phase ~= "Playing" then return false end
@@ -141,6 +168,7 @@ function Match:step(dt)
         local old = {}
         for i=1,2 do local p=self.bodies[i]; old[i]=Vector2.new(p.x,p.y) end
         self.stepNumber += 1
+        for i=1,2 do if Bots.is(self.seats[i]) then Bot.step(self,i,dt) end end
         local first = self.stepNumber%2+1
         Movement.step(self.bodies[first],self.bodies[3-first],self.map,self.cfg,dt)
         Movement.step(self.bodies[3-first],self.bodies[first],self.map,self.cfg,dt)

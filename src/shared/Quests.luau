@@ -47,6 +47,7 @@ Quests.career={
 }
 local pools={daily=Quests.daily,weekly=Quests.weekly}
 local counts={daily=Quests.DailyCount,weekly=Quests.WeeklyCount}
+Quests.SetBonusCrates={daily=3,weekly=10}
 local kinds={"daily","weekly"}
 local byId,careerById={},{}
 for _,kind in kinds do for _,def in pools[kind] do byId[def.id]=def end end
@@ -108,6 +109,8 @@ function Quests.validate(raw)
         if type(old)~="table" or not integer(old.period) or not integer(old.run) or type(old.maps)~="table"
             or type(old.list)~="table" or #old.list>16 then return nil end
         local copy=slot(old.period);copy.run=old.run
+        if old.bonusAwarded~=nil and type(old.bonusAwarded)~="boolean" then return nil end
+        copy.bonusAwarded=old.bonusAwarded
         local mapCount=0
         for id,value in old.maps do
             mapCount+=1
@@ -140,6 +143,15 @@ end
 
 function Quests.stale(state,now)
     return Quests.period("daily",now)>state.daily.period or Quests.period("weekly",now)>state.weekly.period
+end
+
+function Quests.setBonusReady(state,kind)
+    local current=state[kind]
+    if current.bonusAwarded or #current.list~=counts[kind] then return false end
+    for _,entry in current.list do
+        if entry.progress<byId[entry.id].goal then return false end
+    end
+    return true
 end
 -- Move to the current period. Finished quests nobody claimed pay out here, so
 -- earned rewards are never lost. Time never moves a period backwards.
@@ -251,13 +263,17 @@ function Quests.view(state,stats,now)
     local view={autoXP=copy.autoXP,ready=0,daily={},weekly={},career={}}
     for _,kind in kinds do
         local current=copy[kind]
-        view[kind]={period=current.period,resetAt=Quests.resetAt(kind,current.period),list={}}
+        view[kind]={period=current.period,resetAt=Quests.resetAt(kind,current.period),list={},bonusAwarded=current.bonusAwarded}
         for _,entry in current.list do
             local def=byId[entry.id]
             local complete=entry.progress>=def.goal
             if complete and not entry.claimed then view.ready+=1 end
             table.insert(view[kind].list,{key=("%s:%d:%s"):format(kind,current.period,def.id),kind=kind,title=def.title,text=def.text,
                 progress=entry.progress,goal=def.goal,xp=def.xp,item=def.item,complete=complete,claimed=entry.claimed})
+        end
+        if Quests.setBonusReady(copy,kind) then
+            view[kind].bonusKey=("%s:%d"):format(kind,current.period)
+            view.ready+=1
         end
     end
     for _,def in Quests.career do

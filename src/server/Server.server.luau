@@ -7,6 +7,7 @@ local map = Maps.active()
 local progression=require(script.Parent.ProgressionService).new()
 local inventory=require(script.Parent.InventoryService).new()
 local CrateDrop=require(shared.CrateDrop)
+local Bots=require(shared.Bots)
 local function recordStats(player,sim,outcome,seat)
     local body=sim.bodies[seat]
     -- Returns the quest rows this result moved, for the results screen.
@@ -17,25 +18,33 @@ end
 inventory.questXP=function(player,amount) return progression:grant(player,amount,"Quest rewards") end
 local lobbies
 lobbies = require(script.Parent.Lobbies).new(map,Config,Maps.choose,function(sim)
+    -- Bot duels pay XP by difficulty and roll for crates at half chance.
+    local bot=sim.botDuel==true
     for i,p in sim.seats do
-        sim.questRecaps[i]=recordStats(p,sim,sim.winner==0 and "draw" or sim.winner==i and "win" or "loss",i)
+        if Bots.is(p) then continue end
+        if not bot then sim.questRecaps[i]=recordStats(p,sim,sim.winner==0 and "draw" or sim.winner==i and "win" or "loss",i) end
         local outcome=CrateDrop.outcome(sim.winner,sim.reason,i)
+        if bot and outcome~="win" then outcome=nil end
         local results=sim.chestResults
         if outcome and not results[i] then
             local key=("%s/%d/%d/%d"):format(inventory.session,sim.roomId,sim.round,p.UserId)
-            local result={key=key,status="Reward saving",outcome=outcome,chance=inventory:crateChance(p)}
+            local result={key=key,status="Reward saving",outcome=outcome,bot=bot or nil,
+                chance=inventory:crateChance(p)*(bot and Bots.CrateChanceScale or 1)}
             results[i]=result
             inventory:awardMatch(p,key,os.time()+86400,outcome,function(status,receipt)
                 result.status=status;result.receipt=receipt
                 if sim.chestResults==results then lobbies.dirty[sim.roomId]=true end
-            end)
+            end,bot)
         end
-        sim.rewards[i],sim.xpRecaps[i]=progression:award(p,sim.winner==i,inventory:boostActive(p,"xp"))
+        local opponent=sim.seats[3-i]
+        local botLevel=Bots.is(opponent) and opponent.level or nil
+        sim.rewards[i],sim.xpRecaps[i]=progression:award(p,sim.winner==i,inventory:boostActive(p,"xp"),botLevel)
     end
 end)
 local LobbyWorld = require(script.Parent.LobbyWorld)
 local world = LobbyWorld.ensure()
 local practiceWorld=require(script.Parent.PracticeWorld).ensure(world)
+local botWorld=require(script.Parent.BotWorld).ensure(world)
 local practice=require(script.Parent.Practice).new()
 progression.canPrestige=function(p) return not lobbies.membership[p] and not practice.sessions[p] end
 inventory.canUse=progression.canPrestige
@@ -72,12 +81,13 @@ leaderboard.updated=function(uid,status)
 end
 local function broadcast(room)
     local sim=room.sim
-    local snap = {lobby=room.id,phase=sim.phase,round=sim.round,mapId=sim.map.id,tick=sim.stepNumber,ends=workspace:GetServerTimeNow()+sim.count,
+    local snap = {lobby=room.id,private=room.private,botDuel=sim.botDuel==true,phase=sim.phase,round=sim.round,mapId=sim.map.id,tick=sim.stepNumber,ends=workspace:GetServerTimeNow()+sim.count,
         winner=sim.winner,reason=sim.reason,players={},shots={},maxHP=sim.cfg.Health,session=sim:sessionView(workspace:GetServerTimeNow())}
     for i=1,2 do
         local p,b = sim.seats[i],sim.bodies[i]
-        snap.players[i] = {uid=p and p.UserId,name=p and p.DisplayName,x=b.x,y=b.y,hp=b.hp,acceptedShots=b.acceptedShots or 0,vote=sim.votes[i] == true,
-            winStreak=p and p:GetAttribute("WinStreak") or 0,
+        local bot=Bots.is(p) and p.level or nil
+        snap.players[i] = {uid=p and p.UserId,name=p and p.DisplayName,bot=bot,x=b.x,y=b.y,hp=b.hp,acceptedShots=b.acceptedShots or 0,vote=sim.votes[i] == true,
+            winStreak=p and not bot and p:GetAttribute("WinStreak") or 0,
             progression=p and progression:view(p),cosmetics=p and inventory:view(p),xpAward=sim.rewards[i],xpRecap=sim.xpRecaps[i],questRecap=sim.questRecaps[i]}
     end
     for i,b in sim.bullets do snap.shots[i]={b.id,b.x,b.y,b.seat,b.vx,b.vy} end
@@ -121,6 +131,14 @@ for _,p in Players:GetPlayers() do task.spawn(track,p) end
 local function enterQueue(p)
     if lobbies.membership[p] or practice.sessions[p] or not progression:ready(p) or not inventory:ready(p) then return end
     lobbies:join(p)
+    local character=p.Character
+    p.Character=nil
+    if character then character:Destroy() end
+    flush()
+end
+local function enterBots(p)
+    if lobbies.membership[p] or practice.sessions[p] or not progression:ready(p) or not inventory:ready(p) then return end
+    lobbies:joinPrivate(p)
     local character=p.Character
     p.Character=nil
     if character then character:Destroy() end
@@ -171,6 +189,7 @@ Run.Heartbeat:Connect(function(dt)
     for _,p in Players:GetPlayers() do
         if not lobbies.membership[p] and not practice.sessions[p] then
             if LobbyWorld.onPad(practiceWorld,p.Character,"PracticePad",9) then enterPractice(p)
+            elseif LobbyWorld.onPad(botWorld,p.Character,"BotPad",9) then enterBots(p)
             elseif LobbyWorld.onPad(world,p.Character) then enterQueue(p) end
         end
     end
@@ -178,7 +197,9 @@ Run.Heartbeat:Connect(function(dt)
         local queued,live=0,0
         for _,room in lobbies.rooms do
             local seats=room.sim.seats
-            if seats[1] and seats[2] then live+=1 elseif room.sim.phase=="Waiting" then queued+=1 end
+            if room.private then continue end
+            if seats[1] and seats[2] and not room.sim.botDuel then live+=1
+            elseif room.sim.botDuel or room.sim.phase=="Waiting" then queued+=1 end
         end
         status.Text=("%d IN QUEUE   /   %d LIVE DUEL%s"):format(queued,live,live==1 and "" or "S")
     end
@@ -187,7 +208,7 @@ end)
 Players.PlayerRemoving:Connect(function(p)
     practice:remove(p)
     local entry=lobbies.membership[p]
-    if entry and entry.room.sim.phase=="Playing" then recordStats(p,entry.room.sim,"loss",entry.seat) end
+    if entry and entry.room.sim.phase=="Playing" and not entry.room.sim.botDuel then recordStats(p,entry.room.sim,"loss",entry.seat) end
     lobbies:remove(p)
     flush()
     inventory:remove(p)
@@ -215,7 +236,7 @@ if Run:IsStudio() then
         local room=entry.room
         local sim=room.sim
         local function notify(...)
-            for _,other in sim.seats do controls:FireClient(other,...) end
+            for _,other in sim.seats do if not Bots.is(other) then controls:FireClient(other,...) end end
         end
         if action == "set" and ranges[key] and type(value)=="number" and value==value then
             sim.cfg[key]=math.clamp(value,unpack(ranges[key]))

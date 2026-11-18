@@ -134,7 +134,10 @@ function Service:maintain(player,r)
         if r.pending then self:flush(player,r) end
         if not r.pending then
             -- A new day or week also needs a save: it deals fresh quests and pays unclaimed ones.
-            if #(r.statsQueue or {})>0 or Quests.stale(r.data.quests,os.time()) then r.pending=Model.validate(r.data);self:mergeStats(r,r.pending) end
+            if #(r.statsQueue or {})>0 or Quests.stale(r.data.quests,os.time()) then
+                r.pending=Model.validate(r.data)
+                self:mergeStats(r,r.pending)
+            end
             if r.pending or self.storage then self:flush(player,r) end
         end
     end
@@ -163,9 +166,13 @@ function Service:mergeStats(r,data)
         local ok,replay=Stats.record(data.stats,r.statsQueue[i])
         assert(ok,"Invalid server stats event")
         -- The career receipt also guards quest progress against a replayed result.
-        if not replay then Quests.record(data.quests,r.statsQueue[i]) end
+        if not replay then
+            local event=r.statsQueue[i]
+            Model.rollQuests(data,event.time or os.time())
+            Quests.record(data.quests,event)
+        end
     end
-    Quests.roll(data.quests,os.time())
+    Model.rollQuests(data,os.time())
 end
 -- Quest rows this result moves, measured against every result already queued.
 function Service:questRecap(r,event)
@@ -214,13 +221,13 @@ function Service:boostActive(player,kind)
     local r=self.records[player]
     return r~=nil and r.data~=nil and Model.boostActive(r.data,kind)
 end
-function Service:awardMatch(player,result,expires,outcome,report)
+function Service:awardMatch(player,result,expires,outcome,report,bot)
     -- Sample once per match delivery, never once per save/retry attempt.
     local roll=outcome=="win" and self.random:NextNumber() or nil
     task.spawn(function()
         local delaySeconds=1
         while self.records[player] and not self.records[player].leaving and os.time()<expires do
-            local ok,receipt=self:mutate(player,function(data) return Model.matchReward(data,result,expires,outcome,roll) end)
+            local ok,receipt=self:mutate(player,function(data) return Model.matchReward(data,result,expires,outcome,roll,nil,bot) end)
             if ok then
                 report(not receipt and "Reward recorded" or receipt.awarded and "Chest earned" or outcome=="loss" and "Chance increased" or "No crate this time",receipt)
                 return
@@ -262,6 +269,7 @@ function Service:request(player,action,id,key)
         if action=="ackRetirements" then return Model.ackRetirements(data,id) end
         if self.canUse and not self.canUse(player) then return false,"Return to the lobby to manage your inventory." end
         if action=="claimQuest" then return Quests.claim(data.quests,data.stats,id,os.time())
+        elseif action=="claimQuestSet" then return Model.claimQuestSet(data,id,os.time())
         elseif action=="ackQuests" and id=="auto" then return Quests.ack(data.quests)
         elseif action=="checkIn" then return Model.checkIn(data,id,os.time())
         elseif action=="useToken" then return Model.useToken(data,id)
@@ -286,6 +294,7 @@ function Service:request(player,action,id,key)
         end
         return false,"Unknown inventory action."
     end)
-    return {ok=ok,message=not ok and result or nil,profile=self:snapshot(player),dailyReward=ok and action=="checkIn" and result or nil,quest=ok and action=="claimQuest" and result or nil,receipt=ok and openCount==1 and result or nil,receipts=ok and openCount and openCount>1 and result or nil}
+    return {ok=ok,message=not ok and result or nil,profile=self:snapshot(player),dailyReward=ok and action=="checkIn" and result or nil,quest=ok and action=="claimQuest" and result or nil,
+        questSet=ok and action=="claimQuestSet" and result or nil,receipt=ok and openCount==1 and result or nil,receipts=ok and openCount and openCount>1 and result or nil}
 end
 return Service

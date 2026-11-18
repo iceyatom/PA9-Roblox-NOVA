@@ -1,11 +1,14 @@
 local P=require(script.Parent.Progression)
+local Bots=require(script.Parent.Bots)
 local Rewards={}
 
 -- doubled: the player's Double XP token was active when the duel finished.
-function Rewards.items(won,doubled)
-    local items={{label="Duel completed",amount=P.PlayXP}}
+-- botLevel is the opponent's difficulty ID for bot duels.
+function Rewards.items(won,doubled,botLevel)
+    local percent=botLevel and Bots.levels[botLevel].xpPercent or 100
+    local items={{label=botLevel and "Bot duel completed" or "Duel completed",amount=math.floor(P.PlayXP*percent/100)}}
     if won and P.WinXP>P.PlayXP then
-        table.insert(items,{label="Victory bonus",amount=P.WinXP-P.PlayXP})
+        table.insert(items,{label="Victory bonus",amount=math.floor((P.WinXP-P.PlayXP)*percent/100)})
     end
     if doubled then
         local total=0

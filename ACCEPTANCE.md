@@ -1,5 +1,13 @@
 # NOVA v1 acceptance record
 
+## AI opponents - November 16, 2026
+
+Added server-run bots at four difficulties (Beginner, Intermediate, Experienced, Veteran). A queued player can start a bot duel from the waiting screen and stays in the queue; a real opponent ends the bot duel at once with no result. A new Bot Practice beacon opens a private room with unlimited rematches and a difficulty picker on the results screen. Bot duels pay half XP and roll for crates at half the saved chance without changing it. They do not count toward stats, streaks, leaderboards or quests.
+
+All **201 local logic checks passed** with the stock catalog fixture, including 10 new bot cases. These cover queue replacement by a joining player and by a waiting survivor, private rooms, instant rematch, difficulty changes, the missing match limit, rejected bot requests, half XP, the half-chance crate roll and its saved receipt, the shared fire limit, difficulty ordering over 15 simulated duels per pair, and a Veteran bot beating an idle player on all five maps. The same 10 cases passed in the Studio server.
+
+In Studio Play, stepping on the beacon opened the difficulty picker. A Veteran bot found and beat an idle player on Skyline in about 19 seconds: +50 XP, no quest section, no crate popup. A scripted win over a Beginner bot paid +150 XP and showed a 12.5% crate roll labelled Bot duel / half chance; career stats, win streak and the saved 25% chance were unchanged. Leaving returned to the lobby, and the queue pad's waiting screen showed the same four buttons. An earlier play test found the Veteran bot could not reach a clear shot on Hourglass; the bot now searches for the nearest spot with one. The real two-client `NOVA/session` (eleven duels) and `NOVA/stats` runs returned **passed=true**. `NOVA/stats` first failed five times: the hidden difficulty buttons were still active, and the fire input ignores clicks over active buttons, so some shots in the arena were dropped. The buttons are now inactive whenever hidden. Not checked: a real second player arriving during a queue bot duel (covered by logic cases only), phone layout and controller navigation. Sources were synchronized to Studio. The place was not saved or published.
+
 ## Quests - November 16, 2026
 
 Added daily, weekly and five-tier career quests with XP rewards, a lobby Quests menu with click-to-claim rows and a ready-to-claim badge, and a Quest progress section in the post-match XP recap. Duels now record shots landed and flawless wins. Unclaimed finished quests pay out at reset. Final career tiers list an item reward as Coming soon; no item is granted.
