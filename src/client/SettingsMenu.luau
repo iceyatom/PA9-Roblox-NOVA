@@ -33,19 +33,18 @@ end
 function Menu.new(playerGui,settings,clear)
     local self=setmetatable({settings=settings,clear=clear,device="pc",buttons={},available=true},Menu)
     local gui=Instance.new("ScreenGui")
-    gui.Name="NOVASettings"; gui.ResetOnSpawn=false; gui.DisplayOrder=30
+    gui.Name="NOVASettings"; gui.ResetOnSpawn=false; gui.DisplayOrder=10
     gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.Parent=playerGui
     self.gui=gui
     -- Leave View/Touchpad and automatic navigation to Roblox's native cursor/GUI mode.
     Gui.AutoSelectGuiEnabled=true
-    local launcher=W.button(gui,"OpenSettings",0,0,220,72,"",false)
+    local launcher=W.button(gui,"OpenSettings",0,0,220,72,"Settings",false)
     launcher.AnchorPoint=Vector2.new(1,0)
     launcher.Position=UDim2.new(1,-16,0,16)
     launcher.BackgroundColor3=C.panel
+    launcher.Font=Enum.Font.GothamBlack
     Style.surface(launcher,10)
     self.launcher=launcher
-    settingsIcon(launcher)
-    self.launcherLabel=W.text(launcher,"Label",76,0,136,72,"Settings",26,C.white,Enum.Font.GothamBlack)
     local stroke=launcher:FindFirstChildOfClass("UIStroke")
     launcher.MouseEnter:Connect(function() stroke.Color=C.purple end)
     launcher.MouseLeave:Connect(function() stroke.Color=C.line end)
@@ -148,8 +147,8 @@ function Menu:layout()
     local playerListSpace=viewport.X>=680 and Core:GetCoreGuiEnabled(Enum.CoreGuiType.PlayerList) and 336 or 0
     local compactLauncher=viewport.X-playerListSpace<480
     self.launcher.Position=UDim2.new(1,-16-playerListSpace,0,16)
-    self.launcher.Size=UDim2.fromOffset(compactLauncher and 72 or 220,72)
-    self.launcherLabel.Visible=not compactLauncher
+    self.launcher.Size=UDim2.fromOffset(compactLauncher and 68 or 220,72)
+    self.launcher.TextSize=compactLauncher and 15 or 26
 
     local width=math.clamp(viewport.X-24,280,940)
     local narrow=width<600
@@ -238,11 +237,12 @@ end
 function Menu:setOpen(open)
     if open and not self.available then return end
     if self.settings.opened==open then return end
-    if open and self.beforeOpen then self.beforeOpen() end
+    if open and self.beforeOpen and self.beforeOpen()==false then return end
     self.clear()
     if self.capture then self:endCapture() end
     self.settings.opened=open
     self.overlay.Visible=open
+    self.gui:SetAttribute("MenuOpen",open)
     self.launcher.Visible=self.available and not open
     self.message=nil
     local player=game.Players.LocalPlayer

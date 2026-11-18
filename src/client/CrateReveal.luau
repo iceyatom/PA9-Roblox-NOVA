@@ -87,6 +87,7 @@ function Reveal:show(receipt)
     root:SetAttribute("Phase","rolling"); root:SetAttribute("ReceiptId",receipt.requestId)
     Style.round(root,12)
     if require(script.Parent.BatchOneVisuals).reduced() then
+        require(script.Parent.RevealAudio).new(root):land()
         root:SetAttribute("Phase","settled")
         local center=math.min(155,height*.3)
         Preview.icon(root,item,(width-center)/2,20,center)

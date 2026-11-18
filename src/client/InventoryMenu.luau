@@ -520,7 +520,7 @@ end
 function Menu:setOpen(open)
     if open and (not self.available or Gui.MenuIsOpen) then return end
     if self.opened==open then return end
-    if open and self.beforeOpen then self.beforeOpen() end
+    if open and self.beforeOpen and self.beforeOpen()==false then return end
     if self.clear then self.clear() end
     self.opened=open; self.overlay.Visible=open
     self.gui:SetAttribute("MenuOpen",open)

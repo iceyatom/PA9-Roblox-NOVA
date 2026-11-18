@@ -78,6 +78,9 @@ local function handle(cmd,arg)
         local remote=shared.InventoryRequest
         click(center(inv.InventoryButton)); task.wait(.25)
         assert(inv.InventoryOverlay.Visible,"Inventory launcher did not open")
+        local quests=player.PlayerGui.NOVAQuests
+        local questButton=quests.QuestsButton
+        assert(not questButton.Interactable and not questButton.Selectable and questButton.MenuLocked.Visible,"Quests stayed active behind Inventory")
         panel.Search.Text="Mint Circuit"
         task.wait(.15); click(center(panel.Items.skin_mint)); task.wait(.1)
         click(center(panel.Details.EquipOrOpen)); task.wait(.25)
@@ -101,6 +104,7 @@ local function handle(cmd,arg)
             virtual:SendKey(true,Enum.KeyCode.Escape,false);task.wait(.06);virtual:SendKey(false,Enum.KeyCode.Escape,false);task.wait(.2)
         end
         assert(not inv.InventoryOverlay.Visible,"Inventory close control and shortcut both failed")
+        assert(questButton.Interactable and questButton.Selectable and not questButton.MenuLocked.Visible,"Quests did not unlock after Inventory closed")
         return true
     elseif cmd=="batchStress" then
         return require(script.Parent.BatchStress)(player.PlayerGui)
@@ -212,7 +216,7 @@ local function handle(cmd,arg)
             virtual:SendKey(true,Enum.KeyCode[key],false); task.wait(.04)
             virtual:SendKey(false,Enum.KeyCode[key],false); task.wait(.25)
         end
-        assert(launcher.Visible and launcher.Label.Text=="Settings")
+        assert(launcher.Visible and launcher.Text=="Settings" and not launcher:FindFirstChild("SettingsIcon"))
         assert(math.abs(launcher.AbsolutePosition.Y-progression.AbsolutePosition.Y)<=1,"Progression and Settings are misaligned")
         press("F2"); assert(not panel.Parent.Visible,"F2 still opens settings")
         click(center(launcher)); task.wait(.15)

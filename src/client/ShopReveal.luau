@@ -10,10 +10,10 @@ local Season=require(shared.SeasonOne)
 local W=require(script.Parent.Widgets)
 local Style=require(script.Parent.InventoryStyle)
 local ItemUnlock=require(script.Parent.ItemUnlock)
-local ReelAudio=require(script.Parent.ReelAudio)
+local Audio=require(script.Parent.RevealAudio)
 local C=W.colors
 local gold=Color3.fromRGB(255,222,91)
-local impactAt=1.24 -- ItemUnlock's stamp moment
+local impactAt=Audio.RiseTime
 local halfTurns=3
 local Reveal={}; Reveal.__index=Reveal
 local function gamepad() return UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" end
@@ -26,18 +26,13 @@ local function centered(parent,name,y,width,height,value,size,color,font)
 end
 function Reveal.still(product) return product.quantity and Season.icon or Art[product.section] end
 function Reveal.new(panel,onDone,onViewCrates)
-    local self=setmetatable({panel=panel,onDone=onDone,onViewCrates=onViewCrates,generation=0,active=false},Reveal)
-    self.stamp=Instance.new("Sound")
-    self.stamp.Name="PurchaseStamp"; self.stamp.SoundId=ReelAudio.SoundId; self.stamp.Volume=ReelAudio.Volume
-    self.stamp.PlaybackSpeed=.72; self.stamp.Parent=panel
-    return self
+    return setmetatable({panel=panel,onDone=onDone,onViewCrates=onViewCrates,generation=0,active=false},Reveal)
 end
 function Reveal:hide()
     self.generation+=1; self.active=false; self.receipt=nil; self.detail=nil
     if self.connection then self.connection:Disconnect(); self.connection=nil end
     if self.unlock then self.unlock:destroy(); self.unlock=nil end
     if self.overlay then self.overlay:Destroy(); self.overlay=nil end
-    self.stamp:Stop()
     for object in self.restore or {} do if object.Parent then object.Selectable=true end end
     self.restore=nil
 end
@@ -108,6 +103,7 @@ function Reveal:show(receipt,presentation)
             if view then view.Position=UDim2.fromOffset(24,474) end
         end
         title.Visible=true
+        Audio.new(root):land()
         ready()
         return
     end
@@ -121,22 +117,18 @@ function Reveal:show(receipt,presentation)
         local icon=unlock.icon
         local size=Art.flipFrameSize
         icon.Image=sheet; icon.ImageRectSize=Vector2.new(size,size)
-        local stamped=false
         -- Three decelerating half turns land face-on exactly as the stamp hits.
         self.connection=Run.RenderStepped:Connect(function()
             local t=os.clock()-unlock.started
             if t>=impactAt then
                 icon.Image=still; icon.ImageRectSize=Vector2.zero; icon.ImageRectOffset=Vector2.zero
                 self.connection:Disconnect(); self.connection=nil
-                if not stamped then stamped=true; self.stamp:Play() end
                 return
             end
             local progress=1-(1-math.clamp(t/impactAt,0,1))^1.5
             local frame=math.floor(Art.flipFrames*halfTurns*progress)%Art.flipFrames
             icon.ImageRectOffset=Vector2.new(frame%Art.flipColumns*size,math.floor(frame/Art.flipColumns)*size)
         end)
-    else
-        task.delay(impactAt,function() if self.generation==generation and self.active then self.stamp:Play() end end)
     end
     unlock:play()
 end

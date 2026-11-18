@@ -94,7 +94,7 @@ The local suite simulates bot-versus-bot duels to check that each difficulty bea
 
 ## Daily check-in
 
-The lobby's **Daily check-in** menu opens on login when a reward is ready. Players claim once per **UTC calendar day**; the next reward unlocks at 00:00 UTC. Missing a full UTC date resets the next claim to day 1. Claiming just before and just after midnight is valid. Remaining online through midnight also allows the next claim. The menu previews each week's rewards, shows claimed days and the next unlock countdown, and supports touch scrolling and controller navigation. Check-ins are available in the 3D lobby.
+The lobby's **Daily check-in** button shows a green badge when a reward is ready. The menu opens once per UTC day in the lobby when a reward is available and the player is free to see it. Players claim once per **UTC calendar day** and the next reward unlocks at 00:00 UTC. Missing a full UTC date resets the next claim to day 1. Claiming just before and just after midnight is valid. The menu previews each week's rewards, shows claimed days and the next unlock countdown, and supports touch scrolling and controller navigation.
 
 | Days | Crate days (1, 4, 7 of each week) | Double XP days (2, 5) | Double Crates days (3, 6) |
 | --- | --- | --- | --- |

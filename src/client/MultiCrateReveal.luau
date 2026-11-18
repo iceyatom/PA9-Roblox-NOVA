@@ -8,7 +8,9 @@ local Style=require(script.Parent.InventoryStyle)
 local Preview=require(script.Parent.InventoryPreview)
 local Batch=require(script.Parent.BatchOneVisuals)
 local Audio=require(script.Parent.ReelAudio)
+local RevealAudio=require(script.Parent.RevealAudio)
 local C=W.colors
+local rollTime=5.8
 local Multi={};Multi.__index=Multi
 local types={skins="Skin",bullets="Bullet skin",tracers="Tracer",backgrounds="Player background",sounds="Sound effect",tokens="2× token"}
 function Multi.new(panel,receipts,equipment,onDone,onReady)
@@ -16,7 +18,8 @@ function Multi.new(panel,receipts,equipment,onDone,onReady)
     local root=W.box(panel,"CrateReveal",0,0,width,math.max(650,panel.Size.Y.Offset),C.ink,40)
     root.Active=true;Style.round(root,12)
     root:SetAttribute("ContentHeight",650);root:SetAttribute("Phase","rolling");root:SetAttribute("RowCount",#receipts)
-    return setmetatable({root=root,width=width,receipts=receipts,equipment=equipment,onDone=onDone,onReady=onReady,rows={},finished=0},Multi)
+    return setmetatable({root=root,width=width,receipts=receipts,equipment=equipment,onDone=onDone,onReady=onReady,rows={},finished=0,
+        revealAudio=RevealAudio.new(root)},Multi)
 end
 function Multi:refreshEquipment()
     for _,row in self.rows do if row.equip then
@@ -71,7 +74,9 @@ function Multi:complete(row)
         self:refreshEquipment()
     end
     self.finished+=1
-    if self.finished==#self.receipts then self:finish() end
+    local last=self.finished==#self.receipts
+    if last or not self.reduced then self.revealAudio:land(not last) end
+    if last then self:finish() end
 end
 function Multi:finish()
     self.root:SetAttribute("Phase","settled");self.done.Visible=true
@@ -99,7 +104,7 @@ function Multi:play()
     self.done=Style.button(self.root,"Continue",24,590,width-48,44,"Continue",true);self.done.ZIndex=49;self.done.Visible=false
     self.done.Activated:Connect(self.onDone)
     local rowHeight=#self.receipts==5 and 100 or 166
-    local reduced=Batch.reduced()
+    self.reduced=Batch.reduced()
     local random=Random.new()
     for index,receipt in self.receipts do
         local frame=W.box(self.root,"Opening"..index,12,54+(index-1)*(rowHeight+6),width-24,rowHeight,C.panel,41)
@@ -107,7 +112,7 @@ function Multi:play()
         local viewport=W.box(frame,"Viewport",0,0,width-24,rowHeight,nil,42);viewport.ClipsDescendants=true
         local row={frame=frame,viewport=viewport,item=Catalog.byId[receipt.itemId],receipt=receipt,audio=Audio.new(frame,"Reel"..index.."Click")}
         table.insert(self.rows,row)
-        if not reduced then
+        if not self.reduced then
             local stride,cardWidth=128,118
             local strip=W.box(viewport,"Reel",0,0,5500,rowHeight,nil,43)
             local winner=32+index
@@ -129,17 +134,24 @@ function Multi:play()
                 if self.closed then return end
                 frame:SetAttribute("Phase","spinning")
                 row.connection=Run.RenderStepped:Connect(function() row.audio:advance(math.floor((center-strip.Position.X.Offset-cardWidth/2)/stride)) end)
-                row.tween=Tween:Create(strip,TweenInfo.new(5.8+index*.13,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(target,0)})
+                local duration=rollTime+index*.13
+                row.tween=Tween:Create(strip,TweenInfo.new(duration,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(target,0)})
                 row.tween.Completed:Once(function(state) if state==Enum.PlaybackState.Completed then self:complete(row) end end)
                 row.tween:Play()
+                if index==1 then
+                    task.delay(duration-RevealAudio.RiseTime,function()
+                        if not self.closed and self.finished==0 then self.revealAudio:rise() end
+                    end)
+                end
             end)
         end
     end
     -- Finish after constructing all rows so reduced-effects mode has the same result controls.
-    if reduced then for _,row in self.rows do self:complete(row) end end
+    if self.reduced then for _,row in self.rows do self:complete(row) end end
 end
 function Multi:destroy()
     self.closed=true
+    self.revealAudio:stop()
     for _,row in self.rows do
         if row.connection then row.connection:Disconnect() end
         if row.tween then row.tween:Cancel() end

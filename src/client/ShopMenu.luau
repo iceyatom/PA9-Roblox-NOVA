@@ -265,16 +265,19 @@ function Menu:delivered(receipt)
     if type(receipt)~="table" or not Shop.byId[receipt.productId] then return end
     self:closeConfirmation()
     self.pending=nil; self.message=nil
-    if self.available then
-        if not self.opened then self:setOpen(true) end
-        if self.opened then
-            self.overlay.CanvasPosition=Vector2.zero
-            local section=table.find(Shop.sections,Shop.sectionById[Shop.byId[receipt.productId].section])
-            if section and section~=self.section then self.section=section; self:resize() end
-            self.reveal:show(receipt)
-        end
-    end
+    self.delivery=receipt
+    if self.opened then self:showDelivery() elseif self.available then self:setOpen(true) end
     self:refresh()
+end
+
+function Menu:showDelivery()
+    local receipt=self.delivery
+    if not receipt then return end
+    self.delivery=nil
+    self.overlay.CanvasPosition=Vector2.zero
+    local section=table.find(Shop.sections,Shop.sectionById[Shop.byId[receipt.productId].section])
+    if section and section~=self.section then self.section=section; self:resize() end
+    self.reveal:show(receipt)
 end
 
 function Menu:tick()
@@ -509,7 +512,7 @@ end
 function Menu:setOpen(open)
     if open and (not self.available or Gui.MenuIsOpen) then return end
     if self.opened==open then return end
-    if open and self.beforeOpen then self.beforeOpen() end
+    if open and self.beforeOpen and self.beforeOpen()==false then return end
     if self.clear then self.clear() end
     self.opened=open; self.overlay.Visible=open
     self.gui:SetAttribute("MenuOpen",open)
@@ -548,5 +551,6 @@ function Menu:setOpen(open)
         Gui.SelectedObject=gamepad() and self.available and self.launcher or nil
     end
     self:refresh()
+    if open then self:showDelivery() end
 end
 return Menu

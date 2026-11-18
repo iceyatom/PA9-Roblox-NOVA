@@ -36,52 +36,53 @@ local clear=require(script.Parent.Input).connect(fire,function()
     return not settings.opened and ((practiceSnapshot and practiceSnapshot.phase=="Playing") or (snapshot and snapshot.phase=="Playing"))
 end,settings)
 local settingsMenu=require(script.Parent.SettingsMenu).new(player.PlayerGui,settings,clear)
-local progressionHud,progressionMenu=require(script.Parent.ProgressionHud).new(player.PlayerGui,clear,function() settingsMenu:setOpen(false) end)
-local inventory=require(script.Parent.InventoryMenu).new(player.PlayerGui,clear,function()
-    settingsMenu:setOpen(false); progressionMenu:setOpen(false)
-end)
-local shop=require(script.Parent.ShopMenu).new(player.PlayerGui,clear,function()
-    settingsMenu:setOpen(false); progressionMenu:setOpen(false); inventory:setOpen(false)
-end,{
+local progressionHud,progressionMenu=require(script.Parent.ProgressionHud).new(player.PlayerGui,clear)
+local inventory=require(script.Parent.InventoryMenu).new(player.PlayerGui,clear)
+local shop
+shop=require(script.Parent.ShopMenu).new(player.PlayerGui,clear,nil,{
     profile=function() return inventory.profile end,
-    crates=function() inventory:showCrates() end,
-    contents=function() inventory:showCrateContents() end,
+    crates=function() shop:setOpen(false); inventory:showCrates() end,
+    contents=function() shop:setOpen(false); inventory:showCrateContents() end,
 })
-local daily=require(script.Parent.DailyRewardsMenu).new(player.PlayerGui,clear,function()
-    settingsMenu:setOpen(false);progressionMenu:setOpen(false);inventory:setOpen(false);shop:setOpen(false)
-end,function() return inventory.profile end)
-local stats=require(script.Parent.StatsMenu).new(player.PlayerGui,clear,function()
-    settingsMenu:setOpen(false);progressionMenu:setOpen(false);inventory:setOpen(false);shop:setOpen(false);daily:setOpen(false)
-end,function() return inventory.profile end)
-local quests=require(script.Parent.QuestsMenu).new(player.PlayerGui,clear,function()
-    settingsMenu:setOpen(false);progressionMenu:setOpen(false);inventory:setOpen(false);shop:setOpen(false);daily:setOpen(false);stats:setOpen(false)
-end,function() return inventory.profile end)
--- A menu's full-screen dimmer must cover every other lobby ScreenGui,
--- including launchers created later or assigned a higher default layer.
-for _,gui in {progressionHud,inventory.gui,shop.gui,daily.gui,stats.gui,quests.gui} do
-    local closedOrder=gui.DisplayOrder
-    local function syncLayer()
-        gui.DisplayOrder=gui:GetAttribute("MenuOpen")==true and 20 or closedOrder
+local function inventoryProfile() return inventory.profile end
+local daily=require(script.Parent.DailyRewardsMenu).new(player.PlayerGui,clear,nil,inventoryProfile)
+local stats=require(script.Parent.StatsMenu).new(player.PlayerGui,clear,nil,inventoryProfile)
+local quests=require(script.Parent.QuestsMenu).new(player.PlayerGui,clear,nil,inventoryProfile)
+local menus={progressionMenu,inventory,shop,daily,stats,quests,settingsMenu}
+local function openMenu()
+    for _,menu in menus do
+        if menu.gui:GetAttribute("MenuOpen") then return menu end
     end
-    gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncLayer)
-    syncLayer()
 end
-stats.beforeOpen=function() settingsMenu:setOpen(false);progressionMenu:setOpen(false);inventory:setOpen(false);shop:setOpen(false);daily:setOpen(false);quests:setOpen(false) end
-daily.beforeOpen=function() settingsMenu:setOpen(false);progressionMenu:setOpen(false);inventory:setOpen(false);shop:setOpen(false);stats:setOpen(false);quests:setOpen(false) end
-daily.canAutoOpen=function() return not settings.opened and not progressionMenu.opened and not inventory.opened and not shop.opened and not stats.opened and not quests.opened end
-inventory.beforeOpen=function() settingsMenu:setOpen(false); progressionMenu:setOpen(false); shop:setOpen(false);daily:setOpen(false);stats:setOpen(false);quests:setOpen(false) end
-shop.beforeOpen=function() settingsMenu:setOpen(false); progressionMenu:setOpen(false); inventory:setOpen(false);daily:setOpen(false);stats:setOpen(false);quests:setOpen(false) end
-local function syncSettingsLauncher()
-    settingsMenu.launcher.Visible=settingsMenu.available and not settings.opened and not progressionMenu.opened and not inventory.opened and not shop.opened and not daily.opened and not stats.opened and not quests.opened
+local function canOpenMenu() return openMenu()==nil end
+daily.canAutoOpen=canOpenMenu
+local W=require(script.Parent.Widgets)
+local Style=require(script.Parent.InventoryStyle)
+local launchers={}
+for _,menu in menus do
+    menu.beforeOpen=canOpenMenu
+    local gui,launcher=menu.gui,menu.launcher
+    local shade=W.box(launcher,"MenuLocked",0,0,0,0,W.colors.ink,50)
+    shade.Size=UDim2.fromScale(1,1);shade.BackgroundTransparency=.30
+    Style.round(shade,10)
+    launchers[menu]={shade=shade,closedOrder=gui.DisplayOrder}
 end
-progressionHud:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
-inventory.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
-shop.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
-daily.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
-stats.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
-quests.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
-progressionMenu.beforeOpen=function() settingsMenu:setOpen(false); inventory:setOpen(false); shop:setOpen(false);daily:setOpen(false);stats:setOpen(false);quests:setOpen(false) end
-settingsMenu.beforeOpen=function() progressionMenu:setOpen(false); inventory:setOpen(false); shop:setOpen(false);daily:setOpen(false);stats:setOpen(false);quests:setOpen(false) end
+local function syncMenus()
+    local current=openMenu()
+    for menu,appearance in launchers do
+        local launcher=menu.launcher
+        local blocked=current~=nil and current~=menu
+        launcher.Interactable=not blocked
+        launcher.Active=not blocked
+        launcher.Selectable=not blocked
+        launcher.AutoButtonColor=not blocked
+        appearance.shade.Visible=blocked
+        menu.gui.DisplayOrder=menu==current and 20 or appearance.closedOrder
+    end
+    if not current then settingsMenu:layout() end
+end
+for _,menu in menus do menu.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncMenus) end
+syncMenus()
 settingsMenu.selectionOnClose=function()
     if practiceSnapshot then return practiceSnapshot.phase=="Results" and practice.retry or practice.leave end
     if not snapshot then return nil end
@@ -109,6 +110,7 @@ local function setMode(duel)
     hud.gui.Enabled=duel
     lobbyCard.Enabled=not duel
     progressionHud.Enabled=not duel
+    if duel then progressionMenu:setOpen(false) end
     inventory:setAvailable(not duel)
     shop:setAvailable(not duel)
     daily:setAvailable(not duel)

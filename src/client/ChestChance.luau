@@ -8,7 +8,9 @@ local Style=require(script.Parent.InventoryStyle)
 local Preview=require(script.Parent.InventoryPreview)
 local Catalog=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
 local Policy=require(game.ReplicatedStorage.NOVA.CrateDrop)
+local Audio=require(script.Parent.RevealAudio)
 local C=W.colors
+local rollTime=4.2
 local Chance={};Chance.__index=Chance
 local function percent(n) return ("%.2f"):format(n):gsub("0+$",""):gsub("%.$","").."%" end
 local function gamepad() return UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" end
@@ -21,6 +23,7 @@ end
 function Chance.new(gui,onDismiss,stage)
     local self=setmetatable({tweens={},segments={},generation=0,onDismiss=onDismiss,docked=stage~=nil},Chance)
     local root=W.box(stage or gui,"CrateChance",0,0,0,0,C.ink,60);root.Size=UDim2.fromScale(1,1);root.BackgroundTransparency=stage and 1 or .12;root.Active=not stage;root.Visible=false;self.root=root
+    self.audio=Audio.new(root)
     local origin=W.box(root,"Origin",0,0,0,0);origin.Position=UDim2.fromScale(.5,.5)
     self.origin=origin
     local fit=Instance.new("UIScale");fit.Parent=origin;self.fit=fit
@@ -80,6 +83,7 @@ function Chance:tween(object,duration,properties,style)
 end
 function Chance:hide()
     self.generation+=1
+    self.audio:stop()
     for _,tween in self.tweens do tween:Cancel() end
     self.tweens={};self.root.Visible=false;self.settled=false
     self.root:SetAttribute("AnimationComplete",false)
@@ -94,6 +98,7 @@ function Chance:finish(receipt,generation)
     self.arrow.TextColor3=won and C.mint or C.red
     self.showPercent=not won
     if won then
+        self.audio:land()
         -- A Double Crates token active at the win pays two crates (receipt.crates==2).
         local doubled=receipt.crates==2
         self.kicker.Text=doubled and "DOUBLE CRATES UNLOCKED!" or "CRATE UNLOCKED!";self.kicker.TextColor3=C.mint
@@ -154,9 +159,14 @@ function Chance:update(result,ready)
             local target=4*360+receipt.landing*360
             if reduced() then self.rotor.Rotation=target;self:finish(receipt,generation)
             else
-                self:tween(self.rotor,4.2,{Rotation=target}).Completed:Once(function(state)
+                self:tween(self.rotor,rollTime,{Rotation=target}).Completed:Once(function(state)
                     if state==Enum.PlaybackState.Completed then self:finish(receipt,generation) end
                 end)
+                if receipt.awarded then
+                    task.delay(rollTime-Audio.RiseTime,function()
+                        if generation==self.generation and self.root.Visible and not self.settled then self.audio:rise() end
+                    end)
+                end
             end
         else self.rotor.Visible=false;self:finish(receipt,generation) end
     elseif not receipt then self.detail.Text=result.status..". Your reward will update when saved." end

@@ -29,6 +29,11 @@ function Menu.new(playerGui,clear,beforeOpen,profile)
     self.launcher=W.button(gui,"DailyButton",16,256,220,72,"Daily check-in",false)
     self.launcher.BackgroundColor3=C.panel;self.launcher.Font=Enum.Font.GothamBlack;self.launcher.TextSize=26
     Style.surface(self.launcher,10)
+    local badge=W.text(self.launcher,"RewardReady",0,0,28,28,"!",18,C.ink,Enum.Font.GothamBlack)
+    badge.AnchorPoint=Vector2.new(.5,.5);badge.Position=UDim2.new(1,-2,0,9)
+    badge.BackgroundTransparency=0;badge.BackgroundColor3=C.mint
+    badge.TextXAlignment=Enum.TextXAlignment.Center;badge.ZIndex=6;badge.Visible=false
+    W.round(badge);W.stroke(badge,C.ink,2);self.badge=badge
     self.launcherScale=Instance.new("UIScale");self.launcherScale.Parent=self.launcher
     local overlay=Instance.new("ScrollingFrame");overlay.Name="DailyOverlay";overlay.ZIndex=20
     overlay.Size=UDim2.fromScale(1,1);overlay.BackgroundColor3=C.ink;overlay.BackgroundTransparency=.08
@@ -94,12 +99,7 @@ function Menu.new(playerGui,clear,beforeOpen,profile)
     local connection=Run.Heartbeat:Connect(function(dt)
         elapsed+=dt;if elapsed<1 then return end;elapsed=0
         self:refresh()
-        local p=self:profile()
-        if not self.autoShown and self.available and p and p.ready and p.data
-            and (not self.canAutoOpen or self.canAutoOpen()) then
-            self.autoShown=true
-            if Daily.status(p.data,workspace:GetServerTimeNow()).claimable then self:setOpen(true) end
-        end
+        self:tryPrompt()
     end)
     gui.Destroying:Once(function() connection:Disconnect();self.reveal:hide() end)
     self:refresh()
@@ -114,12 +114,25 @@ function Menu:accept(profile)
     if profile and (not self.latest or profile.version>=self.latest.version) then self.latest=profile end
     self:refresh()
 end
+function Menu:tryPrompt()
+    if self.opened or not self.available or self.pending or Gui.MenuIsOpen then return end
+    local now=workspace:GetServerTimeNow()
+    if self.promptedOn==math.floor(now/Daily.DaySeconds) then return end
+    local profile=self:profile()
+    if profile and profile.ready and profile.data and Daily.status(profile.data,now).claimable
+        and (not self.canAutoOpen or self.canAutoOpen()) then
+        self:setOpen(true)
+    end
+end
 function Menu:refresh()
     if not self.status then return end
     local profile=self:profile();local data=profile and profile.data
-    local state=data and Daily.status(data,workspace:GetServerTimeNow())
+    local now=workspace:GetServerTimeNow()
+    local state=data and Daily.status(data,now)
     local ready=profile and profile.ready and state
-    self.launcher.Text="Daily check-in"
+    local claimable=self.available and ready and state.claimable or false
+    self.badge.Visible=claimable
+    if self.opened and claimable then self.promptedOn=math.floor(now/Daily.DaySeconds) end
     self.launcherScale.Scale=math.min(1,math.max(.5,(self.gui.AbsoluteSize.X-32)/220))
     self.launcher.Position=self.gui.AbsoluteSize.Y<340 and UDim2.new(1,-236,1,-88) or UDim2.fromOffset(16,256)
     if not self.opened or self.reveal.active then return end
@@ -231,11 +244,12 @@ end
 function Menu:setAvailable(available)
     self.available=available;self.gui.Enabled=available
     if not available then self:setOpen(false) end
+    self:refresh()
 end
 function Menu:setOpen(open)
     if open and (not self.available or Gui.MenuIsOpen) then return end
     if self.opened==open then return end
-    if open and self.beforeOpen then self.beforeOpen() end
+    if open and self.beforeOpen and self.beforeOpen()==false then return end
     if self.clear then self.clear() end
     self.opened=open;self.overlay.Visible=open;self.gui:SetAttribute("MenuOpen",open)
     if not self.controls then
