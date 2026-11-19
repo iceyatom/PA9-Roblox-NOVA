@@ -5,16 +5,17 @@ local gamepad=game:GetService("GamepadService")
 local Bindings=require(game.ReplicatedStorage.NOVA.ControlBindings)
 local Input={}
 
--- Both devices can hold jump at the same time; fire responds to a new press only.
+-- Jump stays held until all input devices release it. Fire responds to a new press only.
 function Input.driver(send,getBindings)
-    local held,sticks,touch={},{},{}
+    local held,sticks={},{}
+    local touchX,touchJump=0,false
     local lastX,lastJump=0,false
     local function update()
         local b=getBindings()
         local x=b.console.move=="DPad" and ((held.DPadRight and 1 or 0)-(held.DPadLeft and 1 or 0)) or (sticks[b.console.move] or 0)
         if held[b.pc.left] or held[b.pc.right] then x=(held[b.pc.right] and 1 or 0)-(held[b.pc.left] and 1 or 0) end
-        if touch.Left or touch.Right then x=(touch.Right and 1 or 0)-(touch.Left and 1 or 0) end
-        local jump=held[b.pc.jump]==true or held[b.console.jump]==true or touch.Jump==true
+        if touchX~=0 then x=touchX end
+        local jump=held[b.pc.jump]==true or held[b.console.jump]==true or touchJump
         if x~=lastX then lastX=x; send("move",x) end
         if jump~=lastJump then lastJump=jump; send("jump",jump) end
     end
@@ -32,26 +33,24 @@ function Input.driver(send,getBindings)
         end
         update()
     end
-    local function handleTouch(action,down)
-        if action=="Fire" then
-            if down then send("fire") end
-            return
-        end
-        touch[action]=down or nil
+    local function setTouchStick(x,jump)
+        touchX,touchJump=x,jump
         update()
     end
     local function clear()
-        table.clear(held); table.clear(sticks); table.clear(touch)
-        update()
+        table.clear(held); table.clear(sticks)
+        setTouchStick(0,false)
     end
-    return handle,clear,handleTouch
+    return handle,clear,setTouchStick
 end
 
 function Input.connect(send,active,settings,playerGui)
-    local handle,reset,handleTouch=Input.driver(send,function() return settings.bindings end)
+    local handle,reset,setTouchStick=Input.driver(send,function() return settings.bindings end)
     local showTouch,resetTouch
     if UIS.TouchEnabled then
-        showTouch,resetTouch=require(script.Parent.MobileControls).new(playerGui,handleTouch,function()
+        showTouch,resetTouch=require(script.Parent.MobileControls).new(playerGui,setTouchStick,function()
+            send("fire")
+        end,function()
             return active() and not gui.MenuIsOpen and not UIS:GetFocusedTextBox()
         end)
     end
