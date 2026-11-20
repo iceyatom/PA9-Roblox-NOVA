@@ -78,6 +78,9 @@ local function handle(cmd,arg)
         local remote=shared.InventoryRequest
         click(center(inv.InventoryButton)); task.wait(.25)
         assert(inv.InventoryOverlay.Visible,"Inventory launcher did not open")
+        local quests=player.PlayerGui.NOVAQuests
+        local questButton=quests.QuestsButton
+        assert(not questButton.Interactable and not questButton.Selectable and questButton.MenuLocked.Visible,"Quests stayed active behind Inventory")
         panel.Search.Text="Mint Circuit"
         task.wait(.15); click(center(panel.Items.skin_mint)); task.wait(.1)
         click(center(panel.Details.EquipOrOpen)); task.wait(.25)
@@ -101,6 +104,7 @@ local function handle(cmd,arg)
             virtual:SendKey(true,Enum.KeyCode.Escape,false);task.wait(.06);virtual:SendKey(false,Enum.KeyCode.Escape,false);task.wait(.2)
         end
         assert(not inv.InventoryOverlay.Visible,"Inventory close control and shortcut both failed")
+        assert(questButton.Interactable and questButton.Selectable and not questButton.MenuLocked.Visible,"Quests did not unlock after Inventory closed")
         return true
     elseif cmd=="batchStress" then
         return require(script.Parent.BatchStress)(player.PlayerGui)
@@ -158,7 +162,7 @@ local function handle(cmd,arg)
         return true
     elseif cmd=="batchFire" then
         shared.StudioControls:FireServer("lane"); task.wait(.3)
-        for i=1,10 do shared.Input:FireServer("fire",latest.lobby,latest.round,i); task.wait(.08) end
+        for i=1,10 do shared.Input:FireServer("fire",latest.lobby,latest.round,i); task.wait(.1) end
         return true
     elseif cmd=="batchReveal" then
         local overlay=player.PlayerGui.NOVAInventory:FindFirstChild("CrateReveal",true)
@@ -169,7 +173,8 @@ local function handle(cmd,arg)
         return {resultsReady=gui.ResultBanner:GetAttribute("AnimationComplete"),resultBannerVisible=gui.ResultBanner.Visible,dropSettled=chance.Visible and latest and latest.chest and chance:GetAttribute("ResultKey")==latest.chest.key and chance:GetAttribute("AnimationComplete"),chest=latest and latest.chest,seat=seat,title=notice.Title.Text,phase=latest and latest.phase or "",hud=stage.Phase.Text,
             hp=stage.Vitals2.Text,seen=seen,round=latest and latest.round or 0,lobby=latest and latest.lobby,mapId=latest and latest.mapId,
             rollVisible=stage.MapShuffle.Visible,rollHeading=stage.MapShuffle.Heading.Text,
-            p=latest and latest.players or {},vote=notice.Rematch.Text,
+            p=latest and latest.players or {},vote=notice.Rematch.Text,session=latest and latest.session,
+            sessionVisible=stage.SessionScore.Visible,sessionWins={stage.SessionScore.Wins1.Text,stage.SessionScore.Wins2.Text},sessionMatch=stage.SessionScore.MatchCount.Text,rematchVisible=notice.Rematch.Visible,
             visible=notice.Visible,bar=stage.Map1.Player2.Health.Fill.Size.X.Scale,trail=trail,
             skinColor1=stage.Map1.Player1.BackgroundColor3:ToHex(),cardVisible1=stage.PlayerCard1.BackgroundTransparency==0,
             inventoryVisible=player.PlayerGui.NOVAInventory.Enabled,cosmeticShot=table.clone(cosmeticShot)}
@@ -202,34 +207,39 @@ local function handle(cmd,arg)
         task.wait(.2)
         return latest.players[1].y
     elseif cmd=="settings" then
-        local settingsStage=player.PlayerGui.NOVASettings.Root.Origin.Stage
-        local panel=player.PlayerGui.NOVASettings.Root.Origin.Stage.Overlay.Panel
+        local settingsGui=player.PlayerGui.NOVASettings
+        local launcher=settingsGui.OpenSettings
+        local panel=settingsGui.Overlay.Panel
+        local progression=player.PlayerGui.NOVAProgression.Card
+        local bindings={left=panel.MoveCard.left,right=panel.MoveCard.right,jump=panel.JumpCard.jump,fire=panel.FireCard.fire}
         local function press(key)
             virtual:SendKey(true,Enum.KeyCode[key],false); task.wait(.04)
             virtual:SendKey(false,Enum.KeyCode[key],false); task.wait(.25)
         end
-        assert(settingsStage.OpenSettings.Visible and settingsStage.OpenSettings.Text=="Settings")
+        assert(launcher.Visible and launcher.Text=="Settings" and not launcher:FindFirstChild("SettingsIcon"))
+        assert(math.abs(launcher.AbsolutePosition.Y-progression.AbsolutePosition.Y)<=1,"Progression and Settings are misaligned")
         press("F2"); assert(not panel.Parent.Visible,"F2 still opens settings")
-        click(center(settingsStage.OpenSettings)); task.wait(.15)
+        click(center(launcher)); task.wait(.15)
         assert(panel.Parent.Visible,"Lobby Settings button did not open settings")
         for action,key in {left="J",right="L",jump="I",fire="K"} do
-            click(center(panel[action]))
+            local button=bindings[action]
+            click(center(button))
             local deadline=os.clock()+2
-            repeat task.wait(.03) until panel[action].Text=="Listening..." or os.clock()>deadline
-            if panel[action].Text~="Listening..." then
-                click(center(panel[action]),.10); task.wait(.2)
+            repeat task.wait(.03) until button.Text=="Listening..." or os.clock()>deadline
+            if button.Text~="Listening..." then
+                click(center(button),.10); task.wait(.2)
             end
-            assert(panel[action].Text=="Listening...","Capture did not open for "..action..": "..panel.Status.Text)
+            assert(button.Text=="Listening...","Capture did not open for "..action..": "..panel.Status.Text)
             press(key)
             deadline=os.clock()+2
-            repeat task.wait(.03) until panel[action].Text:find(key,1,true) or os.clock()>deadline
-            assert(panel[action].Text:find(key,1,true),"Rebinding failed for "..action..": "..panel[action].Text)
+            repeat task.wait(.03) until button.Text:find(key,1,true) or os.clock()>deadline
+            assert(button.Text:find(key,1,true),"Rebinding failed for "..action..": "..button.Text)
         end
-        assert(panel.left.Text:find("J") and panel.right.Text:find("L") and panel.jump.Text=="I" and panel.fire.Text=="K")
-        click(center(panel.fire))
+        assert(bindings.left.Text:find("J") and bindings.right.Text:find("L") and bindings.jump.Text=="I" and bindings.fire.Text=="K")
+        click(center(bindings.fire))
         local deadline=os.clock()+2
-        repeat task.wait(.03) until panel.fire.Text=="Listening..." or os.clock()>deadline
-        assert(panel.fire.Text=="Listening...","Conflict capture did not open: "..panel.Status.Text)
+        repeat task.wait(.03) until bindings.fire.Text=="Listening..." or os.clock()>deadline
+        assert(bindings.fire.Text=="Listening...","Conflict capture did not open: "..panel.Status.Text)
         press("I")
         deadline=os.clock()+2
         repeat task.wait(.03) until panel.Status.Text:find("Already used") or os.clock()>deadline
@@ -239,7 +249,7 @@ local function handle(cmd,arg)
         assert(not panel.Parent.Visible)
         local saved=shared.ControlPreferences:InvokeServer("get").bindings
         assert(saved.pc.jump=="I" and saved.pc.fire=="K" and saved.console.jump=="ButtonA")
-        click(center(settingsStage.OpenSettings)); task.wait(.15)
+        click(center(launcher)); task.wait(.15)
         click(center(panel.ResetDefaults)); task.wait(.1)
         click(center(panel.Done)); task.wait(.2)
         saved=shared.ControlPreferences:InvokeServer("get").bindings
@@ -248,14 +258,24 @@ local function handle(cmd,arg)
     elseif cmd=="settingsUnavailable" then
         assert(not shared.InventoryRequest:InvokeServer("equip","skin_ember").ok,"Equipment changed outside lobby")
         local settingsGui=player.PlayerGui.NOVASettings
-        local settingsStage=settingsGui.Root.Origin.Stage
-        assert(not settingsGui.Enabled and not settingsStage.OpenSettings.Visible,"Settings are visible outside the main lobby")
+        assert(not settingsGui.Enabled and not settingsGui.OpenSettings.Visible,"Settings are visible outside the main lobby")
         virtual:SendKey(true,Enum.KeyCode.F2,false); task.wait(.04)
         virtual:SendKey(false,Enum.KeyCode.F2,false); task.wait(.15)
-        assert(not settingsStage.Overlay.Visible,"Settings opened outside the main lobby")
+        assert(not settingsGui.Overlay.Visible,"Settings opened outside the main lobby")
         return true
     elseif cmd=="fire" then
         for i=1,arg do click(center(stage.Map1)) end
+    elseif cmd=="sessionWin" then
+        shared.StudioControls:FireServer("lane");task.wait(.3)
+        for _=1,20 do
+            if latest.phase~="Playing" then break end
+            click(center(stage.Map1),.08);task.wait(.06)
+        end
+        assert(latest.phase=="Results",("Duel did not finish: phase %s, HP %d/%d, shots %d/%d"):format(latest.phase,
+            latest.players[1].hp,latest.players[2].hp,latest.players[1].acceptedShots,latest.players[2].acceptedShots))
+        return true
+    elseif cmd=="forceRematch" then
+        shared.Input:FireServer("rematch",latest.lobby,latest.round)
     elseif cmd=="hold" then
         click(center(stage.Map1),.55)
     elseif cmd=="vote" then

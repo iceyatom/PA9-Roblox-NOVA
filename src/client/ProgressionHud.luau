@@ -5,12 +5,13 @@ local P=require(shared.Progression)
 local W=require(script.Parent.Widgets)
 local C=W.colors
 local RankIcon=require(script.Parent.RankIcon)
+local WinStreak=require(script.Parent.WinStreak)
 local Hud={}
 
 local function nameplates()
     local function track(other)
         local connections={}
-        local label,icon
+        local label,icon,streak,plate
         local function rank()
             if label then
                 label.Text=other:GetAttribute("RankLabel") or "Loading rank…"
@@ -19,36 +20,50 @@ local function nameplates()
                 RankIcon.set(icon,prestige~=nil and {prestige=prestige,master=other:GetAttribute("PrestigeMaster")} or nil)
             end
         end
+        local function refreshStreak()
+            if not streak then return end
+            WinStreak.set(streak,other:GetAttribute("WinStreak"))
+            -- Grow upward so the extra line stays below rank and clear of the head.
+            plate.Size=UDim2.fromOffset(456,streak.Visible and 162 or 120)
+            plate.StudsOffsetWorldSpace=Vector3.new(0,streak.Visible and 3.9 or 3.45,0)
+        end
         local function character(model)
             local head=model:WaitForChild("Head",10)
             local humanoid=model:FindFirstChildOfClass("Humanoid")
             if not head or not model.Parent then return end
             if humanoid then humanoid.NameDisplayDistance=0 end
             local gui=Instance.new("BillboardGui")
-            gui.Name="NOVARank"; gui.Adornee=head; gui.Size=UDim2.fromOffset(304,80)
-            gui.StudsOffsetWorldSpace=Vector3.new(0,3,0)
+            plate=gui
+            gui.Name="NOVARank"; gui.Adornee=head; gui.Size=UDim2.fromOffset(456,120)
+            gui.StudsOffsetWorldSpace=Vector3.new(0,3.45,0)
             gui.MaxDistance=80; gui.AlwaysOnTop=false; gui.Parent=head
-            local name=W.text(gui,"Name",0,0,304,26,other.DisplayName,18,C.white,Enum.Font.GothamBold)
+            local name=W.text(gui,"Name",0,0,456,39,other.DisplayName,27,C.white,Enum.Font.GothamBold)
             name.TextXAlignment=Enum.TextXAlignment.Center
             name.TextStrokeTransparency=.5
-            local row=W.box(gui,"RankRow",0,27,304,48)
+            local row=W.box(gui,"RankRow",0,41,456,72)
             local layout=Instance.new("UIListLayout")
             layout.FillDirection=Enum.FillDirection.Horizontal
             layout.HorizontalAlignment=Enum.HorizontalAlignment.Center
             layout.VerticalAlignment=Enum.VerticalAlignment.Center
             layout.SortOrder=Enum.SortOrder.LayoutOrder
-            layout.Padding=UDim.new(0,6)
+            layout.Padding=UDim.new(0,9)
             layout.Parent=row
-            icon=RankIcon.new(row,"RankIcon",0,0,48)
+            icon=RankIcon.new(row,"RankIcon",0,0,72)
             icon.LayoutOrder=1
-            label=W.text(row,"Rank",0,0,0,24,"",13,C.purple,Enum.Font.GothamBold)
+            label=W.text(row,"Rank",0,0,0,36,"",20,C.purple,Enum.Font.GothamBold)
             label.LayoutOrder=2
             label.AutomaticSize=Enum.AutomaticSize.X
             label.TextStrokeTransparency=.4
+            streak=WinStreak.new(gui,"WinStreak",0,116,168,42)
+            streak.Count.TextSize=27
+            streak.AnchorPoint=Vector2.new(.5,0)
+            streak.Position=UDim2.new(.5,0,0,116)
             rank()
+            refreshStreak()
         end
         table.insert(connections,other.CharacterAdded:Connect(character))
         table.insert(connections,other:GetAttributeChangedSignal("RankLabel"):Connect(rank))
+        table.insert(connections,other:GetAttributeChangedSignal("WinStreak"):Connect(refreshStreak))
         table.insert(connections,other.AncestryChanged:Connect(function(_,parent)
             if not parent then for _,c in connections do c:Disconnect() end end
         end))

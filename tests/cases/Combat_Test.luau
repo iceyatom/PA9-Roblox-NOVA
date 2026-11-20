@@ -3,11 +3,26 @@ return function(t)
     local Combat=require(game.ServerScriptService.NOVA.Combat)
     local cfg=require(game.ReplicatedStorage.NOVA.Config)
     local map=require(game.ReplicatedStorage.NOVA.Map1)
-    local function shoot(s,i,n) assert(s:intent(i,s.round,"fire",n)) end
-    t.test("one sequence per shot, rapid distinct IDs accepted",function()
+    local function shoot(s,i,n)
+        s.testClock+=1/require(game.ServerScriptService.NOVA.ShotLimiter).getRate()
+        assert(s:intent(i,s.round,"fire",n))
+    end
+    t.test("one sequence per shot, distinct IDs accepted at the firing limit",function()
         local s=F.duel()
         for i=1,64 do shoot(s,1,i); assert(not s:intent(1,s.round,"fire",i)) end
         assert(#s.bullets==64 and s.bodies[1].hp==10)
+    end)
+    t.test("duel burst spam cannot create shots, replay dropped IDs, or affect the other seat",function()
+        local s=F.duel()
+        assert(s:intent(1,s.round,"fire",1))
+        for id=2,1000 do assert(not s:intent(1,s.round,"fire",id)) end
+        assert(s.bodies[1].acceptedShots==1 and #s.bullets==1)
+        assert(s:intent(2,s.round,"fire",1))
+        s.testClock=1/12
+        assert(not s:intent(1,s.round,"fire",1000))
+        assert(s:intent(1,s.round,"fire",1001))
+        s:reset("Playing")
+        assert(s:intent(1,s.round,"fire",1))
     end)
     t.test("shot starts at center and retains velocity after target moves",function()
         local s=F.duel(); shoot(s,1,1)

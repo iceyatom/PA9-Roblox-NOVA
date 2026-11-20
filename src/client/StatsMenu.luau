@@ -10,6 +10,8 @@ local Stats=require(shared.Stats)
 local Shop=require(shared.ShopCatalog)
 local W=require(script.Parent.Widgets)
 local Style=require(script.Parent.InventoryStyle)
+local MobilePanel=require(script.Parent.MobilePanel)
+local mobile=UIS.TouchEnabled
 local C=W.colors
 local Menu={};Menu.__index=Menu
 local function gamepad() return UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" end
@@ -32,6 +34,11 @@ function Menu.new(playerGui,clear,beforeOpen,getProfile)
     overlay.ScrollBarThickness=4;overlay.ScrollBarImageColor3=C.purple;overlay.ScrollingDirection=Enum.ScrollingDirection.Y
     overlay.Active=true;overlay.Visible=false;overlay.Parent=gui;self.overlay=overlay
     self.panel=W.box(overlay,"Panel",0,0,1080,700,C.panel);self.panel.Active=true;Style.surface(self.panel,12)
+    if mobile then
+        MobilePanel.disableScroll(overlay)
+        MobilePanel.attach(overlay,self.panel)
+        self.pager=MobilePanel.pager(self.panel,function() self:refresh() end)
+    end
     self.title=label(self.panel,"Title","Career stats",36,C.white);self.title.Font=Enum.Font.GothamBlack
     self.close=Style.button(self.panel,"Close",0,0,56,44,"×",false);self.close.TextSize=28
     self.summary=label(self.panel,"Summary","",20,C.mint)
@@ -88,7 +95,7 @@ function Menu:refresh()
     if not self.opened then return end
     local profile=self:profile();local data=profile and profile.data and profile.data.stats
     local ready=profile and profile.ready and data
-    local width=math.min(1080,math.max(300,self.overlay.AbsoluteSize.X-24));local inner=width-48
+    local width=mobile and 1000 or math.min(1080,math.max(300,self.overlay.AbsoluteSize.X-24));local inner=width-48
     local columns=width>=920 and 4 or width>=650 and 3 or 2
     rect(self.title,24,20,width-110,48);self.title.TextSize=width<500 and 30 or 36
     rect(self.close,width-80,22,56,44)
@@ -98,45 +105,70 @@ function Menu:refresh()
     rect(self.summary,24,80,inner,summaryHeight)
     local tabY=92+summaryHeight
     for i,tab in self.tabs do rect(tab,24+(i-1)*(inner+12)/2,tabY,(inner-12)/2,48);tab.BackgroundColor3=(self.byMap and i==2 or not self.byMap and i==1) and C.purple or C.line end
-    local top=tabY+68;local height
+    local top=tabY+(mobile and 58 or 68);local height
     self.best.Visible=not self.byMap;self.mapList.Visible=self.byMap==true
     for _,card in self.cards do card.root.Visible=not self.byMap end
     if not self.byMap then
+        if self.pager then self.pager.root.Visible=false end
         local best=data and Stats.bestMap(data)
         self.bestName.Text=best and best.name or ready and "No wins yet" or "Loading…"
         self.bestDetail.Text=best and ("%s wins / %s played  ·  %d%% win rate"):format(Shop.commas(best.wins),Shop.commas(best.matches),math.floor(best.wins/best.matches*100+.5))
             or "Most wins; win rate breaks ties."
         local nameHeight=math.max(36,Text:GetTextSize(self.bestName.Text,28,self.bestName.Font,Vector2.new(inner-32,10000)).Y+4)
         local detailHeight=math.max(28,Text:GetTextSize(self.bestDetail.Text,18,self.bestDetail.Font,Vector2.new(inner-32,10000)).Y+4)
-        local bestHeight=48+nameHeight+detailHeight
-        rect(self.best,24,top,inner,bestHeight);rect(self.bestTitle,16,10,inner-32,26)
-        rect(self.bestName,16,38,inner-32,nameHeight);rect(self.bestDetail,16,38+nameHeight,inner-32,detailHeight)
+        local bestHeight=mobile and 82 or 48+nameHeight+detailHeight
+        rect(self.best,24,top,inner,bestHeight)
+        if mobile then
+            rect(self.bestTitle,16,8,inner-32,24)
+            rect(self.bestName,16,32,inner*.46,40)
+            rect(self.bestDetail,inner*.50,32,inner*.50-16,40)
+        else
+            rect(self.bestTitle,16,10,inner-32,26)
+            rect(self.bestName,16,38,inner-32,nameHeight);rect(self.bestDetail,16,38+nameHeight,inner-32,detailHeight)
+        end
         top+=bestHeight+16
         local cell=(inner-(columns-1)*12)/columns
+        local step=mobile and 110 or 136
         for i,card in self.cards do
-            rect(card.root,(i-1)%columns*(cell+12),math.floor((i-1)/columns)*136,cell,124)
-            rect(card.heading,14,8,cell-28,50);rect(card.value,14,64,cell-28,44)
+            rect(card.root,(i-1)%columns*(cell+12),math.floor((i-1)/columns)*step,cell,step-12)
+            rect(card.heading,14,8,cell-28,mobile and 36 or 50)
+            rect(card.value,14,mobile and 45 or 64,cell-28,44)
             card.heading.TextSize=width<500 and 18 or 20
             card.value.Text=not ready and "—" or card.id=="ratio" and Stats.ratio(data) or Shop.commas(data[card.id])
         end
-        height=math.ceil(#self.cards/columns)*136
+        height=math.ceil(#self.cards/columns)*step
     else
         for _,child in self.mapList:GetChildren() do child:Destroy() end
         local rows={}
         for id,row in data and data.maps or {} do table.insert(rows,{id=id,data=row}) end
         table.sort(rows,function(a,b) return a.data.wins==b.data.wins and a.id<b.id or a.data.wins>b.data.wins end)
-        local rowHeight=width<600 and 110 or 76
+        local rowHeight=mobile and 50 or width<600 and 110 or 76
+        local first,last=1,#rows
+        if self.pager then first,last=self.pager:range(#rows,4) end
         if #rows==0 then
             local empty=label(self.mapList,"Empty",ready and "Finish a duel to start your map stats." or "Loading map stats…",22,C.muted)
             rect(empty,16,12,inner-32,80)
         end
-        for i,entry in rows do
-            local row=W.box(self.mapList,"Map"..i,0,(i-1)*(rowHeight+12),inner,rowHeight,C.ink);Style.surface(row,10)
-            local title=label(row,"Name",entry.data.name,24,C.white);rect(title,16,8,inner-32,34)
+        for i=first,last do
+            local entry=rows[i]
+            local row=W.box(self.mapList,"Map"..i,0,(i-first)*(rowHeight+12),inner,rowHeight,C.ink);Style.surface(row,10)
+            local title=label(row,"Name",entry.data.name,24,C.white)
             local values=label(row,"Results",("%s played   ·   %s W / %s L / %s D"):format(Shop.commas(entry.data.matches),Shop.commas(entry.data.wins),Shop.commas(entry.data.losses),Shop.commas(entry.data.draws)),18,C.mint)
-            rect(values,16,44,inner-32,rowHeight-48)
+            if mobile then
+                rect(title,16,0,inner*.44,rowHeight)
+                rect(values,inner*.48,0,inner*.52-16,rowHeight)
+                values.TextXAlignment=Enum.TextXAlignment.Right
+            else
+                rect(title,16,8,inner-32,34)
+                rect(values,16,44,inner-32,rowHeight-48)
+            end
         end
-        height=math.max(110,#rows*(rowHeight+12));rect(self.mapList,0,0,inner,height)
+        local visibleRows=self.pager and self.pager.root.Visible and 4 or last-first+1
+        height=math.max(110,visibleRows*(rowHeight+12));rect(self.mapList,0,0,inner,height)
+        if self.pager and self.pager.root.Visible then
+            self.pager.root.Position=UDim2.fromOffset((width-300)/2,top+height)
+            height+=50
+        end
     end
     rect(self.content,24,top,inner,height)
     self.note.Text=ready and "Completed duels count once. Combat disconnects are forfeits; draws break a win streak. Shots count accepted duel shots at the end of each match. Practice is excluded."
@@ -144,15 +176,19 @@ function Menu:refresh()
     local noteHeight=math.max(52,Text:GetTextSize(self.note.Text,18,self.note.Font,Vector2.new(inner,10000)).Y+8)
     rect(self.note,24,top+height+12,inner,noteHeight)
     local panelHeight=top+height+noteHeight+44
-    rect(self.panel,math.max(12,(self.overlay.AbsoluteSize.X-width)/2),math.max(12,(self.overlay.AbsoluteSize.Y-panelHeight)/2),width,panelHeight)
-    self.overlay.CanvasSize=UDim2.fromOffset(0,panelHeight+24)
+    if mobile then
+        self.panel.Size=UDim2.fromOffset(width,panelHeight)
+    else
+        rect(self.panel,math.max(12,(self.overlay.AbsoluteSize.X-width)/2),math.max(12,(self.overlay.AbsoluteSize.Y-panelHeight)/2),width,panelHeight)
+        self.overlay.CanvasSize=UDim2.fromOffset(0,panelHeight+24)
+    end
 end
 function Menu:setAvailable(available)
     self.available=available;self.gui.Enabled=available;if not available then self:setOpen(false) end
 end
 function Menu:setOpen(open)
     if open and (not self.available or Gui.MenuIsOpen) or self.opened==open then return end
-    if open and self.beforeOpen then self.beforeOpen() end
+    if open and self.beforeOpen and self.beforeOpen()==false then return end
     if self.clear then self.clear() end
     self.opened=open;self.overlay.Visible=open;self.gui:SetAttribute("MenuOpen",open)
     if not self.controls then

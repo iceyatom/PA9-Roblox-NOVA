@@ -21,7 +21,7 @@ When two queued players pair, the server chooses a map and both clients see a ho
 
 ## High Score Practice
 
-The mint beacon to the right of the main queue enters a private 2D firing lane. The player and auto-aimed target stay stationary. After an animated 3–2–1 / GO countdown, press your configured Fire binding (or the on-screen Fire button) once per shot for 30 seconds. Holding a binding does not repeat shots. The server counts accepted shots during the time window; movement, client score submissions, stale run IDs and duplicate shot IDs cannot change a score. A 50-shots-per-second ceiling bounds abusive remote traffic above normal human tapping speed.
+The mint beacon to the right of the main queue enters a private 2D firing lane. The player and auto-aimed target stay stationary. After an animated 3–2–1 / GO countdown, press your configured Fire binding (or the on-screen Fire button) once per shot for 30 seconds. Holding a binding does not repeat shots. The server counts accepted shots during the time window; movement, client score submissions, stale run IDs and duplicate shot IDs cannot change a score. The shared server firing limit starts at 12 shots per second; excess clicks do not add shots or score.
 
 Results show the run total and personal best, with Try again and Back to lobby buttons. The Lobby button can also abandon an unfinished attempt; abandoned attempts do not submit scores. Each player has an independent practice session and cannot queue for a duel at the same time.
 
@@ -29,6 +29,24 @@ The wall beside the beacon shows the global top 10, one best completed score per
 
 ## Duel rules
 A/D move, Space jumps from a surface, and gravity brings the player down. Each left mouse press launches one shot at the opponent's authoritative center when the request arrives. Direction is frozen for the flight. The server accepts increasing integer shot IDs for the current round only. Impacts in the same simulation step are applied together; simultaneous lethal impacts draw. Both players must vote for a rematch. Lobby returns the player to the 3D lobby. A combat disconnect gives the remaining player a win, and they may choose to wait for a new opponent. New arrivals cannot enter an active duel.
+
+## Duel session score and rematch limit
+
+The left rail shows **Session Score** for Player 01 (blue) and Player 02 (red), the current **Match N / 11**, completed matches, and draws. The first duel counts toward the score and limit. Rematches keep the same tally; each completed win/loss or draw counts as one match, exactly once. Draws award neither side a session win. These scores are separate from career win streaks.
+
+After the **11th completed match**, the session ends, rematches are rejected by the server, and the results show **Session Complete** with a **30-second lobby return countdown**. Players can use Lobby or open their earned chest sooner; both remaining players automatically respawn in the 3D lobby when the timer expires and must queue again. Rewards still save through the existing pipeline. Leaving or disconnecting cannot reopen the completed session. Changing opponents or queueing again starts at 0-0; other active duels remain independent.
+
+`SessionMatchLimit` and `SessionReturnDelay` live in `src/shared/Config.luau`. The logic suite includes session boundaries, draws, disconnects, early departures, score resets, blocked rematches, and automatic seat cleanup. The real two-client Studio check is `game:GetService("StudioTestService"):ExecuteMultiplayerTestAsync(1,"NOVA/session")`; it plays eleven duels through rematch buttons and checks both clients' scoreboards, blocked extra votes, automatic return, and fresh requeue.
+
+## Server firing limit and live tuning
+
+Duels and High Score Practice share a server-enforced **12 shots per second** limit, with at least 1/12 second between accepted shots per player. Excess requests are discarded, never queued, and their shot IDs cannot be replayed later. Idle time cannot accumulate a burst. Only accepted shots spawn projectiles or count toward practice/career totals. This limits firing speed without banning players for fast input.
+
+Use Roblox Studio's built-in **File > Open Configs** panel as the live administration control. Create a **Number** config named **`NOVA_MaxShotsPerSecond`**, initially **12**. Stage edits for Studio testing, then **Publish now** in that panel to distribute a new limit to running servers that contain this implementation. Only whole numbers **1-60** are accepted. Roblox's propagation can take several minutes; the server applies received changes to duels and practice, including existing sessions. A live change during a practice run can affect its score, so change the value between competitive events when possible.
+
+`ShotLimiter` owns the policy and `FireRateConfig` loads/refreshes it through `ConfigService`. A missing key uses 12. Invalid values or temporary service errors retain the last valid cap. Inspect `ServerScriptService.NOVA` attributes **MaxShotsPerSecond** and **FireRateConfigStatus** in the test server to see its effective limit and configuration status. No client/admin RemoteEvent can change the cap, and no API key is stored in the game. Existing saved practice records are preserved.
+
+For a temporary test-server override, run `game:GetService("ConfigService"):SetTestingValue("NOVA_MaxShotsPerSecond", 6)` in the **Server Command Bar** during Play; clear it with `ClearTestingValue("NOVA_MaxShotsPerSecond")`. Testing overrides affect only that Play session. The gameplay scripts require an initial place publish before this protection and subsequent live config changes reach online players. See [Roblox Experience Configs](https://create.roblox.com/docs/production/configs).
 
 ## Career stats and global leaderboards
 
@@ -42,9 +60,44 @@ Four global top-10 boards sit on the sidewall alongside High Score Practice: **M
 
 Run the local suite normally for the pure stats cases. In Studio Play, `require(game.ServerStorage.NOVAUnitTest.RunUnitTest)("Stats")` also runs the inventory-service queue fixtures. In Edit, `game:GetService("StudioTestService"):ExecuteMultiplayerTestAsync(1,"NOVA/stats")` runs the real two-client stats flow.
 
+## Quests
+
+Open **Quests** in the 3D lobby (below Career stats). The launcher shows a mint badge with the number of rewards ready to claim. The menu has **Daily**, **Weekly**, **Career** and **Expert** tabs. Each row shows the objective, a progress bar and the reward. Click a finished quest to claim it; the server checks the claim and grants the XP.
+
+- **Daily**: three quests from a pool of eight, 250–500 XP each. They reset at 00:00 UTC.
+- **Weekly**: three quests from a pool of eight, 1,500–3,000 XP each. They reset on Monday 00:00 UTC.
+- **Career** has six quests, including **Cosmetic Collector**, which tracks 5, 15, 30, 60 and 100 unique non-default cosmetics already owned or acquired later.
+- **Expert** holds harder career quests, starting with **Untouchable**. Its lifetime flawless wins and claimed tiers carry over.
+
+Both career groups use five tiers paying 500, 1,000, 2,500, 5,000 and 10,000 XP. Tiers 2, 4 and 5 also grant bundles of Season 1 Crates, Double XP tokens or Double Crates tokens, as shown on each quest. Tokens are stored until activated in Class setup. A tier claim saves its inventory bundle and claimed status together.
+
+Every player gets the same daily and weekly quests, derived from the day or week number, with no two quests of the same type in one set. A finished quest that is not claimed before its reset pays out automatically, and the menu says so the next time it opens. Double XP tokens do not double quest XP. Practice does not count.
+
+The chest card below the daily and weekly quests tracks how many challenges are complete. Finish the full set to claim 3 daily or 10 weekly Season 1 Crates with the shop's chest reveal. An earned chest bonus left unclaimed goes to inventory when its rotation resets.
+
+After a duel, the XP recap adds a **Quest progress** section with up to four quests that the match moved, finished ones first.
+
+Quest progress uses the same server match event as career stats and commits in the same inventory save, so a replayed result cannot count twice. Crate openings count in the crate's own transaction. Duels now also record shots landed and wins without taking a hit (`shotsHit`, `flawlessWins`); older profiles start both at zero. Quest state is stored under `quests` in the `NOVA_Inventory_v1` profile. XP goes to the separate progression profile only after the inventory save that records the claim, so a failed save cannot pay twice; a server crash between the two saves can lose that XP.
+
+`src/shared/Quests.luau` holds the pools, goals, XP and inventory bundles. Removing a quest from a pool drops it from saved lists on the next load.
+
+## AI opponents
+
+Players can duel a server-run bot in two ways. While waiting alone in the 1v1 queue, the waiting screen offers four difficulty buttons under **Play a bot while you wait**. The player stays in the queue: when a real opponent arrives, the bot duel ends at once with no result or reward, and the real duel starts with a new map roll. The blue **Bot Practice** beacon to the left of the queue pad opens a private room that never matches with other players.
+
+The four difficulties are **Beginner**, **Intermediate**, **Experienced** and **Veteran**. They differ in fire rate, aim error, how often they notice and dodge incoming shots, reaction time, how much they stand still, and how quickly they move to find a clear shot. `src/shared/Bots.luau` holds these values. A bot sets the same move, jump and fire inputs a player can send and obeys the shared server fire limit. Its shots aim at the player with a small random error; it does not lead its target.
+
+After a bot duel, **Rematch** starts the next duel immediately and the difficulty buttons change the bot for the next duel. Bot duels have no 11-match limit. The session score still counts wins against the bot.
+
+Bot duels pay a share of PvP XP by difficulty. Completion and win payouts are 40 and 120 XP on Beginner, 60 and 180 on Intermediate, 80 and 240 on Experienced, and 100 and 300 on Veteran. An active Double XP token doubles these payouts. A win over a bot rolls for a crate at half the player's saved crate chance. Bot duels never raise or reset that saved chance, so they cannot be used to build it up for online play, and a loss to a bot has no crate effect. Bot duels do not count toward career stats, win streaks, leaderboards or quests.
+
+Bot crate receipts carry `bot=true` and a chance below the online minimum of 25%. A server running an older version rejects a profile that holds one, so publish this update to all servers together; the receipts expire after 24 hours.
+
+The local suite simulates bot-versus-bot duels to check that each difficulty beats the one below it, and that a Veteran bot defeats a player who stands still on every map in the rotation.
+
 ## Daily check-in
 
-The lobby's **Daily check-in** menu opens on login when a reward is ready. Players claim once per **UTC calendar day**; the next reward unlocks at 00:00 UTC. Missing a full UTC date resets the next claim to day 1. Claiming just before and just after midnight is valid. Remaining online through midnight also allows the next claim. The menu previews each week's rewards, shows claimed days and the next unlock countdown, and supports touch scrolling and controller navigation. Check-ins are available in the 3D lobby.
+The lobby's **Daily check-in** button shows a green badge when a reward is ready. The menu opens once per UTC day in the lobby when a reward is available and the player is free to see it. Players claim once per **UTC calendar day** and the next reward unlocks at 00:00 UTC. Missing a full UTC date resets the next claim to day 1. Claiming just before and just after midnight is valid. The menu previews each week's rewards, shows claimed days and the next unlock countdown, and supports touch scrolling and controller navigation.
 
 | Days | Crate days (1, 4, 7 of each week) | Double XP days (2, 5) | Double Crates days (3, 6) |
 | --- | --- | --- | --- |
@@ -78,6 +131,8 @@ Results animate an itemized XP recap: **Duel completed +100 XP**, plus **Victory
 The compact lobby card contains only the rank icon, numeric level, and XP bar. Clicking anywhere on it opens a three-tab progression panel. **Progress** shows the current rank, XP toward the next level, and lifetime XP. **Prestiges** shows all twelve icons in a scrollable collection with Current, Unlocked, Next, Ready, or Locked states. Selecting any card opens its **Requirements**, including the previous prestige's level-55 prerequisite, reset behavior, and progress toward eligibility. The server remains authoritative for prestige actions. Load errors and prestige responses appear below the Requirements action when relevant; XP-per-win advertising is absent from this UI. The enlarged panel scales up to 130% while fitting within the viewport, with no subtitle, completed-prestige statistic, or status/control-help footer.
 
 The progression panel and Settings close each other when opened. Character movement is blocked while progression is open, including clients without a legacy PlayerModule. Entering a queue or practice closes it and releases movement. Controller Y / Triangle opens progression, LB / RB switches tabs, and B closes it. The close button and Escape also dismiss it; Escape can open Roblox's system menu. A confirmation is cleared when closing the panel or changing tabs/targets.
+
+At three consecutive duel wins, a fire icon and the current streak count appear on both left-hand duel player cards and below the rank on lobby nameplates. Counts include server-recorded results immediately while the existing career save completes; losses and draws clear the display. The original transparent sprite and generation prompt are in `assets/streak/`, and the shared display lives in `WinStreak`.
 
 Nameplates above lobby characters show their display name and rank; the Roblox player list also shows Level and Prestige. Both duel seats show an avatar headshot and full rank from matchmaking through the result screen. Thumbnail loading happens independently of gameplay and is cached per user.
 
@@ -131,6 +186,8 @@ Press **F4** in a Studio client. **Show masks** displays tile and player bounds,
 ## Open and play
 
 Open `build/NOVA.rbxlx` in Studio. For a fresh checkout, run `python tools/build.py` at the repository root to generate that file using Python 3 and its standard library. In Studio, select **Server & Clients**, choose **2 clients**, and start the session. Solo Play intentionally opens a one-player lobby. Use keyboard and mouse or a connected gamepad. Tilt the left stick sideways past its dead zone to move at full speed. Releasing or reversing horizontal input stops or reverses movement on the next simulation tick, including in midair. Press Xbox A or PlayStation Cross (×) to jump. Pull RT/R2 once per shot.
+
+The lobby cycles through **Afterimage** and **Night Current**, two original instrumental house tracks made with synthesized sounds. Playback is local to each player and pauses when they enter a queue, a duel, or practice. It resumes when they return to the 3D lobby. The playlist and volume are in `src/client/LobbyMusic.luau`.
 
 Player positions display directly from server updates at 60 Hz. Jumps immediately apply their configured upward impulse and then follow gravity. Network travel time still affects when an input reaches the authoritative simulation.
 
@@ -187,10 +244,10 @@ Both the client and the server read the edited catalog. Crate details calculate 
 
 | Repository directory | Studio parent | Responsibility |
 | --- | --- | --- |
-| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, ProgressionInfo, ProgressionArt, PrestigeRevealArt, XPRewards, RankIcons, InventoryCatalog, Inventory, InventoryEdits, InventoryEditorModel, SkinVisuals and InventoryArt |
+| `src/shared` | `ReplicatedStorage.NOVA` | Config, TileCatalog, Map1, ControlBindings, Progression, ProgressionInfo, ProgressionArt, PrestigeRevealArt, XPRewards, RankIcons, InventoryCatalog, Inventory, InventoryEdits, InventoryEditorModel, SkinVisuals, InventoryArt, Stats, Quests and Bots |
 | `src/shared/maps` | `ReplicatedStorage.NOVA.Maps` | Map data modules for all five arenas |
-| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences, ProgressionService, ProgressionStore, InventoryService, InventoryStore and StudioTest |
-| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, ProgressionMenu, PrestigeReveal, XPRecap, RankIcon, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu, InventoryMenu, InventoryRetirementNotice, InventoryPreview, InventoryStyle, CrateReveal, ItemUnlock, ReelAudio and Diagnostics |
+| `src/server` | `ServerScriptService.NOVA` | Server, LobbyWorld, Lobbies, Match, Movement, Combat, Practice, PracticeWorld, PracticeLeaderboard, ControlPreferences, ProgressionService, ProgressionStore, InventoryService, InventoryStore, Bot, BotWorld and StudioTest |
+| `src/client` | `StarterPlayer.StarterPlayerScripts.NOVA` | Client, Hud, LobbyHud, PracticeHud, ProgressionHud, ProgressionMenu, PrestigeReveal, XPRecap, RankIcon, Portrait, Widgets, Arena, Input, ControlSettings, SettingsMenu, InventoryMenu, InventoryRetirementNotice, InventoryPreview, InventoryStyle, CrateReveal, ItemUnlock, ReelAudio, StatsMenu, QuestsMenu and Diagnostics |
 | `tests/unit`, `tests/cases` | `ServerStorage.NOVAUnitTest`, its `Cases` folder | Runner, fixtures, performance profile and acceptance cases |
 | `tests/integration` | `ServerStorage.NOVATesting` | Multiplayer session driver and per-client input probe |
 

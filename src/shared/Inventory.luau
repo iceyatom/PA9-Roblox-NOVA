@@ -4,11 +4,14 @@ local Drop=require(script.Parent.CrateDrop)
 local Shop=require(script.Parent.ShopCatalog)
 local Daily=require(script.Parent.DailyRewards)
 local Stats=require(script.Parent.Stats)
+local Quests=require(script.Parent.Quests)
+local SeasonOne=require(script.Parent.SeasonOne)
 local Inventory={}
+local GrantStackLimit=1000000
 local function integer(n,max) return type(n)=="number" and n==n and n>=0 and n<=max and n%1==0 end
 function Inventory.new()
     return {owned={},equipped=table.clone(Catalog.defaults),favorites={},shards=0,receipts={},receiptOrder={},wins={},openSequence=0,reducedEffects=false,retirementSequence=0,
-        crateChance=Drop.BaseChance,dropReceipts={},dropOrder={},boosts={xp=0,crate=0},purchases={},purchaseOrder={},daily=Daily.new(),stats=Stats.new()}
+        crateChance=Drop.BaseChance,dropReceipts={},dropOrder={},boosts={xp=0,crate=0},purchases={},purchaseOrder={},daily=Daily.new(),stats=Stats.new(),quests=Quests.new()}
 end
 -- Boosts are wall-clock expiry timestamps (os.time); 0 means never purchased.
 function Inventory.boostActive(data,kind,now)
@@ -26,6 +29,8 @@ function Inventory.validate(raw)
     if not data.daily then return nil end
     data.stats=Stats.validate(raw.stats)
     if not data.stats then return nil end
+    data.quests=Quests.validate(raw.quests)
+    if not data.quests then return nil end
     if raw.stats==nil and integer(raw.openSequence,Stats.Limit) then data.stats.cratesOpened=raw.openSequence end
     if raw.retirementSequence~=nil and not integer(raw.retirementSequence,2^52) then return nil end
     data.retirementSequence=raw.retirementSequence or 0
@@ -65,7 +70,8 @@ function Inventory.validate(raw)
             if not integer(index,#raw.dropOrder) or index<1 or type(key)~="string" or #key<1 or #key>160 or seen[key] then return nil end
             seen[key]=true;local r=raw.dropReceipts[key]
             if type(r)~="table" or r.key~=key or not integer(r.expires,2^52)
-                or (r.outcome~="win" and r.outcome~="loss") or not Drop.validChance(r.chance) or not Drop.validChance(r.nextChance)
+                or (r.outcome~="win" and r.outcome~="loss") or (r.bot~=nil and (r.bot~=true or r.outcome~="win"))
+                or not (r.bot and Drop.validBotChance(r.chance) or not r.bot and Drop.validChance(r.chance)) or not Drop.validChance(r.nextChance)
                 or type(r.awarded)~="boolean" or (r.crates~=nil and (r.crates~=2 or not r.awarded)) then return nil end
             if r.outcome=="win" then
                 if type(r.landing)~="number" or r.landing~=r.landing or r.landing<0 or r.landing>=1
@@ -208,9 +214,58 @@ end
 function Inventory.grant(data,id,amount)
     local item=Catalog.byId[id]
     if not item or not integer(amount,1000) or amount<1 then return false,"Invalid grant." end
-    if item.category=="crates" or item.category=="tokens" then data.owned[id]=math.max(data.owned[id] or 0,math.min(1000000,(data.owned[id] or 0)+amount))
+    if item.category=="crates" or item.category=="tokens" then data.owned[id]=math.max(data.owned[id] or 0,math.min(GrantStackLimit,(data.owned[id] or 0)+amount))
     elseif not item.default then data.owned[id]=1 end
     return true
+end
+function Inventory.claimQuest(data,key,now)
+    local quests=assert(Quests.validate(data.quests))
+    local ok,reward=Quests.claim(quests,data.stats,key,now,data.owned)
+    if not ok then return false,reward end
+    if reward.items then
+        local owned=table.clone(data.owned)
+        local candidate={owned=owned}
+        for _,item in reward.items do
+            if (owned[item.id] or 0)+item.quantity>GrantStackLimit then
+                return false,"Inventory full. Use some rewards before claiming."
+            end
+            local granted,message=Inventory.grant(candidate,item.id,item.quantity)
+            if not granted then return false,message end
+        end
+        data.owned=owned
+    end
+    data.quests=quests
+    return true,reward
+end
+local function awardQuestSet(data,kind)
+    local quantity=Quests.SetBonusCrates[kind]
+    local ok,message=Inventory.grant(data,SeasonOne.id,quantity)
+    if not ok then return false,message end
+    data.quests[kind].bonusAwarded=true
+    return true,{kind=kind,quantity=quantity,owned=data.owned[SeasonOne.id]}
+end
+
+-- Bank an earned bonus before the completed rotation is replaced.
+function Inventory.rollQuests(data,now)
+    for kind in Quests.SetBonusCrates do
+        if Quests.period(kind,now)>data.quests[kind].period and Quests.setBonusReady(data.quests,kind) then
+            awardQuestSet(data,kind)
+        end
+    end
+    Quests.roll(data.quests,now)
+end
+
+function Inventory.claimQuestSet(data,key,now)
+    if type(key)~="string" then return false,"Invalid challenge reward." end
+    local kind,period=key:match("^(%a+):(%d+)$")
+    if not Quests.SetBonusCrates[kind] then return false,"Invalid challenge reward." end
+    local rotation=data.quests[kind]
+    if period~=tostring(rotation.period) or rotation.period~=Quests.period(kind,now) then
+        return false,"These challenges have reset. Earned crates are added to your inventory."
+    end
+    if rotation.bonusAwarded then return false,"Crates already claimed." end
+    if not Quests.setBonusReady(data.quests,kind) then return false,"Complete all three challenges first." end
+    return awardQuestSet(data,kind)
 end
 -- Robux purchase delivery. purchaseId is Roblox's receipt ID; a replayed receipt grants nothing twice.
 function Inventory.purchase(data,productId,purchaseId,now)
@@ -236,7 +291,8 @@ function Inventory.purchase(data,productId,purchaseId,now)
     if #data.purchaseOrder>Shop.LedgerLimit then data.purchases[table.remove(data.purchaseOrder,1)]=nil end
     return true,receipt
 end
-function Inventory.matchReward(data,key,expires,outcome,roll,now)
+-- bot: a win over an AI opponent. Losses to bots are never sent here.
+function Inventory.matchReward(data,key,expires,outcome,roll,now,bot)
     if type(key)~="string" or #key<1 or #key>160 or not integer(expires,2^52) then return false,"Invalid match reward." end
     if expires<=os.time() then return false,"Reward expired." end
     if outcome~="win" and outcome~="loss" then return false,"Invalid match outcome." end
@@ -247,7 +303,8 @@ function Inventory.matchReward(data,key,expires,outcome,roll,now)
         return true,receipt and table.clone(receipt),true
     end
     if outcome=="win" and (type(roll)~="number" or roll~=roll or roll<0 or roll>1) then return false,"Invalid crate roll." end
-    local receipt=Drop.resolve(data.crateChance,outcome,roll)
+    if bot and outcome~="win" then return false,"Invalid match outcome." end
+    local receipt=bot and Drop.resolveBot(data.crateChance,roll) or Drop.resolve(data.crateChance,outcome,roll)
     -- An active Double Crates token doubles a crate won from this match.
     local crates=receipt.awarded and (Inventory.boostActive(data,"crate",now) and 2 or 1) or 0
     if crates>0 and (data.owned.crate_season1 or 0)+crates>1000000 then return false,"Chest inventory full." end
@@ -282,6 +339,9 @@ function Inventory.open(data,id,key,roll)
     if duplicate then data.shards=math.min(1000000000,data.shards+shards) else data.owned[selected]=(data.owned[selected] or 0)+1 end
     local receipt={itemId=selected,crateId=id,duplicate=duplicate,shards=shards,requestId=key}
     data.stats.cratesOpened=math.min(Stats.Limit,data.stats.cratesOpened+1)
+    local now=os.time()
+    Inventory.rollQuests(data,now)
+    Quests.progress(data.quests,"crates",1,now)
     data.receipts[key]=receipt; table.insert(data.receiptOrder,key)
     if #data.receiptOrder>24 then data.receipts[table.remove(data.receiptOrder,1)]=nil end
     return true,receipt

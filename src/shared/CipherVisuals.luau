@@ -46,24 +46,26 @@ local function line(f,x1,y1,x2,y2,width)
     f.Position=UDim2.fromOffset((x1+x2)/2,(y1+y2)/2)
     f.Size=UDim2.fromOffset(math.sqrt(dx*dx+dy*dy)+.5,width);f.Rotation=math.deg(math.atan2(dy,dx))
 end
-local function update(e,t,simple)
-    local guiSize=Geometry.size(e.root)
+local function update(e,t)
     local root=e.root
+    local reducedEffects=reduced(root)
     if e.kind=="skins" or e.kind=="bullets" then
-        local frame=reduced(root) and 0 or math.floor(t*8)%16
+        local frame=reducedEffects and 0 or math.floor(t*8)%16
         if frame~=e.frame then root.ImageRectOffset=Vector2.new(frame%4*256,math.floor(frame/4)*256);e.frame=frame end
         return
     end
-    t=(reduced(root) and 0 or t)+e.seed
+    t=(reducedEffects and 0 or t)+e.seed
+    local guiSize=Geometry.size(root)
     local w,h=guiSize.X,guiSize.Y;local bg=e.kind=="backgrounds"
+    local simple=reducedEffects and not bg
     local spread=bg and h*.10 or math.min(w*.08,math.max(4,h*.9))
     for i,rail in e.rails do
-        rail.Visible=bg or not simple or i==2
+        rail.Visible=not simple or i==2
         local y=bg and (i==1 and h*.12 or h*.88) or h/2
-        line(rail,0,y+(bg and 0 or (i-2)*spread),w,y,bg and 1 or 1.2)
+        line(rail,0,y+(bg and 0 or (i-2)*spread),w,y,bg and 1 or i==2 and 2 or 1.6)
     end
     for i,packet in e.packets do
-        packet.frame.Visible=not simple or bg or i<=2
+        packet.frame.Visible=not simple or i<=2
         local age=(t*.7+i*.173)%1
         local x,y
         if bg then x=w*(i%2==0 and .08+.10*age or .82+.10*age);y=h*(.18+(i*.137)% .63)
@@ -74,7 +76,7 @@ local function update(e,t,simple)
         packet.stroke.Transparency=.15+.65*(.5+.5*math.sin(t*4+i))
     end
     for i,b in e.bits do
-        b.Visible=not simple or bg or i<=3
+        b.Visible=not simple or i<=3
         local age=(t*.9+i*.127)%1
         b.Position=bg and UDim2.fromScale(i%2==0 and .10+(i%3)*.045 or .80+(i%3)*.045,.1+.8*age) or UDim2.fromOffset(w*(1-age),h/2+((i%2)*2-1)*spread*age)
         b.BackgroundTransparency=.2+age*.65
@@ -84,12 +86,9 @@ end
 local function start()
     if connection then return end
     connection=Run.Heartbeat:Connect(function()
-        local t=os.clock();local trails=0
+        local t=os.clock()
         for root,e in entries do
-            if visible(root) then
-                if e.kind=="tracers" then trails+=1 end
-                update(e,t,reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact or e.kind=="tracers" and trails>12)
-            end
+            if visible(root) then update(e,t) end
         end
         if not next(entries) then connection:Disconnect();connection=nil end
     end)
@@ -113,16 +112,16 @@ function V.apply(root,item)
     else
         local bg=item.category=="backgrounds"
         if bg then root.Image=Assets.background;root.ScaleType=Enum.ScaleType.Crop end
-        local count=0;for other,old in entries do if old.kind=="tracers" and visible(other) then count+=1 end end
-        e.compact=not bg and (reduced(root) or root:GetAttribute("CompactPrism")==true or count>=12)
         local fx=box(root,"CipherEffects",tint,1);fx.AnchorPoint=Vector2.zero;fx.Size=UDim2.fromScale(1,1);fx.ClipsDescendants=bg
-        for i=1,bg and 2 or 3 do e.rails[i]=box(fx,"DataRail",tint,.45) end
-        for i=1,e.compact and 2 or bg and 8 or 9 do
+        -- Share one bounded trail design across inventory and gameplay. Only the
+        -- player's Reduced Effects preference changes its animation and detail.
+        for i=1,bg and 2 or 3 do e.rails[i]=box(fx,"DataRail",tint,not bg and i==2 and .22 or .45) end
+        for i=1,bg and 8 or 6 do
             local packet=box(fx,"SignalPacket",tint,1)
             local stroke=Instance.new("UIStroke");stroke.Color=tint;stroke.Thickness=1;stroke.Parent=packet
             e.packets[i]={frame=packet,stroke=stroke}
         end
-        for i=1,e.compact and 3 or 12 do
+        for i=1,bg and 12 or 8 do
             local bit=box(fx,"BinaryBit",tint,.2);bit.Size=UDim2.fromOffset(i%2==0 and 2 or 4,3);e.bits[i]=bit
         end
         if bg then
@@ -131,6 +130,6 @@ function V.apply(root,item)
         end
     end
     entries[root]=e;e.destroyConnection=root.Destroying:Once(function()entries[root]=nil end)
-    update(e,os.clock(),reduced(root) or root:GetAttribute("CompactPrism")==true or e.compact);start();return true
+    update(e,os.clock());start();return true
 end
 return V

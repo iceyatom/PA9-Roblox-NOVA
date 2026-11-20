@@ -2,7 +2,7 @@
 local W=require(script.Parent.Widgets)
 local C=W.colors
 local LobbyHud={}
-function LobbyHud.new(playerGui)
+function LobbyHud.new(playerGui,mobile)
     local gui=Instance.new("ScreenGui")
     gui.Name="NOVALobby"
     gui.ResetOnSpawn=false
@@ -17,6 +17,16 @@ function LobbyHud.new(playerGui)
     W.text(card,"Kicker",20,10,460,20,"NOVA   /   LOBBY",14,C.purple)
     W.text(card,"Title",20,30,460,30,"Choose your challenge",24,C.white,Enum.Font.GothamBlack)
     W.text(card,"Detail",20,60,460,18,"Purple: 1v1 / Mint on the right: High Score Practice",14,C.muted)
+    if mobile then
+        local scale=Instance.new("UIScale")
+        scale.Parent=card
+        card.Position=UDim2.new(.5,0,1,-14)
+        local function resize()
+            scale.Scale=math.clamp((gui.AbsoluteSize.X-80)/500,.1,.70)
+        end
+        gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+        resize()
+    end
     return gui
 end
 return LobbyHud

@@ -7,12 +7,13 @@ local Catalog=require(shared.RankIcons)
 local Gray=require(shared.PrestigeRevealArt)
 local Info=require(shared.ProgressionInfo)
 local W=require(script.Parent.Widgets)
+local Audio=require(script.Parent.RevealAudio)
 local C=W.colors
 local Reveal={}
 Reveal.__index=Reveal
 local gold=Color3.fromRGB(255,222,91)
 local pale=Color3.fromRGB(255,247,191)
-local impactAt=1.24
+local impactAt=Audio.RiseTime
 local duration=5.1
 
 local function phase(t,a,b) return math.clamp((t-a)/(b-a),0,1) end
@@ -35,6 +36,7 @@ function Reveal.new(gui,onFinished)
     local root=W.box(gui,"PrestigeReveal",0,0,0,0,C.ink,40)
     root.Size=UDim2.fromScale(1,1); root.Active=true; root.Visible=false
     self.root=root
+    self.audio=Audio.new(root)
     local origin=W.box(root,"Origin",0,0,0,0)
     origin.Position=UDim2.fromScale(.5,.5)
     local fit=Instance.new("UIScale"); fit.Parent=origin
@@ -119,7 +121,7 @@ function Reveal:play(data)
     self:hide(false)
     self:prepare(data)
     self.lastKey=entry.key
-    self.active=true; self.ready=false
+    self.active=true; self.ready=false; self.impacted=false
     self.root.Visible=true
     self.root:SetAttribute("RankKey",entry.key)
     self.root:SetAttribute("Phase","loading")
@@ -135,6 +137,7 @@ function Reveal:play(data)
             if not (self.GrayIcon.IsLoaded and self.ColorIcon.IsLoaded) and os.clock()-self.waitStart<4 then return end
             self.loading.Visible=false
             self.started=os.clock()
+            self.audio:rise()
         end
         local elapsed=os.clock()-self.started
         self:render(elapsed)
@@ -148,6 +151,10 @@ function Reveal:render(t)
     local fade=1-phase(t,4.55,duration)
     local color=ease(phase(t,.55,1.08))
     local impactTime=t-impactAt
+    if impactTime>=0 and not self.impacted then
+        self.impacted=true
+        self.audio:land()
+    end
     local scale,y,rotation
     if t<.25 then
         scale=mix(.28,.78,enter); y=mix(340,280,enter); rotation=mix(-15,-5,enter)
@@ -204,6 +211,7 @@ end
 function Reveal:hide(notify)
     local wasActive=self.active
     self.active=false
+    self.audio:stop()
     if self.connection then self.connection:Disconnect(); self.connection=nil end
     self.root.Visible=false
     if wasActive then

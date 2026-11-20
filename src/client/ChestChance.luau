@@ -8,7 +8,9 @@ local Style=require(script.Parent.InventoryStyle)
 local Preview=require(script.Parent.InventoryPreview)
 local Catalog=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
 local Policy=require(game.ReplicatedStorage.NOVA.CrateDrop)
+local Audio=require(script.Parent.RevealAudio)
 local C=W.colors
+local rollTime=4.2
 local Chance={};Chance.__index=Chance
 local function percent(n) return ("%.2f"):format(n):gsub("0+$",""):gsub("%.$","").."%" end
 local function gamepad() return UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" end
@@ -21,13 +23,13 @@ end
 function Chance.new(gui,onDismiss,stage)
     local self=setmetatable({tweens={},segments={},generation=0,onDismiss=onDismiss,docked=stage~=nil},Chance)
     local root=W.box(stage or gui,"CrateChance",0,0,0,0,C.ink,60);root.Size=UDim2.fromScale(1,1);root.BackgroundTransparency=stage and 1 or .12;root.Active=not stage;root.Visible=false;self.root=root
+    self.audio=Audio.new(root)
     local origin=W.box(root,"Origin",0,0,0,0);origin.Position=UDim2.fromScale(.5,.5)
     self.origin=origin
     local fit=Instance.new("UIScale");fit.Parent=origin;self.fit=fit
     local panel=W.box(origin,"Panel",0,0,560,620,C.panel);panel.AnchorPoint=Vector2.new(.5,.5);Style.surface(panel,16);self.panel=panel
     self.pop=Instance.new("UIScale");self.pop.Parent=panel
-    local function resize() fit.Scale=stage and .72 or math.max(.01,math.min(1.1,(root.AbsoluteSize.X-24)/560,(root.AbsoluteSize.Y-24)/620)) end
-    root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize);resize()
+    local mobile=stage and UIS.TouchEnabled
     centerText(panel,"Title",20,424,38,"Season 1 Crate",29,C.white).Font=Enum.Font.GothamBlack
     self.kicker=centerText(panel,"Kicker",65,480,26,"VICTORY ROLL",17,C.mint)
     local close=Style.button(panel,"Close",500,14,44,40,"×",false);self.closeButton=close
@@ -49,6 +51,25 @@ function Chance.new(gui,onDismiss,stage)
     self.detail=centerText(panel,"Detail",497,480,43,"Waiting for your saved result…",16,C.muted)
     self.openButton=Style.button(panel,"OpenNow",36,556,238,44,"Open now",true)
     self.continueButton=Style.button(panel,"SaveLater",286,556,238,44,"Save for later",false)
+    local function resize()
+        fit.Scale=mobile and .9 or stage and .72
+            or math.max(.01,math.min(1.1,(root.AbsoluteSize.X-24)/560,(root.AbsoluteSize.Y-24)/620))
+        if mobile then
+            local scale=math.max(.01,root.AbsoluteSize.X/1440*fit.Scale)
+            local height=math.clamp(math.ceil(44/scale),80,150)
+            local textSize=math.clamp(math.ceil(14/scale),24,38)
+            for _,button in {self.openButton,self.continueButton} do
+                button.Size=UDim2.fromOffset(button.Size.X.Offset,height)
+                button.TextSize=textSize
+                button.TextWrapped=true
+            end
+            close.Size=UDim2.fromOffset(height,height)
+            close.Position=UDim2.fromOffset(548-height,12)
+            close.TextSize=textSize
+            panel.Size=UDim2.fromOffset(560,556+height+20)
+        end
+    end
+    root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize);resize()
     self.continueButton.Activated:Connect(function() self:dismiss() end)
     self.fill=Instance.new("NumberValue");self.fill.Name="DisplayedChance";self.fill.Parent=root
     self.fill.Changed:Connect(function(value)
@@ -80,6 +101,7 @@ function Chance:tween(object,duration,properties,style)
 end
 function Chance:hide()
     self.generation+=1
+    self.audio:stop()
     for _,tween in self.tweens do tween:Cancel() end
     self.tweens={};self.root.Visible=false;self.settled=false
     self.root:SetAttribute("AnimationComplete",false)
@@ -94,15 +116,22 @@ function Chance:finish(receipt,generation)
     self.arrow.TextColor3=won and C.mint or C.red
     self.showPercent=not won
     if won then
+        self.audio:land()
         -- A Double Crates token active at the win pays two crates (receipt.crates==2).
         local doubled=receipt.crates==2
         self.kicker.Text=doubled and "DOUBLE CRATES UNLOCKED!" or "CRATE UNLOCKED!";self.kicker.TextColor3=C.mint
         self.amount.Text=doubled and "+2 CRATES" or "+1 CRATE"
         self.caption.Text=doubled and "DOUBLE CRATES TOKEN APPLIED" or "ADDED TO YOUR INVENTORY"
-        self.detail.Text="Next win starts at "..percent(receipt.nextChance).."."
+        self.detail.Text=receipt.bot and "Your online crate chance is unchanged." or "Next win starts at "..percent(receipt.nextChance).."."
         self:tween(self.fill,reduced() and 0 or .45,{Value=100})
         self:tween(self.icon,reduced() and 0 or .45,{Size=UDim2.fromOffset(184,184),Position=UDim2.fromOffset(188,173)},Enum.EasingStyle.Back)
         self:tween(self.halo,reduced() and 0 or .35,{BackgroundTransparency=.86})
+    elseif receipt.bot then
+        -- Bot duels roll at a reduced chance and leave the saved chance alone.
+        self.kicker.Text="NO CRATE THIS TIME";self.kicker.TextColor3=C.red
+        self.caption.Text="BOT DUEL / HALF CHANCE"
+        self.detail.Text="Bot duels do not raise or reset your crate chance."
+        self.arrow.TextTransparency=.65
     else
         self.kicker.Text=receipt.outcome=="loss" and "CHANCE INCREASED" or "NO CRATE THIS TIME"
         self.kicker.TextColor3=receipt.outcome=="loss" and C.mint or C.red
@@ -117,7 +146,7 @@ function Chance:finish(receipt,generation)
     self.openButton.Visible=won;self.openButton.Active=won;self.openButton.Selectable=won
     self.continueButton.Visible=true;self.continueButton.Text=won and "Save for later" or "Continue"
     self.continueButton.Position=UDim2.fromOffset(won and 286 or 36,556)
-    self.continueButton.Size=UDim2.fromOffset(won and 238 or 488,44)
+    self.continueButton.Size=UDim2.fromOffset(won and 238 or 488,self.openButton.Size.Y.Offset)
     if gamepad() and not self.docked then Gui.SelectedObject=self.continueButton end
 end
 function Chance:update(result,ready)
@@ -131,7 +160,7 @@ function Chance:update(result,ready)
         self.halo.BackgroundTransparency=.96;self.arrow.TextTransparency=0;self.arrow.TextColor3=C.white
         self.rotor.Rotation=0;self.rotor.Visible=result.outcome=="win"
         self.kicker.Text=result.outcome=="win" and "VICTORY ROLL" or "DEFEAT BONUS";self.kicker.TextColor3=C.mint
-        self.caption.Text=result.outcome=="win" and "CHANCE ON THIS WIN" or "SAVED CRATE CHANCE"
+        self.caption.Text=result.bot and "BOT DUEL / HALF CHANCE" or result.outcome=="win" and "CHANCE ON THIS WIN" or "SAVED CRATE CHANCE"
         self.detail.Text="Saving your match reward…";self.amount.Text=percent(result.chance or Policy.BaseChance)
         self.fill.Value=-1;self.fill.Value=result.chance or Policy.BaseChance
         self.openButton.Visible=false;self.openButton.Active=false;self.openButton.Selectable=false;self.continueButton.Visible=false
@@ -148,9 +177,14 @@ function Chance:update(result,ready)
             local target=4*360+receipt.landing*360
             if reduced() then self.rotor.Rotation=target;self:finish(receipt,generation)
             else
-                self:tween(self.rotor,4.2,{Rotation=target}).Completed:Once(function(state)
+                self:tween(self.rotor,rollTime,{Rotation=target}).Completed:Once(function(state)
                     if state==Enum.PlaybackState.Completed then self:finish(receipt,generation) end
                 end)
+                if receipt.awarded then
+                    task.delay(rollTime-Audio.RiseTime,function()
+                        if generation==self.generation and self.root.Visible and not self.settled then self.audio:rise() end
+                    end)
+                end
             end
         else self.rotor.Visible=false;self:finish(receipt,generation) end
     elseif not receipt then self.detail.Text=result.status..". Your reward will update when saved." end

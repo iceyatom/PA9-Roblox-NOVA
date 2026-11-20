@@ -6,6 +6,7 @@ local Model=require(shared.Inventory)
 local Catalog=require(shared.InventoryCatalog)
 local Store=require(script.Parent.InventoryStore)
 local Stats=require(shared.Stats)
+local Quests=require(shared.Quests)
 local Service={}
 Service.__index=Service
 
@@ -66,12 +67,22 @@ function Service:publish(player)
     local r=self.records[player]
     if not r or player.Parent~=Players then return end
     player:SetAttribute("InventoryReady",self:ready(player))
+    player:SetAttribute("WinStreak",self:winStreak(player))
     if r.data then
         player:SetAttribute("ReducedEffects",r.data.reducedEffects)
         for category,id in r.data.equipped do player:SetAttribute("Cosmetic_"..category,id) end
     end
     self.changed:FireClient(player,self:snapshot(player))
     if r.data and self.statsChanged then self.statsChanged(player,r.data.stats) end
+    self:payQuests(player,r)
+end
+-- Quest XP lives in the separate progression profile. Pay only the claimed total
+-- that this profile has committed, so a failed or repeated save never pays twice.
+function Service:payQuests(player,r)
+    if not r.data then return end
+    local total=r.data.quests.claimedXP
+    if r.questPaid==nil then r.questPaid=total end
+    if total>r.questPaid and self.questXP and self.questXP(player,total-r.questPaid) then r.questPaid=total end
 end
 function Service:view(player)
     local r=self.records[player]
@@ -115,13 +126,18 @@ function Service:maintain(player,r)
         end
         if profile then
             r.data=profile.data; r.expires=profile.expires; r.pending=nil; r.version+=1
+            if r.questPaid==nil then r.questPaid=r.data.quests.claimedXP end
             r.status=self.storage and "Inventory saved." or "Studio / session inventory"
         else r.status="Inventory unavailable. Retrying automatically…" end
     end
     if r.data and (not self.storage or r.expires>os.time()) then
         if r.pending then self:flush(player,r) end
         if not r.pending then
-            if #(r.statsQueue or {})>0 then r.pending=Model.validate(r.data);self:mergeStats(r,r.pending) end
+            -- A new day or week also needs a save: it deals fresh quests and pays unclaimed ones.
+            if #(r.statsQueue or {})>0 or Quests.stale(r.data.quests,os.time()) then
+                r.pending=Model.validate(r.data)
+                self:mergeStats(r,r.pending)
+            end
             if r.pending or self.storage then self:flush(player,r) end
         end
     end
@@ -146,17 +162,56 @@ end
 -- Bounded batches keep every queued result in the receipt window until its save
 -- is acknowledged, including an UpdateAsync timeout after the write committed.
 function Service:mergeStats(r,data)
-    for i=1,math.min(64,#(r.statsQueue or {})) do assert(Stats.record(data.stats,r.statsQueue[i]),"Invalid server stats event") end
+    for i=1,math.min(64,#(r.statsQueue or {})) do
+        local ok,replay=Stats.record(data.stats,r.statsQueue[i])
+        assert(ok,"Invalid server stats event")
+        -- The career receipt also guards quest progress against a replayed result.
+        if not replay then
+            local event=r.statsQueue[i]
+            Model.rollQuests(data,event.time or os.time())
+            Quests.record(data.quests,event)
+        end
+    end
+    Model.rollQuests(data,os.time())
+end
+-- Quest rows this result moves, measured against every result already queued.
+function Service:questRecap(r,event)
+    local base=r.pending or r.data
+    if not base then return nil end
+    local stats,quests=Stats.validate(base.stats),Quests.validate(base.quests)
+    local function apply(e)
+        local ok,replay=Stats.record(stats,e)
+        if ok and not replay then Quests.record(quests,e) end
+    end
+    for _,queued in r.statsQueue or {} do apply(queued) end
+    local before=Quests.view(quests,stats,event.time,base.owned)
+    apply(event)
+    return Quests.changes(before,Quests.view(quests,stats,event.time,base.owned))
 end
 function Service:ackStats(r)
     while r.statsQueue and r.statsQueue[1] and r.data.stats.receipts[r.statsQueue[1].key] do table.remove(r.statsQueue,1) end
+end
+-- Include queued authoritative results immediately, while their existing profile
+-- transaction saves in the background. Replayed receipts cannot add a win twice.
+function Service:winStreak(player)
+    local r=self.records[player]
+    if not r or not r.data then return 0 end
+    local stats=Stats.validate(r.data.stats)
+    for _,event in r.statsQueue or {} do
+        assert(Stats.record(stats,event),"Invalid server stats event")
+    end
+    return stats.currentWinStreak
 end
 function Service:recordStats(player,event)
     local r=self.records[player]
     if not r or r.leaving then return end
     r.statsQueue=r.statsQueue or {}
+    event.time=event.time or os.time()
+    local recap=self:questRecap(r,event)
     table.insert(r.statsQueue,event)
+    player:SetAttribute("WinStreak",self:winStreak(player))
     task.defer(function() if self.records[player]==r then self:maintain(player,r) end end)
+    return recap
 end
 function Service:crateChance(player)
     local r=self.records[player]
@@ -166,13 +221,13 @@ function Service:boostActive(player,kind)
     local r=self.records[player]
     return r~=nil and r.data~=nil and Model.boostActive(r.data,kind)
 end
-function Service:awardMatch(player,result,expires,outcome,report)
+function Service:awardMatch(player,result,expires,outcome,report,bot)
     -- Sample once per match delivery, never once per save/retry attempt.
     local roll=outcome=="win" and self.random:NextNumber() or nil
     task.spawn(function()
         local delaySeconds=1
         while self.records[player] and not self.records[player].leaving and os.time()<expires do
-            local ok,receipt=self:mutate(player,function(data) return Model.matchReward(data,result,expires,outcome,roll) end)
+            local ok,receipt=self:mutate(player,function(data) return Model.matchReward(data,result,expires,outcome,roll,nil,bot) end)
             if ok then
                 report(not receipt and "Reward recorded" or receipt.awarded and "Chest earned" or outcome=="loss" and "Chance increased" or "No crate this time",receipt)
                 return
@@ -213,7 +268,10 @@ function Service:request(player,action,id,key)
     local ok,result=self:mutate(player,function(data)
         if action=="ackRetirements" then return Model.ackRetirements(data,id) end
         if self.canUse and not self.canUse(player) then return false,"Return to the lobby to manage your inventory." end
-        if action=="checkIn" then return Model.checkIn(data,id,os.time())
+        if action=="claimQuest" then return Model.claimQuest(data,id,os.time())
+        elseif action=="claimQuestSet" then return Model.claimQuestSet(data,id,os.time())
+        elseif action=="ackQuests" and id=="auto" then return Quests.ack(data.quests)
+        elseif action=="checkIn" then return Model.checkIn(data,id,os.time())
         elseif action=="useToken" then return Model.useToken(data,id)
         elseif action=="equip" then return Model.equip(data,id)
         elseif action=="favorite" then return Model.favorite(data,id)
@@ -236,6 +294,7 @@ function Service:request(player,action,id,key)
         end
         return false,"Unknown inventory action."
     end)
-    return {ok=ok,message=not ok and result or nil,profile=self:snapshot(player),dailyReward=ok and action=="checkIn" and result or nil,receipt=ok and openCount==1 and result or nil,receipts=ok and openCount and openCount>1 and result or nil}
+    return {ok=ok,message=not ok and result or nil,profile=self:snapshot(player),dailyReward=ok and action=="checkIn" and result or nil,quest=ok and action=="claimQuest" and result or nil,
+        questSet=ok and action=="claimQuestSet" and result or nil,receipt=ok and openCount==1 and result or nil,receipts=ok and openCount and openCount>1 and result or nil}
 end
 return Service

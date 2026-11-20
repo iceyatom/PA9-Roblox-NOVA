@@ -7,10 +7,13 @@ Stats.boards={
     {id="cratesOpened",name="Crates Opened",store="NOVA_Stats_Crates_v1",color="b56dff",offset=90},
 }
 local fields={"matchesPlayed","wins","losses","draws","currentWinStreak","longestWinStreak","shotsFired","cratesOpened"}
+-- Added with quests. Profiles saved before then have no value and start at zero.
+local optional={"shotsHit","flawlessWins"}
 local function integer(n) return type(n)=="number" and n==n and n>=0 and n<=Stats.Limit and n%1==0 end
 function Stats.new()
     local data={maps={},receipts={},receiptOrder={}}
     for _,field in fields do data[field]=0 end
+    for _,field in optional do data[field]=0 end
     return data
 end
 function Stats.validate(raw)
@@ -18,7 +21,11 @@ function Stats.validate(raw)
     if type(raw)~="table" then return nil end
     local data=Stats.new()
     for _,field in fields do if not integer(raw[field]) then return nil end;data[field]=raw[field] end
-    if data.matchesPlayed~=data.wins+data.losses+data.draws or data.currentWinStreak>data.longestWinStreak
+    for _,field in optional do
+        if raw[field]~=nil and not integer(raw[field]) then return nil end
+        data[field]=raw[field] or 0
+    end
+    if data.flawlessWins>data.wins or data.matchesPlayed~=data.wins+data.losses+data.draws or data.currentWinStreak>data.longestWinStreak
         or data.longestWinStreak>data.wins or type(raw.maps)~="table" or type(raw.receipts)~="table"
         or type(raw.receiptOrder)~="table" or #raw.receiptOrder>Stats.ReceiptLimit then return nil end
     local count,total,wins,losses,draws=0,0,0,0,0
@@ -43,9 +50,11 @@ function Stats.record(data,event)
     if type(event)~="table" or type(event.key)~="string" or #event.key<1 or #event.key>160
         or type(event.mapId)~="string" or #event.mapId<1 or #event.mapId>80
         or type(event.mapName)~="string" or #event.mapName>100 or not integer(event.shots)
-        or (event.outcome~="win" and event.outcome~="loss" and event.outcome~="draw") then return false end
+        or (event.outcome~="win" and event.outcome~="loss" and event.outcome~="draw")
+        or (event.hits~=nil and not integer(event.hits)) or (event.flawless~=nil and type(event.flawless)~="boolean") then return false end
     if data.receipts[event.key] then return true,true end
-    if data.matchesPlayed>=Stats.Limit or data.shotsFired>Stats.Limit-event.shots then return false end
+    if data.matchesPlayed>=Stats.Limit or data.shotsFired>Stats.Limit-event.shots
+        or data.shotsHit>Stats.Limit-(event.hits or 0) then return false end
     local row=data.maps[event.mapId]
     if not row then
         local count=0;for _ in data.maps do count+=1 end
@@ -54,6 +63,8 @@ function Stats.record(data,event)
     end
     local field=({win="wins",loss="losses",draw="draws"})[event.outcome]
     data.matchesPlayed+=1;data[field]+=1;data.shotsFired+=event.shots
+    data.shotsHit+=event.hits or 0
+    if event.outcome=="win" and event.flawless then data.flawlessWins+=1 end
     row.matches+=1;row[field]+=1;row.name=event.mapName
     data.currentWinStreak=event.outcome=="win" and data.currentWinStreak+1 or 0
     data.longestWinStreak=math.max(data.longestWinStreak,data.currentWinStreak)

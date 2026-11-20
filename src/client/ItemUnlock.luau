@@ -2,11 +2,12 @@
 local Run=game:GetService("RunService")
 local Content=game:GetService("ContentProvider")
 local W=require(script.Parent.Widgets)
+local Audio=require(script.Parent.RevealAudio)
 local Art=require(game.ReplicatedStorage.NOVA.InventoryArt)
 local Unlock={}; Unlock.__index=Unlock
 local gold=Color3.fromRGB(255,222,91)
 local pale=Color3.fromRGB(255,247,191)
-local impactAt=1.24
+local impactAt=Audio.RiseTime
 local function phase(t,a,b) return math.clamp((t-a)/(b-a),0,1) end
 local function ease(t) return 1-(1-t)^3 end
 local function mix(a,b,t) return a+(b-a)*t end
@@ -22,6 +23,7 @@ function Unlock.new(parent,item,onReady,height)
     local self=setmetatable({onReady=onReady},Unlock)
     height=height or 650
     local root=W.box(parent,"ItemUnlock",0,0,parent.Size.X.Offset,height,nil,42); self.root=root
+    self.audio=Audio.new(root)
     root.Visible=false; root:SetAttribute("Phase","prepared"); root:SetAttribute("ItemId",item.id)
     local origin=W.box(root,"Origin",parent.Size.X.Offset/2,height<650 and height*.43 or 290,0,0)
     local fit=Instance.new("UIScale")
@@ -73,6 +75,7 @@ end
 function Unlock:play()
     -- Loading never blocks motion, even if asset delivery is late.
     self.root.Visible=true; self.started=os.clock(); self:render(0)
+    self.audio:rise()
     self.connection=Run.RenderStepped:Connect(function()
         self:render(os.clock()-self.started)
     end)
@@ -83,6 +86,10 @@ function Unlock:render(t)
         return
     end
     local enter=ease(phase(t,0,.25)); local age=t-impactAt
+    if age>=0 and not self.impacted then
+        self.impacted=true
+        self.audio:land()
+    end
     local scale,y,rotation
     if t<.25 then scale=mix(.28,.78,enter); y=mix(350,290,enter); rotation=mix(-15,-5,enter)
     elseif t<1.08 then
@@ -119,6 +126,7 @@ function Unlock:render(t)
 end
 function Unlock:destroy()
     if self.connection then self.connection:Disconnect(); self.connection=nil end
+    self.audio:stop()
     self.root:Destroy()
 end
 return Unlock

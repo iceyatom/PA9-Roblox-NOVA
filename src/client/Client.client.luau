@@ -1,6 +1,8 @@
 local Players=game:GetService("Players")
 local Run=game:GetService("RunService")
 local core=game:GetService("StarterGui")
+local UIS=game:GetService("UserInputService")
+local mobile=UIS.TouchEnabled
 -- Cursor opt-in is exposed on some engine channels; otherwise CoreScripts own the default.
 pcall(function() core.VirtualCursorMode=Enum.VirtualCursorMode.Enabled end)
 local player=Players.LocalPlayer
@@ -11,10 +13,11 @@ local practiceInput=shared:WaitForChild("PracticeInput")
 local practiceState=shared:WaitForChild("PracticeState")
 local hud=require(script.Parent.Hud).new(player:WaitForChild("PlayerGui"))
 local arena=require(script.Parent.Arena).new(hud.stage)
-local roller=require(script.Parent.MapRoller).new(hud.stage)
+local roller=require(script.Parent.MapRoller).new(hud.stage,mobile)
 hud.mapCode.Text=("MAP   /   %s"):format(arena.map.code)
 hud.mapTitle.Text=arena.map.title
-local lobbyCard=require(script.Parent.LobbyHud).new(player.PlayerGui)
+local lobbyCard=require(script.Parent.LobbyHud).new(player.PlayerGui,mobile)
+local lobbyMusic=require(script.Parent.LobbyMusic).new()
 local snapshot,seat,sequence
 local practice,practiceSnapshot,practiceSequence
 local function fire(kind,a,b)
@@ -30,59 +33,71 @@ local function fire(kind,a,b)
 end
 local settings=require(script.Parent.ControlSettings).new()
 hud.resultBanner.getBindings=function() return settings.bindings end
-practice=require(script.Parent.PracticeHud).new(player.PlayerGui,fire)
-local clear=require(script.Parent.Input).connect(fire,function()
-    return not settings.opened and ((practiceSnapshot and practiceSnapshot.phase=="Playing") or (snapshot and snapshot.phase=="Playing"))
-end,settings)
+practice=require(script.Parent.PracticeHud).new(player.PlayerGui,fire,mobile)
+local clear,showTouch=require(script.Parent.Input).connect(fire,function()
+    return not settings.opened and ((practiceSnapshot and practiceSnapshot.phase=="Playing") or (seat and snapshot.phase=="Playing"))
+end,settings,player.PlayerGui)
 local settingsMenu=require(script.Parent.SettingsMenu).new(player.PlayerGui,settings,clear)
-local progressionHud,progressionMenu=require(script.Parent.ProgressionHud).new(player.PlayerGui,clear,function() settingsMenu:setOpen(false) end)
-local inventory=require(script.Parent.InventoryMenu).new(player.PlayerGui,clear,function()
-    settingsMenu:setOpen(false); progressionMenu:setOpen(false)
-end)
-local shop=require(script.Parent.ShopMenu).new(player.PlayerGui,clear,function()
-    settingsMenu:setOpen(false); progressionMenu:setOpen(false); inventory:setOpen(false)
-end,{
+local progressionHud,progressionMenu=require(script.Parent.ProgressionHud).new(player.PlayerGui,clear)
+local inventory=require(script.Parent.InventoryMenu).new(player.PlayerGui,clear)
+local shop
+shop=require(script.Parent.ShopMenu).new(player.PlayerGui,clear,nil,{
     profile=function() return inventory.profile end,
-    crates=function() inventory:showCrates() end,
-    contents=function() inventory:showCrateContents() end,
+    crates=function() shop:setOpen(false); inventory:showCrates() end,
+    contents=function() shop:setOpen(false); inventory:showCrateContents() end,
 })
-local daily=require(script.Parent.DailyRewardsMenu).new(player.PlayerGui,clear,function()
-    settingsMenu:setOpen(false);progressionMenu:setOpen(false);inventory:setOpen(false);shop:setOpen(false)
-end,function() return inventory.profile end)
-local stats=require(script.Parent.StatsMenu).new(player.PlayerGui,clear,function()
-    settingsMenu:setOpen(false);progressionMenu:setOpen(false);inventory:setOpen(false);shop:setOpen(false);daily:setOpen(false)
-end,function() return inventory.profile end)
--- A menu's full-screen dimmer must cover every other lobby ScreenGui,
--- including launchers created later or assigned a higher default layer.
-for _,gui in {progressionHud,inventory.gui,shop.gui,daily.gui,stats.gui} do
-    local closedOrder=gui.DisplayOrder
-    local function syncLayer()
-        gui.DisplayOrder=gui:GetAttribute("MenuOpen")==true and 20 or closedOrder
+local function inventoryProfile() return inventory.profile end
+local daily=require(script.Parent.DailyRewardsMenu).new(player.PlayerGui,clear,nil,inventoryProfile)
+local stats=require(script.Parent.StatsMenu).new(player.PlayerGui,clear,nil,inventoryProfile)
+local quests=require(script.Parent.QuestsMenu).new(player.PlayerGui,clear,nil,inventoryProfile)
+local menus={progressionMenu,inventory,shop,daily,stats,quests,settingsMenu}
+local mobileLobby
+if mobile then
+    mobileLobby=require(script.Parent.MobileLobby).new(player.PlayerGui,
+        {progressionMenu,inventory,shop,daily},{settingsMenu,quests,stats},shop.chipRow)
+end
+local function openMenu()
+    for _,menu in menus do
+        if menu.gui:GetAttribute("MenuOpen") then return menu end
     end
-    gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncLayer)
-    syncLayer()
 end
-daily.beforeOpen=function() settingsMenu:setOpen(false);progressionMenu:setOpen(false);inventory:setOpen(false);shop:setOpen(false);stats:setOpen(false) end
-daily.canAutoOpen=function() return not settings.opened and not progressionMenu.opened and not inventory.opened and not shop.opened and not stats.opened end
-inventory.beforeOpen=function() settingsMenu:setOpen(false); progressionMenu:setOpen(false); shop:setOpen(false);daily:setOpen(false);stats:setOpen(false) end
-shop.beforeOpen=function() settingsMenu:setOpen(false); progressionMenu:setOpen(false); inventory:setOpen(false);daily:setOpen(false);stats:setOpen(false) end
-local function syncSettingsLauncher()
-    settingsMenu.launcher.Visible=settingsMenu.available and not settings.opened and not progressionMenu.opened and not inventory.opened and not shop.opened and not daily.opened and not stats.opened
+local function canOpenMenu() return openMenu()==nil end
+daily.canAutoOpen=canOpenMenu
+local W=require(script.Parent.Widgets)
+local Style=require(script.Parent.InventoryStyle)
+local launchers={}
+for _,menu in menus do
+    menu.beforeOpen=canOpenMenu
+    local gui,launcher=menu.gui,menu.launcher
+    local shade=W.box(launcher,"MenuLocked",0,0,0,0,W.colors.ink,50)
+    shade.Size=UDim2.fromScale(1,1);shade.BackgroundTransparency=.30
+    Style.round(shade,10)
+    launchers[menu]={shade=shade,closedOrder=gui.DisplayOrder}
 end
-progressionHud:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
-inventory.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
-shop.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
-daily.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
-stats.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncSettingsLauncher)
-progressionMenu.beforeOpen=function() settingsMenu:setOpen(false); inventory:setOpen(false); shop:setOpen(false);daily:setOpen(false);stats:setOpen(false) end
-settingsMenu.beforeOpen=function() progressionMenu:setOpen(false); inventory:setOpen(false); shop:setOpen(false);daily:setOpen(false);stats:setOpen(false) end
+local function syncMenus()
+    local current=openMenu()
+    for menu,appearance in launchers do
+        local launcher=menu.launcher
+        local blocked=current~=nil and current~=menu
+        launcher.Interactable=not blocked
+        launcher.Active=not blocked
+        launcher.Selectable=not blocked
+        launcher.AutoButtonColor=not blocked
+        appearance.shade.Visible=blocked
+        menu.gui.DisplayOrder=menu==current and 20 or appearance.closedOrder
+    end
+    if not current then settingsMenu:layout() end
+end
+for _,menu in menus do menu.gui:GetAttributeChangedSignal("MenuOpen"):Connect(syncMenus) end
+syncMenus()
 settingsMenu.selectionOnClose=function()
     if practiceSnapshot then return practiceSnapshot.phase=="Results" and practice.retry or practice.leave end
     if not snapshot then return nil end
-    return snapshot.phase=="Results" and hud:resultsReady() and hud.rematch or snapshot.phase=="Waiting" and not hud.resultBanner.blocked and hud.leave or nil
+    return snapshot.phase=="Results" and hud:resultsReady() and (snapshot.session and snapshot.session.complete and hud.leave or hud.rematch) or snapshot.phase=="Waiting" and not hud.resultBanner.blocked and hud.leave or nil
 end
 task.spawn(function() settings:load() end)
-hud.rematch.Activated:Connect(function() if hud:resultsReady() then fire("rematch") end end)
+hud.onBot=function(level) if snapshot and seat and not hud.resultBanner.blocked and (snapshot.phase~="Results" or hud:resultsReady()) then fire("bot",level) end end
+hud.rematch.Activated:Connect(function() if hud:resultsReady() and hud.rematch.Active then fire("rematch") end end)
 hud.leave.Activated:Connect(function() if snapshot and not hud.resultBanner.blocked and (snapshot.phase~="Results" or hud:resultsReady()) then fire("leave") end end)
 local openAfterLobby=false
 hud.openChest.Activated:Connect(function()
@@ -97,14 +112,18 @@ local inDuel
 local function setMode(duel)
     if inDuel==duel then return end
     inDuel=duel
+    lobbyMusic:setActive(not duel)
     settingsMenu:setAvailable(not duel)
     hud.gui.Enabled=duel
     lobbyCard.Enabled=not duel
+    if mobileLobby then mobileLobby.Enabled=not duel end
     progressionHud.Enabled=not duel
+    if duel then progressionMenu:setOpen(false) end
     inventory:setAvailable(not duel)
     shop:setAvailable(not duel)
     daily:setAvailable(not duel)
     stats:setAvailable(not duel)
+    quests:setAvailable(not duel)
     local camera=workspace.CurrentCamera
     if camera then
         camera.CameraType=duel and Enum.CameraType.Scriptable or Enum.CameraType.Custom
@@ -129,6 +148,7 @@ state.OnClientEvent:Connect(function(nextState)
         clear()
         roller:hide()
         setMode(false)
+        if showTouch then showTouch(false,false) end
         arena:clearShots()
         if openAfterLobby then openAfterLobby=false; inventory:openVictoryChest() end
         return
@@ -156,6 +176,7 @@ state.OnClientEvent:Connect(function(nextState)
         end
     end
     hud:update(snapshot,seat)
+    if showTouch then showTouch(snapshot.phase=="Playing",false) end
     if not settings.opened and (newDuel or previous.phase~=snapshot.phase)
         and game:GetService("UserInputService"):GetLastInputType().Name:sub(1,7)=="Gamepad" then
         game:GetService("GuiService").SelectedObject=settingsMenu.selectionOnClose()
@@ -167,6 +188,7 @@ practiceState.OnClientEvent:Connect(function(nextState)
     if nextState.phase=="Lobby" then
         practiceSnapshot=nil; snapshot,seat=nil,nil
         clear(); practice:hide(); setMode(false)
+        if showTouch then showTouch(false,false) end
         return
     end
     snapshot,seat=nil,nil
@@ -175,6 +197,7 @@ practiceState.OnClientEvent:Connect(function(nextState)
     if not previous or previous.id~=nextState.id or previous.phase~=nextState.phase then clear() end
     setMode(true); hud.gui.Enabled=false; roller:hide()
     practice:update(nextState)
+    if showTouch then showTouch(nextState.phase=="Playing",true) end
     if not settings.opened and (not previous or previous.phase~=nextState.phase)
         and game:GetService("UserInputService"):GetLastInputType().Name:sub(1,7)=="Gamepad" then
         game:GetService("GuiService").SelectedObject=settingsMenu.selectionOnClose()

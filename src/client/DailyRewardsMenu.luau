@@ -12,6 +12,8 @@ local Catalog=require(shared.InventoryCatalog)
 local Preview=require(script.Parent.InventoryPreview)
 local W=require(script.Parent.Widgets)
 local Style=require(script.Parent.InventoryStyle)
+local MobilePanel=require(script.Parent.MobilePanel)
+local mobile=UIS.TouchEnabled
 local Reveal=require(script.Parent.ShopReveal)
 local C=W.colors
 local Menu={};Menu.__index=Menu
@@ -29,6 +31,11 @@ function Menu.new(playerGui,clear,beforeOpen,profile)
     self.launcher=W.button(gui,"DailyButton",16,256,220,72,"Daily check-in",false)
     self.launcher.BackgroundColor3=C.panel;self.launcher.Font=Enum.Font.GothamBlack;self.launcher.TextSize=26
     Style.surface(self.launcher,10)
+    local badge=W.text(self.launcher,"RewardReady",0,0,28,28,"!",18,C.ink,Enum.Font.GothamBlack)
+    badge.AnchorPoint=Vector2.new(.5,.5);badge.Position=UDim2.new(1,-2,0,9)
+    badge.BackgroundTransparency=0;badge.BackgroundColor3=C.mint
+    badge.TextXAlignment=Enum.TextXAlignment.Center;badge.ZIndex=6;badge.Visible=false
+    W.round(badge);W.stroke(badge,C.ink,2);self.badge=badge
     self.launcherScale=Instance.new("UIScale");self.launcherScale.Parent=self.launcher
     local overlay=Instance.new("ScrollingFrame");overlay.Name="DailyOverlay";overlay.ZIndex=20
     overlay.Size=UDim2.fromScale(1,1);overlay.BackgroundColor3=C.ink;overlay.BackgroundTransparency=.08
@@ -36,6 +43,10 @@ function Menu.new(playerGui,clear,beforeOpen,profile)
     overlay.CanvasSize=UDim2.fromOffset(0,0);overlay.ScrollingDirection=Enum.ScrollingDirection.Y
     overlay.Active=true;overlay.Visible=false;overlay.Parent=gui;self.overlay=overlay
     self.panel=W.box(overlay,"Panel",0,0,1040,580,C.panel);self.panel.Active=true;Style.surface(self.panel,12)
+    if mobile then
+        MobilePanel.disableScroll(overlay)
+        MobilePanel.attach(overlay,self.panel)
+    end
     self.title=W.text(self.panel,"Title",24,20,850,48,"Daily check-in",36,C.white,Enum.Font.GothamBlack)
     self.close=Style.button(self.panel,"Close",950,22,56,40,"×",false);self.close.TextSize=26
     self.streak=wrapped(self.panel,"Streak",24,68,990,36,"",24,C.mint);self.streak.Font=Enum.Font.GothamBold
@@ -57,6 +68,7 @@ function Menu.new(playerGui,clear,beforeOpen,profile)
     self.revealPanel=W.box(self.revealLayer,"Panel",0,0,900,650,C.ink)
     self.revealPanel.AnchorPoint=Vector2.new(.5,.5);self.revealPanel.Position=UDim2.fromScale(.5,.5)
     self.revealPanel.ClipsDescendants=true;Style.surface(self.revealPanel,12)
+    if mobile then MobilePanel.attach(self.revealLayer,self.revealPanel) end
     self.reveal=Reveal.new(self.revealPanel,function() self:hideReveal() end)
     self.launcher.Activated:Connect(function() self:setOpen(not self.opened) end)
     self.close.Activated:Connect(function() self:setOpen(false) end)
@@ -94,12 +106,7 @@ function Menu.new(playerGui,clear,beforeOpen,profile)
     local connection=Run.Heartbeat:Connect(function(dt)
         elapsed+=dt;if elapsed<1 then return end;elapsed=0
         self:refresh()
-        local p=self:profile()
-        if not self.autoShown and self.available and p and p.ready and p.data
-            and (not self.canAutoOpen or self.canAutoOpen()) then
-            self.autoShown=true
-            if Daily.status(p.data,workspace:GetServerTimeNow()).claimable then self:setOpen(true) end
-        end
+        self:tryPrompt()
     end)
     gui.Destroying:Once(function() connection:Disconnect();self.reveal:hide() end)
     self:refresh()
@@ -114,24 +121,38 @@ function Menu:accept(profile)
     if profile and (not self.latest or profile.version>=self.latest.version) then self.latest=profile end
     self:refresh()
 end
+function Menu:tryPrompt()
+    if self.opened or not self.available or self.pending or Gui.MenuIsOpen then return end
+    local now=workspace:GetServerTimeNow()
+    if self.promptedOn==math.floor(now/Daily.DaySeconds) then return end
+    local profile=self:profile()
+    if profile and profile.ready and profile.data and Daily.status(profile.data,now).claimable
+        and (not self.canAutoOpen or self.canAutoOpen()) then
+        self:setOpen(true)
+    end
+end
 function Menu:refresh()
     if not self.status then return end
     local profile=self:profile();local data=profile and profile.data
-    local state=data and Daily.status(data,workspace:GetServerTimeNow())
+    local now=workspace:GetServerTimeNow()
+    local state=data and Daily.status(data,now)
     local ready=profile and profile.ready and state
-    self.launcher.Text="Daily check-in"
+    local claimable=self.available and ready and state.claimable or false
+    self.badge.Visible=claimable
+    if self.opened and claimable then self.promptedOn=math.floor(now/Daily.DaySeconds) end
     self.launcherScale.Scale=math.min(1,math.max(.5,(self.gui.AbsoluteSize.X-32)/220))
     self.launcher.Position=self.gui.AbsoluteSize.Y<340 and UDim2.new(1,-236,1,-88) or UDim2.fromOffset(16,256)
     if not self.opened or self.reveal.active then return end
-    local width=math.min(1240,math.max(300,self.overlay.AbsoluteSize.X-24))
-    local columns=width>=1180 and 7 or width>=680 and 4 or width>=480 and 3 or width>=350 and 2 or 1
+    local width=mobile and 1170 or math.min(1240,math.max(300,self.overlay.AbsoluteSize.X-24))
+    local columns=(mobile or width>=1180) and 7 or width>=680 and 4 or width>=480 and 3 or width>=350 and 2 or 1
     local days={}
     if self.page<5 then for day=(self.page-1)*7+1,self.page*7 do table.insert(days,day) end
     elseif state and state.day>30 then
         local start=31+math.floor((state.day-31)/7)*7
         for day=start,start+6 do table.insert(days,day) end
     else days={29,30,31} end
-    local rows=math.ceil(#days/columns);local gridHeight=rows*244-12
+    local cardHeight=mobile and 174 or 232
+    local rows=math.ceil(#days/columns);local gridHeight=rows*(cardHeight+12)-12
     self.title.Size=UDim2.fromOffset(width-110,48);self.title.TextSize=width<500 and 30 or 36
     self.close.Position=UDim2.fromOffset(width-80,22)
     self.streak.TextSize=width<500 and 22 or 24
@@ -145,13 +166,14 @@ function Menu:refresh()
     local claimed=data and data.daily.day or 0
     self.streak.Text=not state and "Loading your streak…" or state.reset and "Streak reset · Start again at day 1"
         or ("%d consecutive day%s · %s"):format(claimed,claimed==1 and "" or "s",claimed>=30 and "10 crates every day" or "30-day rewards")
-    local tabsTop=layout(self.rules,layout(self.streak,78,36)+12,52)+20
+    local streakBottom=layout(self.streak,mobile and 63 or 78,36)
+    local tabsTop=layout(self.rules,streakBottom+(mobile and 2 or 12),mobile and 30 or 52)+(mobile and 8 or 20)
     for i,tab in self.tabs do
         tab.Position=UDim2.fromOffset(24+(i-1)%tabColumns*(tabWidth+8),tabsTop+math.floor((i-1)/tabColumns)*56);tab.Size=UDim2.fromOffset(tabWidth,48)
         tab.TextSize=20;tab.BackgroundColor3=i==self.page and C.purple or C.line
     end
     self.forecast.Text=self.page<5 and ("WEEK %d  /  DAYS %d–%d"):format(self.page,days[1],days[#days]) or "DAY 30 & BEYOND  /  KEEP YOUR STREAK"
-    local gridTop=layout(self.forecast,tabsTop+math.ceil(5/tabColumns)*56+12,32)+16
+    local gridTop=layout(self.forecast,tabsTop+math.ceil(5/tabColumns)*56+(mobile and 0 or 12),32)+(mobile and 4 or 16)
     self.grid.Position=UDim2.fromOffset(24,gridTop)
     self.grid.Size=UDim2.fromOffset(width-48,gridHeight)
     -- Keep existing cards between timer ticks so controller focus is stable.
@@ -161,12 +183,15 @@ function Menu:refresh()
         local cell=(width-48-(columns-1)*12)/columns
         for i,day in days do
             local reward=Daily.reward(day)
-            local root=W.box(self.grid,"Day"..day,(i-1)%columns*(cell+12),math.floor((i-1)/columns)*244,cell,232,C.ink);Style.surface(root,10)
+            local root=W.box(self.grid,"Day"..day,(i-1)%columns*(cell+12),math.floor((i-1)/columns)*(cardHeight+12),cell,cardHeight,C.ink);Style.surface(root,10)
             local label=W.text(root,"Day",10,12,cell-20,30,"DAY "..day,22,C.white,Enum.Font.GothamBold)
             label.TextXAlignment=Enum.TextXAlignment.Center
-            Preview.icon(root,reward.id and Catalog.byId[reward.id] or "skins",(cell-64)/2,50,64)
-            local title=wrapped(root,"Reward",10,120,cell-20,68,Daily.title(reward),22,C.white);title.Font=Enum.Font.GothamBold;title.TextXAlignment=Enum.TextXAlignment.Center
-            local status=wrapped(root,"State",8,190,cell-16,36,"",16,C.muted);status.Font=Enum.Font.GothamBold;status.TextXAlignment=Enum.TextXAlignment.Center
+            local iconSize=mobile and 52 or 64
+            Preview.icon(root,reward.id and Catalog.byId[reward.id] or "skins",(cell-iconSize)/2,mobile and 42 or 50,iconSize)
+            local title=wrapped(root,"Reward",10,mobile and 96 or 120,cell-20,mobile and 48 or 68,Daily.title(reward),mobile and 18 or 22,C.white)
+            title.Font=Enum.Font.GothamBold;title.TextXAlignment=Enum.TextXAlignment.Center
+            local status=wrapped(root,"State",8,mobile and 145 or 190,cell-16,mobile and 26 or 36,"",mobile and 14 or 16,C.muted)
+            status.Font=Enum.Font.GothamBold;status.TextXAlignment=Enum.TextXAlignment.Center
             table.insert(self.cards,{root=root,status=status,day=day})
         end
     end
@@ -179,9 +204,9 @@ function Menu:refresh()
     end
     self.note.Text=data and data.daily.packEarned and (data.daily.packDelivered and "Your day 30 skin pack has been delivered."
         or "Your day 30 skin pack is reserved. It will be delivered when the pack releases.")
-        or "Day 30 reserves the coming skin pack. Day 31 onward gives 10 crates per day. Tokens stay in Class setup until activated."
-    local claimTop=layout(self.note,gridTop+gridHeight+20,56)+16
-    self.claim.Position=UDim2.fromOffset(24,claimTop);self.claim.Size=UDim2.fromOffset(width-48,56)
+        or ("Day 30 reserves the coming skin pack. Day 31 onward gives 10 crates per day. Activate tokens in %s."):format(mobile and "Boosts" or "Class setup")
+    local claimTop=layout(self.note,gridTop+gridHeight+(mobile and 8 or 20),mobile and 34 or 56)+(mobile and 6 or 16)
+    self.claim.Position=UDim2.fromOffset(24,claimTop);self.claim.Size=UDim2.fromOffset(mobile and 420 or width-48,56)
     self.claim.TextSize=width<500 and 23 or 25
     local active=ready and state.claimable and not self.pending
     self.claim.Active=active==true;self.claim.Selectable=active==true;self.claim.AutoButtonColor=active==true
@@ -191,10 +216,16 @@ function Menu:refresh()
     self.status.Text=self.message or not ready and (profile and profile.status or "Loading inventory…")
         or state.claimable and "Check in before 00:00 UTC to keep your streak."
         or "Next reward in "..Shop.clock(state.unlockAt-workspace:GetServerTimeNow()).." · Resets at 00:00 UTC"
-    local height=layout(self.status,claimTop+68,36)+20
-    self.panel.Position=UDim2.fromOffset(math.max(12,(self.overlay.AbsoluteSize.X-width)/2),math.max(12,(self.overlay.AbsoluteSize.Y-height)/2))
-    self.panel.Size=UDim2.fromOffset(width,height)
-    self.overlay.CanvasSize=UDim2.fromOffset(0,height+24)
+    if mobile then
+        self.status.Position=UDim2.fromOffset(460,claimTop)
+        self.status.Size=UDim2.fromOffset(width-484,56)
+        self.panel.Size=UDim2.fromOffset(width,claimTop+76)
+    else
+        local height=layout(self.status,claimTop+68,36)+20
+        self.panel.Position=UDim2.fromOffset(math.max(12,(self.overlay.AbsoluteSize.X-width)/2),math.max(12,(self.overlay.AbsoluteSize.Y-height)/2))
+        self.panel.Size=UDim2.fromOffset(width,height)
+        self.overlay.CanvasSize=UDim2.fromOffset(0,height+24)
+    end
 end
 function Menu:hideReveal()
     self.reveal:hide();self.revealLayer.Visible=false
@@ -203,8 +234,10 @@ function Menu:hideReveal()
 end
 function Menu:showReward(reward,data)
     if not self.opened or not self.available then return end
-    local screen=self.gui.AbsoluteSize
-    self.revealPanel.Size=UDim2.fromOffset(math.min(900,math.max(300,screen.X-24)),screen.Y<560 and math.max(300,screen.Y-24) or 650)
+    if not mobile then
+        local screen=self.gui.AbsoluteSize
+        self.revealPanel.Size=UDim2.fromOffset(math.min(900,math.max(300,screen.X-24)),screen.Y<560 and math.max(300,screen.Y-24) or 650)
+    end
     self.revealLayer.Visible=true
     self.reveal:showDaily(reward,data)
 end
@@ -231,11 +264,12 @@ end
 function Menu:setAvailable(available)
     self.available=available;self.gui.Enabled=available
     if not available then self:setOpen(false) end
+    self:refresh()
 end
 function Menu:setOpen(open)
     if open and (not self.available or Gui.MenuIsOpen) then return end
     if self.opened==open then return end
-    if open and self.beforeOpen then self.beforeOpen() end
+    if open and self.beforeOpen and self.beforeOpen()==false then return end
     if self.clear then self.clear() end
     self.opened=open;self.overlay.Visible=open;self.gui:SetAttribute("MenuOpen",open)
     if not self.controls then

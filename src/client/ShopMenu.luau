@@ -16,6 +16,8 @@ local Season=require(shared.SeasonOne)
 local Catalog=require(shared.InventoryCatalog)
 local W=require(script.Parent.Widgets)
 local Style=require(script.Parent.InventoryStyle)
+local MobilePanel=require(script.Parent.MobilePanel)
+local mobile=UIS.TouchEnabled
 local Reveal=require(script.Parent.ShopReveal)
 local C=W.colors
 local robux=utf8.char(0xE002) -- Roblox's built-in Robux glyph
@@ -61,7 +63,7 @@ function Menu.new(playerGui,clear,beforeOpen,links)
     launcher.MouseEnter:Connect(function() launcherStroke.Color=C.purple end)
     launcher.MouseLeave:Connect(function() launcherStroke.Color=C.line end)
     -- Running token timers stay visible in the lobby while the shop is closed.
-    local chipRow=W.box(gui,"ActiveTokens",16,416,220,30); self.chipRow=chipRow
+    local chipRow=W.box(gui,"ActiveTokens",16,496,220,30); self.chipRow=chipRow
     self.chipScale=Instance.new("UIScale"); self.chipScale.Parent=chipRow
     for index,kind in {"xp","crate"} do
         local chip=W.box(chipRow,"Token_"..kind,(index-1)*112,0,108,30,C.panel)
@@ -80,6 +82,7 @@ function Menu.new(playerGui,clear,beforeOpen,links)
     local panel=W.box(origin,"Panel",-520,-325,1040,650,C.panel); self.panel=panel; panel.Active=true
     self.pop=Instance.new("UIScale"); self.pop.Parent=panel
     Style.surface(panel,12)
+    if mobile then MobilePanel.disableScroll(overlay) end
     overlay:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:resize() end)
     self.headerIcon=icon(panel,Art.shop,18,10,62)
     self.title=W.text(panel,"Title",94,21,510,39,"Item shop",29,C.white,Enum.Font.GothamBlack)
@@ -265,16 +268,19 @@ function Menu:delivered(receipt)
     if type(receipt)~="table" or not Shop.byId[receipt.productId] then return end
     self:closeConfirmation()
     self.pending=nil; self.message=nil
-    if self.available then
-        if not self.opened then self:setOpen(true) end
-        if self.opened then
-            self.overlay.CanvasPosition=Vector2.zero
-            local section=table.find(Shop.sections,Shop.sectionById[Shop.byId[receipt.productId].section])
-            if section and section~=self.section then self.section=section; self:resize() end
-            self.reveal:show(receipt)
-        end
-    end
+    self.delivery=receipt
+    if self.opened then self:showDelivery() elseif self.available then self:setOpen(true) end
     self:refresh()
+end
+
+function Menu:showDelivery()
+    local receipt=self.delivery
+    if not receipt then return end
+    self.delivery=nil
+    self.overlay.CanvasPosition=Vector2.zero
+    local section=table.find(Shop.sections,Shop.sectionById[Shop.byId[receipt.productId].section])
+    if section and section~=self.section then self.section=section; self:resize() end
+    self.reveal:show(receipt)
 end
 
 function Menu:tick()
@@ -316,7 +322,7 @@ function Menu:resize()
     self.lastWidth=width
     local launcherScale=math.min(1,math.max(.5,(self.gui.AbsoluteSize.X-32)/220))
     self.launcherScale.Scale=launcherScale; self.chipScale.Scale=launcherScale
-    local compact=width<1000 or height<560
+    local compact=not mobile and (width<1000 or height<560)
     local panelWidth=compact and math.min(720,math.max(340,width-24)) or 1040
     local inner=panelWidth-48
     self.compact=compact; self.inner=inner
@@ -357,7 +363,8 @@ function Menu:resize()
     self.status.TextWrapped=compact; self.status.TextYAlignment=compact and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center
     local panelHeight=compact and statusY+48 or 650
     self.panel.Size=UDim2.fromOffset(panelWidth,panelHeight)
-    self.fit.Scale=compact and math.min(1,(width-24)/panelWidth) or math.max(.01,math.min(1.3,(width-48)/1040,(height-48)/650))
+    self.fit.Scale=mobile and MobilePanel.fit(self.overlay.AbsoluteSize,panelWidth,panelHeight)
+        or compact and math.min(1,(width-24)/panelWidth) or math.max(.01,math.min(1.3,(width-48)/1040,(height-48)/650))
     self.overlay.ScrollingEnabled=compact
     self.overlay.CanvasSize=compact and UDim2.fromOffset(0,panelHeight*self.fit.Scale+24) or UDim2.fromOffset(0,0)
     self.origin.Position=compact and UDim2.new(.5,0,0,12) or UDim2.fromScale(.5,.5)
@@ -509,7 +516,7 @@ end
 function Menu:setOpen(open)
     if open and (not self.available or Gui.MenuIsOpen) then return end
     if self.opened==open then return end
-    if open and self.beforeOpen then self.beforeOpen() end
+    if open and self.beforeOpen and self.beforeOpen()==false then return end
     if self.clear then self.clear() end
     self.opened=open; self.overlay.Visible=open
     self.gui:SetAttribute("MenuOpen",open)
@@ -548,5 +555,6 @@ function Menu:setOpen(open)
         Gui.SelectedObject=gamepad() and self.available and self.launcher or nil
     end
     self:refresh()
+    if open then self:showDelivery() end
 end
 return Menu

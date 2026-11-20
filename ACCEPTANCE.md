@@ -1,5 +1,29 @@
 # NOVA v1 acceptance record
 
+## AI opponents - November 16, 2026
+
+Added server-run bots at four difficulties (Beginner, Intermediate, Experienced, Veteran). A queued player can start a bot duel from the waiting screen and stays in the queue; a real opponent ends the bot duel at once with no result. A new Bot Practice beacon opens a private room with unlimited rematches and a difficulty picker on the results screen. Bot duels pay half XP and roll for crates at half the saved chance without changing it. They do not count toward stats, streaks, leaderboards or quests.
+
+All **201 local logic checks passed** with the stock catalog fixture, including 10 new bot cases. These cover queue replacement by a joining player and by a waiting survivor, private rooms, instant rematch, difficulty changes, the missing match limit, rejected bot requests, half XP, the half-chance crate roll and its saved receipt, the shared fire limit, difficulty ordering over 15 simulated duels per pair, and a Veteran bot beating an idle player on all five maps. The same 10 cases passed in the Studio server.
+
+In Studio Play, stepping on the beacon opened the difficulty picker. A Veteran bot found and beat an idle player on Skyline in about 19 seconds: +50 XP, no quest section, no crate popup. A scripted win over a Beginner bot paid +150 XP and showed a 12.5% crate roll labelled Bot duel / half chance; career stats, win streak and the saved 25% chance were unchanged. Leaving returned to the lobby, and the queue pad's waiting screen showed the same four buttons. An earlier play test found the Veteran bot could not reach a clear shot on Hourglass; the bot now searches for the nearest spot with one. The real two-client `NOVA/session` (eleven duels) and `NOVA/stats` runs returned **passed=true**. `NOVA/stats` first failed five times: the hidden difficulty buttons were still active, and the fire input ignores clicks over active buttons, so some shots in the arena were dropped. The buttons are now inactive whenever hidden. Not checked: a real second player arriving during a queue bot duel (covered by logic cases only), phone layout and controller navigation. Sources were synchronized to Studio. The place was not saved or published.
+
+## Quests - November 16, 2026
+
+Added daily, weekly and five-tier career quests with XP rewards, a lobby Quests menu with click-to-claim rows and a ready-to-claim badge, and a Quest progress section in the post-match XP recap. Duels now record shots landed and flawless wins. Unclaimed finished quests pay out at reset. Final career tiers list an item reward as Coming soon; no item is granted.
+
+All **191 local logic checks passed** with the stock catalog fixture, including 12 new quest cases. In the Studio server, the 14 Stats cases passed and a service fixture confirmed that a duplicated match event counts once, the recap reports four rows, and a repeated claim pays 250 XP once. The full Studio run was 183/186; the three failures are catalog-dependent Inventory/BatchOne cases that also fail without this change when the saved item edits are loaded.
+
+In Studio Play, opening five real crates made Collector tier 1 claimable and showed the launcher badge. Clicking the row claimed it: the server granted 500 XP (level 1 to 4), the badge cleared and the row advanced to tier 2. The recap section was inspected with sample rows. The real two-client `NOVA/stats` run returned **passed=true** with quests wired in. Not checked: the recap section inside a real results screen by eye, phone layout, controller navigation, and live DataStore persistence. Sources were synchronized to Studio and the generated place rebuilt. The place was not saved or published.
+
+## Duel session score and eleven-match limit - November 13, 2026
+
+Added per-opponent session wins, draws, completed-game totals and Match N / 11 to the duel's left rail. The first duel counts; rematches retain scores. Match eleven closes the session, server-rejects further votes, hides Rematch, and starts a 30-second automatic lobby return. Both seats detach before respawning; new queues/opponents reset scores, final-result departures cannot reopen the session, and other rooms remain independent. Existing reward and career-stat delivery remains in place.
+
+All **179 local logic checks passed** with the stock catalog fixture. Studio's Session (7), Match/MatchRewards (8), Lobbies (4) and Stats (14) checks passed: **33 total**. The real two-client `NOVA/session` test returned **passed=true** after eleven played duels, with matching client scoreboards progressing from 1-0 to 6-5. It verified hidden final rematch controls, rejected forged extra votes, automatic respawn of both players, and requeue at 0-0 / match 1. Only map selection/countdown were shortened in this test; the production 30-second final return window was exercised. The probe spaces test shots reliably under the existing server firing cap.
+
+A Studio visual check confirmed the final score, session-complete label, centered Lobby action, and visible return countdown fit without clipping. Temporary previews and test sessions were removed. Changed source/test scripts were synchronized to Studio and the generated place rebuilt. No place was published.
+
 ## Career stats and sidewall rankings — November 12, 2026
 
 Sidebar styling: Daily check-in and Career stats now follow Shop at y=256 and y=336, with matching 220×72 dark panels, 8px gaps, 10px corners, and 26px Gotham Black labels. Both are text-only; the daily label stays Daily check-in. Active boost timers moved below the stack. Studio visual inspection confirmed matching backgrounds, aligned buttons and fitting text, with no runtime errors.

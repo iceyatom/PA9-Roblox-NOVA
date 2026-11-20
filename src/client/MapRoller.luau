@@ -22,9 +22,16 @@ local function card(parent,arena,index)
     return frame
 end
 
-function Roller.new(stage)
+function Roller.new(stage,mobile)
     local self=setmetatable({},Roller)
     local overlay=W.box(stage,"MapShuffle",273,220,894,366,C.ink,9)
+    if mobile then
+        overlay.AnchorPoint=Vector2.new(.5,.5)
+        overlay.Position=UDim2.fromOffset(720,403)
+        local scale=Instance.new("UIScale")
+        scale.Scale=1.15
+        scale.Parent=overlay
+    end
     W.stroke(overlay,C.line)
     overlay.Active=true
     self.overlay=overlay

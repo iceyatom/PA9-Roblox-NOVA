@@ -145,14 +145,25 @@ function Service:remove(player)
     self.records[player]=nil
 end
 
-function Service:award(player,won,doubled)
+function Service:award(player,won,doubled,botLevel)
     if not self:ready(player) then return 0 end
     local r=self.records[player]
-    local receipt=Rewards.apply(r.data,Rewards.items(won,doubled))
+    local receipt=Rewards.apply(r.data,Rewards.items(won,doubled,botLevel))
     r.version+=1
     player:SetAttribute("ProgressionStatus",self.storage and "Saving progression…" or "Studio preview / session progression")
     self:publish(player)
     return receipt.total,receipt
+end
+
+-- XP from outside a duel, such as claimed quests. Returns false until the profile can take it.
+function Service:grant(player,amount,label)
+    if not self:ready(player) then return false end
+    local r=self.records[player]
+    Rewards.apply(r.data,{{label=label,amount=amount}})
+    r.version+=1
+    player:SetAttribute("ProgressionStatus",self.storage and "Saving progression…" or "Studio preview / session progression")
+    self:publish(player)
+    return true
 end
 
 function Service:view(player)

@@ -44,10 +44,27 @@ function Setup.new(panel,onUse)
     self.tokens=Tokens.new(self.root,onUse)
     return self
 end
-function Setup:update(data,width,top,visible,ready)
+function Setup:update(data,width,top,visible,ready,view)
     self.root.Visible=visible
-    self.tokens:update(data,width,(width<460 and 760 or 474)+16,visible,ready)
-    if not visible then
+    local boostsOnly=view=="boosts"
+    local tokenTop=boostsOnly and 0 or (width<460 and 760 or 474)+16
+    local tokenWidth=boostsOnly and math.min(width,720) or width
+    self.tokens:update(data,tokenWidth,tokenTop,visible and view~="gear",ready)
+    if visible and boostsOnly then
+        self.tokens.root.Position=UDim2.fromOffset((width-tokenWidth)/2,tokenTop)
+    end
+    local showGear=visible and view~="boosts"
+    self.hero.Visible=showGear
+    for _,slot in self.slots do
+        local group=slot.card or slot.name
+        group.Visible=showGear
+    end
+    if visible then
+        self.root.Position=UDim2.fromOffset(24,top)
+        local height=boostsOnly and Tokens.height(tokenWidth) or view=="gear" and 474 or Setup.height(width)
+        self.root.Size=UDim2.fromOffset(width,height)
+    end
+    if not showGear then
         for _,slot in self.slots do
             Batch.clear(slot.art)
             for _,child in slot.art:GetChildren() do child:Destroy() end
@@ -61,8 +78,6 @@ function Setup:update(data,width,top,visible,ready)
     self.level.Text=(level and ("Level "..level) or "Loading level…")..(rankName~="" and ("  ·  "..rankName) or "")
     self.playerName.Text=player.DisplayName
     RankIcon.set(self.rank,prestige~=nil and {prestige=prestige,master=master} or nil)
-    self.root.Position=UDim2.fromOffset(24,top)
-    self.root.Size=UDim2.fromOffset(width,Setup.height(width))
     local heroWidth=math.min(640,width)
     rect(self.hero,(width-heroWidth)/2,0,heroWidth,138)
     local narrow=width<460

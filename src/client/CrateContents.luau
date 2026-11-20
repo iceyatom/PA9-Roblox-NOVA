@@ -4,6 +4,8 @@ local Catalog=require(game.ReplicatedStorage.NOVA.InventoryCatalog)
 local Model=require(game.ReplicatedStorage.NOVA.Inventory)
 local W=require(script.Parent.Widgets)
 local Style=require(script.Parent.InventoryStyle)
+local MobilePanel=require(script.Parent.MobilePanel)
+local mobile=UIS.TouchEnabled
 local Preview=require(script.Parent.InventoryPreview)
 local Batch=require(script.Parent.BatchOneVisuals)
 local C=W.colors
@@ -26,7 +28,7 @@ function Contents:hide()
     if self.scrollConnection then self.scrollConnection:Disconnect();self.scrollConnection=nil end
     if self.gridConnection then self.gridConnection:Disconnect();self.gridConnection=nil end
     for _,slot in self.slots do if slot.art then Batch.clear(slot.art);slot.art:Destroy() end end
-    self.slots={};self.selectedCard=nil
+    self.slots={};self.selectedCard=nil;self.pager=nil
     if self.root then self.root:Destroy();self.root=nil end
 end
 function Contents:close()
@@ -38,10 +40,10 @@ function Contents:updateThumbnails()
     local step=224+12
     local first=math.max(0,math.floor(self.scroll.CanvasPosition.Y/step)-1)
     local last=math.ceil((self.scroll.CanvasPosition.Y+self.scroll.AbsoluteSize.Y)/step)+1
-    local size=math.min(108,self.cellWidth-36)
+    local size=math.min(mobile and 70 or 108,self.cellWidth-36)
     for index,slot in self.slots do
         local row=math.floor((index-1)/self.columns)
-        if row>=first and row<=last then
+        if (mobile and slot.card.Visible) or (not mobile and row>=first and row<=last) then
             if not slot.art then slot.art=Preview.icon(slot.card,slot.entry.item,0,34,size) end
             slot.art.Position=UDim2.fromOffset((self.cellWidth-size)/2,34)
             slot.art.Size=UDim2.fromOffset(size,size)
@@ -53,8 +55,8 @@ end
 function Contents:resize()
     if not self.root then return end
     local size=self.root.AbsoluteSize
-    local width=math.min(1380,math.max(240,size.X-24))
-    local height=math.min(890,math.max(240,size.Y-24))
+    local width=mobile and 1100 or math.min(1380,math.max(240,size.X-24))
+    local height=mobile and 623 or math.min(890,math.max(240,size.Y-24))
     self.panel.Size=UDim2.fromOffset(width,height)
     local compact=width<600
     self.icon.Position=UDim2.fromOffset(18,14);self.icon.Size=UDim2.fromOffset(compact and 48 or 68,compact and 48 or 68)
@@ -91,6 +93,25 @@ function Contents:resize()
     if compact then
         self.owned.TextSize=14;self.hint.TextSize=11
     else self.owned.TextSize=18;self.hint.TextSize=13 end
+    if self.pager then
+        local rowHeight,gap=174,10
+        self.columns=6
+        self.cellWidth=math.floor((width-40-(self.columns-1)*gap)/self.columns)
+        self.scroll.Size=UDim2.fromOffset(width-36,rowHeight*2+gap+4)
+        self.pager.root.Position=UDim2.fromOffset((width-300)/2,top+rowHeight*2+gap+8)
+        local first,last=self.pager:range(#self.slots,self.columns*2)
+        for index,slot in self.slots do
+            local viewIndex=index-first
+            slot.card.Visible=index>=first and index<=last
+            if slot.card.Visible then
+                slot.card.Size=UDim2.fromOffset(self.cellWidth,rowHeight)
+                slot.card.Position=UDim2.fromOffset(2+viewIndex%self.columns*(self.cellWidth+gap),
+                    2+math.floor(viewIndex/self.columns)*(rowHeight+gap))
+            end
+        end
+        self:updateThumbnails()
+        return
+    end
     local available=width-54
     self.columns=math.max(1,math.floor((available+12)/180))
     if self.columns==1 and available>=260 then self.columns=2 end
@@ -122,6 +143,10 @@ function Contents:show(crate,data,canOpen)
     local panel=W.box(root,"Panel",0,0,0,0,C.panel)
     panel.AnchorPoint=Vector2.new(.5,.5);panel.Position=UDim2.fromScale(.5,.5);panel.Active=true;self.panel=panel
     Style.surface(panel,14)
+    if mobile then
+        MobilePanel.attach(root,panel)
+        self.pager=MobilePanel.pager(panel,function() self:resize() end)
+    end
     self.icon=Preview.icon(panel,crate,18,14,68)
     self.title=text(panel,"Title",100,14,600,44,crate.name,30,C.white)
     self.title.Font=Enum.Font.GothamBlack;self.title.TextScaled=true
@@ -136,8 +161,16 @@ function Contents:show(crate,data,canOpen)
     local scroll=Instance.new("ScrollingFrame");scroll.Name="Items";scroll.BackgroundTransparency=1;scroll.BorderSizePixel=0
     scroll.ScrollBarThickness=6;scroll.ScrollBarImageColor3=C.purple;scroll.ScrollingDirection=Enum.ScrollingDirection.Y
     scroll.ClipsDescendants=true;scroll.Active=true;scroll.Parent=panel;self.scroll=scroll
-    local padding=Instance.new("UIPadding");padding.PaddingLeft=UDim.new(0,2);padding.PaddingTop=UDim.new(0,2);padding.PaddingRight=UDim.new(0,14);padding.Parent=scroll
-    local grid=Instance.new("UIGridLayout");grid.CellPadding=UDim2.fromOffset(12,12);grid.SortOrder=Enum.SortOrder.LayoutOrder;grid.Parent=scroll;self.grid=grid
+    if mobile then
+        MobilePanel.disableScroll(scroll)
+    else
+        local padding=Instance.new("UIPadding");padding.PaddingLeft=UDim.new(0,2);padding.PaddingTop=UDim.new(0,2);padding.PaddingRight=UDim.new(0,14);padding.Parent=scroll
+        local grid=Instance.new("UIGridLayout");grid.CellPadding=UDim2.fromOffset(12,12);grid.SortOrder=Enum.SortOrder.LayoutOrder;grid.Parent=scroll
+        self.grid=grid
+        self.gridConnection=grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            if self.root then scroll.CanvasSize=UDim2.fromOffset(0,grid.AbsoluteContentSize.Y+8) end
+        end)
+    end
     for index,entry in entries do
         local item=entry.item;local color=W.rgb(Catalog.rarityColors[item.rarity])
         local card=W.button(scroll,item.id,0,0,170,224,"",false);card.LayoutOrder=index
@@ -148,13 +181,13 @@ function Contents:show(crate,data,canOpen)
         probability.Size=UDim2.new(1,-20,0,24);probability.Font=Enum.Font.GothamBold;probability.TextXAlignment=Enum.TextXAlignment.Center
         probability.TextScaled=true
         local limit=Instance.new("UITextSizeConstraint");limit.MinTextSize=12;limit.MaxTextSize=19;limit.Parent=probability
-        local name=text(card,"Name",10,144,150,40,item.name,16,C.white)
+        local name=text(card,"Name",10,mobile and 104 or 144,150,40,item.name,16,C.white)
         name.Size=UDim2.new(1,-20,0,40);name.Font=Enum.Font.GothamBold;name.TextWrapped=true;name.TextScaled=true;name.TextTruncate=Enum.TextTruncate.None
         local nameLimit=Instance.new("UITextSizeConstraint");nameLimit.MinTextSize=11;nameLimit.MaxTextSize=16;nameLimit.Parent=name
-        local rarity=text(card,"RarityName",10,187,90,20,item.rarity,13,color)
+        local rarity=text(card,"RarityName",10,mobile and 141 or 187,90,20,item.rarity,13,color)
         rarity.Size=UDim2.new(1,-58,0,20)
-        local owned=text(card,"Owned",0,189,40,18,"OWNED",9,C.mint);owned.Position=UDim2.new(1,-49,0,189)
-        local category=text(card,"Category",10,208,150,14,categoryNames[item.category] or "2× token",11,C.muted);category.Size=UDim2.new(1,-20,0,14)
+        local owned=text(card,"Owned",0,189,40,18,"OWNED",9,C.mint);owned.Position=UDim2.new(1,-49,0,mobile and 142 or 189)
+        local category=text(card,"Category",10,mobile and 160 or 208,150,14,categoryNames[item.category] or "2× token",11,C.muted);category.Size=UDim2.new(1,-20,0,14)
         local slot={card=card,entry=entry,owned=owned};table.insert(self.slots,slot)
         card.Activated:Connect(function()
             self.selectedCard=card
@@ -162,6 +195,7 @@ function Contents:show(crate,data,canOpen)
         end)
         card.SelectionGained:Connect(function()
             self.selectedCard=card
+            if mobile then return end
             local y=math.floor((index-1)/(self.columns or 1))*236
             local top=scroll.CanvasPosition.Y
             if y<top then scroll.CanvasPosition=Vector2.new(0,y)
@@ -184,10 +218,9 @@ function Contents:show(crate,data,canOpen)
         end)
     end
     self.sizeConnection=root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:resize() end)
-    self.scrollConnection=scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function() self:updateThumbnails() end)
-    self.gridConnection=grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        if self.root then scroll.CanvasSize=UDim2.fromOffset(0,grid.AbsoluteContentSize.Y+8) end
-    end)
+    if not mobile then
+        self.scrollConnection=scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function() self:updateThumbnails() end)
+    end
     self:resize();self:update(data,canOpen)
     task.defer(function() if self.root==root then self:updateThumbnails() end end)
     if gamepad() then Gui.SelectedObject=self.slots[1] and self.slots[1].card or self.closeButton end

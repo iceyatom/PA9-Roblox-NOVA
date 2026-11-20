@@ -7,6 +7,8 @@ function Fixture.duel()
     local rows=table.create(12,string.rep(".",20))
     local map=Map.compile(rows,{Vector2.new(3.5,11.5),Vector2.new(16.5,11.5)},true)
     local sim=Match.new(map,Config)
+    sim.testClock=0
+    sim.fireClock=function() return sim.testClock end
     sim:join("blue")
     sim:join("red")
     sim:step(Config.Countdown)

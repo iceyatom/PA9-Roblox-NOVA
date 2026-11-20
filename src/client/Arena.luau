@@ -237,7 +237,8 @@ function Arena:draw(time,dt)
         shot.frame.Position=UDim2.fromOffset(shot.draw.X*self.unit,shot.draw.Y*self.unit)
         if shot.tail then
             active+=1
-            local length=math.min(shot.tailLength*(simple and .65 or 1),(shot.draw-shot.origin).Magnitude)
+            local shorten=simple and (reducedEffects or shot.tracer.visual~="cipher")
+            local length=math.min(shot.tailLength*(shorten and .65 or 1),(shot.draw-shot.origin).Magnitude)
             local mid=shot.draw-shot.direction*length/2
             local mode=Batch.tracerMode(shot.tracer)
             local dynamic=mode=="dynamic"

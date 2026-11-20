@@ -1,7 +1,20 @@
 -- One saved chance per player; only completed elimination wins consume a roll.
 local Drop={BaseChance=25,WinMultiplier=1.5,LossMultiplier=1.2,ReceiptLimit=64}
+local Bots=require(script.Parent.Bots)
 local function finite(n) return type(n)=="number" and n==n and math.abs(n)<math.huge end
 function Drop.validChance(n) return finite(n) and n>=Drop.BaseChance and n<=100 end
+function Drop.validBotChance(n)
+    return finite(n) and n>=Drop.BaseChance*Bots.CrateChanceScale and n<=100*Bots.CrateChanceScale
+end
+-- A win over a bot rolls at a reduced share of the saved chance and never changes
+-- it, so bot duels cannot build up or spend the chance used for online duels.
+function Drop.resolveBot(chance,roll)
+    assert(Drop.validChance(chance),"Invalid crate chance")
+    assert(finite(roll) and roll>=0 and roll<=1,"Invalid crate roll")
+    roll=math.min(roll,.999999999)
+    local reduced=chance*Bots.CrateChanceScale
+    return {outcome="win",chance=reduced,landing=roll,awarded=roll<reduced/100,nextChance=chance,bot=true}
+end
 function Drop.outcome(winner,reason,seat)
     if reason~="Elimination" or (winner~=1 and winner~=2) or (seat~=1 and seat~=2) then return nil end
     return winner==seat and "win" or "loss"

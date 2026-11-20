@@ -2,72 +2,107 @@ local UIS=game:GetService("UserInputService")
 local CAS=game:GetService("ContextActionService")
 local Gui=game:GetService("GuiService")
 local Gamepad=game:GetService("GamepadService")
+local Core=game:GetService("StarterGui")
 local W=require(script.Parent.Widgets)
+local Style=require(script.Parent.InventoryStyle)
+local MobilePanel=require(script.Parent.MobilePanel)
+local mobile=UIS.TouchEnabled
 local C=W.colors
 local Menu={}
 Menu.__index=Menu
 local names={MouseButton1="Left mouse",MouseButton2="Right mouse",MouseButton3="Middle mouse",Thumbstick1="Left stick",Thumbstick2="Right stick",DPad="D-pad",ButtonA="A / Cross",ButtonB="B / Circle",ButtonX="X / Square",ButtonY="Y / Triangle",ButtonL1="LB / L1",ButtonR1="RB / R1",ButtonL2="LT / L2",ButtonR2="RT / R2",ButtonL3="Left stick click",ButtonR3="Right stick click",DPadLeft="D-pad left",DPadRight="D-pad right",DPadUp="D-pad up",DPadDown="D-pad down"}
 local function label(name) return names[name] or name:gsub("(%l)(%u)","%1 %2") end
 local function isGamepad(kind) return kind.Name:sub(1,7)=="Gamepad" end
+local function rect(object,x,y,width,height)
+    object.Position=UDim2.fromOffset(x,y)
+    object.Size=UDim2.fromOffset(width,height)
+end
+
+local function settingsIcon(parent)
+    local icon=W.box(parent,"SettingsIcon",8,8,56,56,C.ink,2)
+    Style.surface(icon,10)
+    local positions={20,33,25}
+    for i,x in positions do
+        local y=14+(i-1)*14
+        local rail=W.box(icon,"Rail"..i,11,y,34,2,C.muted,3)
+        Style.round(rail,2)
+        local knob=W.box(icon,"Knob"..i,x-4,y-3,8,8,C.purple,4)
+        Style.round(knob,3)
+    end
+    return icon
+end
 
 function Menu.new(playerGui,settings,clear)
     local self=setmetatable({settings=settings,clear=clear,device="pc",buttons={},available=true},Menu)
     local gui=Instance.new("ScreenGui")
-    gui.Name="NOVASettings"; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true; gui.DisplayOrder=30
+    gui.Name="NOVASettings"; gui.ResetOnSpawn=false; gui.DisplayOrder=10
     gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; gui.Parent=playerGui
     self.gui=gui
     -- Leave View/Touchpad and automatic navigation to Roblox's native cursor/GUI mode.
     Gui.AutoSelectGuiEnabled=true
-    local root=W.box(gui,"Root",0,0,0,0)
-    root.Size=UDim2.fromScale(1,1)
-    local origin=W.box(root,"Origin",0,0,0,0); origin.Position=UDim2.fromScale(.5,.5)
-    local scale=Instance.new("UIScale"); scale.Parent=origin
-    local function resize() scale.Scale=math.max(.01,math.min(root.AbsoluteSize.X/1440,root.AbsoluteSize.Y/810)) end
-    root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize); resize()
-    local stage=W.box(origin,"Stage",-720,-405,1440,810)
-    self.launcher=W.button(stage,"OpenSettings",1235,96,170,40,"Settings",false)
-    local overlay=W.box(stage,"Overlay",0,0,1440,810,C.ink,10)
-    overlay.BackgroundTransparency=.16; overlay.Active=true; overlay.Visible=false
+    local launcher=W.button(gui,"OpenSettings",0,0,220,72,"Settings",false)
+    launcher.AnchorPoint=Vector2.new(1,0)
+    launcher.Position=UDim2.new(1,-16,0,16)
+    launcher.BackgroundColor3=C.panel
+    launcher.Font=Enum.Font.GothamBlack
+    Style.surface(launcher,10)
+    self.launcher=launcher
+    local stroke=launcher:FindFirstChildOfClass("UIStroke")
+    launcher.MouseEnter:Connect(function() stroke.Color=C.purple end)
+    launcher.MouseLeave:Connect(function() stroke.Color=C.line end)
+
+    local overlay=Instance.new("ScrollingFrame")
+    overlay.Name="Overlay";overlay.Size=UDim2.fromScale(1,1);overlay.ZIndex=20
+    overlay.BackgroundColor3=C.ink;overlay.BackgroundTransparency=.12;overlay.BorderSizePixel=0
+    overlay.ScrollBarThickness=4;overlay.ScrollBarImageColor3=C.purple;overlay.ScrollingDirection=Enum.ScrollingDirection.Y
+    overlay.Active=true;overlay.Visible=false;overlay.Parent=gui
     self.overlay=overlay
-    local panel=W.box(overlay,"Panel",300,143,840,524,C.panel)
-    W.stroke(panel,C.line)
-    W.box(panel,"Accent",0,0,4,524,C.purple)
-    W.text(panel,"Title",28,18,580,43,"Settings",34,C.white,Enum.Font.GothamBlack)
-    W.text(panel,"Subtitle",28,68,780,25,"Your duel controls. Set each device independently.",17,C.muted)
-    self.done=W.button(panel,"Done",660,26,150,40,"Done",true)
+    local panel=W.box(overlay,"Panel",0,0,0,0,C.panel)
+    panel.Active=true;Style.surface(panel,12);self.panel=panel
+    if mobile then
+        MobilePanel.disableScroll(overlay)
+        MobilePanel.attach(overlay,panel)
+    end
+    local icon=settingsIcon(panel)
+    icon.Position=UDim2.fromOffset(24,16)
+    self.title=W.text(panel,"Title",94,22,0,44,"Settings",29,C.white,Enum.Font.GothamBlack)
+    self.close=Style.button(panel,"Close",0,0,0,0,"×",false);self.close.TextSize=26
+    self.done=Style.button(panel,"Done",0,0,0,0,"Done",true)
     self.tabs={}
     for i,device in {"pc","console"} do
-        local tab=W.button(panel,device.."Tab",28+(i-1)*404,111,380,40,i==1 and "Keyboard + mouse" or "Console controller",false)
+        local tab=Style.button(panel,device.."Tab",0,0,0,0,i==1 and "Keyboard + mouse" or "Console controller",false)
+        tab.TextWrapped=true
         self.tabs[device]=tab
         tab.Activated:Connect(function()
             if not self:canActivate() then return end
             self.device=device; self:refresh()
         end)
     end
-    local function binding(action,x,y,width)
-        local b=W.button(panel,action,x,y,width,44,"",false)
-        self.buttons[action]=b
-        b.Activated:Connect(function() if self:canActivate() then self:startCapture(action,b) end end)
-        return b
+    self.rows={}
+    for i,section in {{"Move","left","right","move"},{"Jump","jump"},{"Fire","fire"}} do
+        local row=W.box(panel,section[1].."Card",0,0,0,0,C.ink)
+        Style.surface(row,10)
+        self.rows[i]=row
+        W.text(row,"Label",16,0,0,0,section[1],22,C.white,Enum.Font.GothamBold)
+        for index=2,#section do
+            local action=section[index]
+            local button=Style.button(row,action,0,0,0,0,"",false)
+            button.TextWrapped=true
+            self.buttons[action]=button
+            button.Activated:Connect(function() if self:canActivate() then self:startCapture(action,button) end end)
+        end
     end
-    W.text(panel,"Move",28,185,200,27,"Move",23,C.white,Enum.Font.GothamBold)
-    W.text(panel,"MoveHint",28,214,204,19,"Left / right",14,C.muted)
-    binding("left",250,184,253); binding("right",519,184,261); binding("move",250,184,530)
-    W.box(panel,"Rule1",28,252,752,1,C.line)
-    W.text(panel,"Jump",28,278,200,28,"Jump",23,C.white,Enum.Font.GothamBold)
-    binding("jump",250,270,530)
-    W.box(panel,"Rule2",28,336,752,1,C.line)
-    W.text(panel,"Fire",28,359,200,28,"Fire",23,C.white,Enum.Font.GothamBold)
-    binding("fire",250,351,530)
-    self.status=W.text(panel,"Status",28,413,752,39,"",15,C.muted)
+    self.status=W.text(panel,"Status",24,0,0,0,"",16,C.muted,Enum.Font.GothamMedium)
     self.status.TextWrapped=true
     self.status.TextTruncate=Enum.TextTruncate.None
-    self.reset=W.button(panel,"ResetDefaults",28,466,180,36,"Reset defaults",false)
-    local effects=W.button(panel,"ReducedEffects",230,466,290,36,"",false)
+    self.reset=Style.button(panel,"ResetDefaults",0,0,0,0,"Reset defaults",false)
+    local effects=Style.button(panel,"ReducedEffects",0,0,0,0,"",false)
     self.effects=effects
     local player=game.Players.LocalPlayer
     local function syncEffects()
-        effects.Text="Reduced Effects  /  "..(player:GetAttribute("ReducedEffects") and "On" or "Off")
+        local enabled=player:GetAttribute("ReducedEffects")==true
+        effects.Text=enabled and "Reduced Effects · On" or "Reduced Effects · Off"
+        effects.BackgroundColor3=enabled and C.purple or C.line
     end
     player:GetAttributeChangedSignal("ReducedEffects"):Connect(syncEffects); syncEffects()
     effects.Activated:Connect(function()
@@ -82,6 +117,7 @@ function Menu.new(playerGui,settings,clear)
     end)
     self.launcher.Activated:Connect(function() self:setOpen(not settings.opened) end)
     self.done.Activated:Connect(function() if self:canActivate() then self:setOpen(false) end end)
+    self.close.Activated:Connect(function() if self:canActivate() then self:setOpen(false) end end)
     self.reset.Activated:Connect(function() if self:canActivate() then settings:reset() end end)
     settings.changed.Event:Connect(function() self:refresh() end)
     CAS:BindActionAtPriority("NOVA_SettingsBack",function(_,state)
@@ -102,8 +138,68 @@ function Menu.new(playerGui,settings,clear)
         if Gamepad.GamepadCursorEnabled and self.capture then self:endCapture(false) end
     end)
     Gui.MenuOpened:Connect(function() if settings.opened then self:setOpen(false) end end)
+    overlay:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:layout() end)
+    launcher:GetPropertyChangedSignal("Visible"):Connect(function()
+        if launcher.Visible then task.defer(function() self:layout() end) end
+    end)
+    self:layout()
     self:refresh()
     return self
+end
+
+function Menu:layout()
+    local viewport=self.overlay.AbsoluteSize
+    local compactLauncher=false
+    if self.launcher.Parent==self.gui then
+        -- Leave space for Roblox's player list and its Level and Prestige columns.
+        local playerListSpace=viewport.X>=680 and Core:GetCoreGuiEnabled(Enum.CoreGuiType.PlayerList) and 336 or 0
+        compactLauncher=viewport.X-playerListSpace<480
+        self.launcher.Position=UDim2.new(1,-16-playerListSpace,0,16)
+    end
+    self.launcher.Size=UDim2.fromOffset(compactLauncher and 68 or 220,72)
+    self.launcher.TextSize=compactLauncher and 15 or 26
+
+    local width=mobile and 880 or math.clamp(viewport.X-24,280,940)
+    local narrow=width<600
+    local margin=narrow and 16 or 24
+    local inner=width-2*margin
+    local tabWidth=(inner-12)/2
+    local rowHeight=narrow and 100 or 70
+    local rowTop=narrow and 214 or mobile and 174 or 188
+    local footer=rowTop+3*(rowHeight+12)+4
+    local height=footer+(narrow and 120 or 72)
+
+    if mobile then
+        self.panel.Size=UDim2.fromOffset(width,height)
+    else
+        rect(self.panel,math.max(12,(viewport.X-width)/2),math.max(12,(viewport.Y-height)/2),width,height)
+        self.overlay.CanvasSize=UDim2.fromOffset(0,height+24)
+    end
+    rect(self.title,94,22,width-174,44)
+    self.title.TextSize=narrow and 25 or 29
+    rect(self.close,width-margin-52,24,52,40)
+    rect(self.tabs.pc,margin,90,tabWidth,44)
+    rect(self.tabs.console,margin+tabWidth+12,90,tabWidth,44)
+    self.tabs.pc.TextSize=narrow and 16 or 18
+    self.tabs.console.TextSize=self.tabs.pc.TextSize
+    rect(self.status,margin,140,inner,rowTop-144)
+
+    for i,row in self.rows do
+        rect(row,margin,rowTop+(i-1)*(rowHeight+12),inner,rowHeight)
+        rect(row.Label,16,narrow and 8 or 0,narrow and inner-32 or 160,narrow and 30 or rowHeight)
+    end
+    local bindingX,bindingY=narrow and 16 or 184,narrow and 46 or 12
+    local bindingWidth=inner-bindingX-16
+    local pairWidth=(bindingWidth-10)/2
+    for _,action in {"move","jump","fire"} do rect(self.buttons[action],bindingX,bindingY,bindingWidth,44) end
+    rect(self.buttons.left,bindingX,bindingY,pairWidth,44)
+    rect(self.buttons.right,bindingX+pairWidth+10,bindingY,pairWidth,44)
+    for _,button in self.buttons do button.TextSize=narrow and 16 or 18 end
+
+    rect(self.effects,margin,footer,narrow and inner or 228,44)
+    rect(self.reset,narrow and margin or margin+240,narrow and footer+54 or footer,narrow and tabWidth or 156,44)
+    rect(self.done,width-margin-(narrow and tabWidth or 132),narrow and footer+54 or footer,narrow and tabWidth or 132,44)
+    self.reset.TextSize=narrow and 15 or 18
 end
 
 function Menu:canActivate()
@@ -114,6 +210,7 @@ function Menu:buttonsActive(active)
     for _,button in self.buttons do button.Active=active end
     for _,button in self.tabs do button.Active=active end
     self.done.Active=active
+    self.close.Active=active
     self.effects.Active=active
     self.reset.Active=active
 end
@@ -129,12 +226,12 @@ function Menu:refresh()
         tab.TextColor3=C.white
     end
     self.status.Text=self.message or self.settings.status
-    self.status.TextColor3=self.message and C.purple or C.muted
+    self.status.TextColor3=self.capture and C.mint or self.message and C.white or C.muted
     -- Explicit selection paths keep every control reachable using a gamepad.
     local rows=self.device=="pc" and {self.buttons.left,self.buttons.right,self.buttons.jump,self.buttons.fire} or {self.buttons.move,self.buttons.jump,self.buttons.fire}
     local chain={self.tabs.pc,self.tabs.console}
     for _,button in rows do table.insert(chain,button) end
-    table.insert(chain,self.effects); table.insert(chain,self.reset); table.insert(chain,self.done)
+    table.insert(chain,self.effects); table.insert(chain,self.reset); table.insert(chain,self.done);table.insert(chain,self.close)
     for i,button in chain do
         button.NextSelectionUp=chain[i==1 and #chain or i-1]
         button.NextSelectionDown=chain[i==#chain and 1 or i+1]
@@ -153,11 +250,12 @@ end
 function Menu:setOpen(open)
     if open and not self.available then return end
     if self.settings.opened==open then return end
-    if open and self.beforeOpen then self.beforeOpen() end
+    if open and self.beforeOpen and self.beforeOpen()==false then return end
     self.clear()
     if self.capture then self:endCapture() end
     self.settings.opened=open
     self.overlay.Visible=open
+    self.gui:SetAttribute("MenuOpen",open)
     self.launcher.Visible=self.available and not open
     self.message=nil
     local player=game.Players.LocalPlayer
@@ -166,14 +264,20 @@ function Menu:setOpen(open)
         if module then local ok,controls=pcall(function() return require(module):GetControls() end); if ok then self.controls=controls end end
     end
     if open then
+        self.overlay.CanvasPosition=Vector2.zero
+        self.playerListWasEnabled=Core:GetCoreGuiEnabled(Enum.CoreGuiType.PlayerList)
+        Core:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList,false)
         if self.controls then self.controls:Disable() end
-        if isGamepad(UIS:GetLastInputType()) then self.device="console" end
-        Gui.SelectedObject=self.tabs[self.device]
+        local usingGamepad=isGamepad(UIS:GetLastInputType())
+        if usingGamepad then self.device="console" end
+        Gui.SelectedObject=(not mobile or usingGamepad) and self.tabs[self.device] or nil
     else
+        if self.playerListWasEnabled~=nil then Core:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList,self.playerListWasEnabled) end
         if self.controls then self.controls:Enable() end
         Gui.SelectedObject=isGamepad(UIS:GetLastInputType()) and self.selectionOnClose and self.selectionOnClose() or nil
         self.settings:save()
     end
+    self:layout()
     self:refresh()
 end
 

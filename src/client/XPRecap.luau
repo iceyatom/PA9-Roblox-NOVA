@@ -34,14 +34,17 @@ function Recap:rank(level,xp,full)
     self.fill.BackgroundColor3=data.master and C.mint or C.purple
 end
 
-function Recap:start(key,receipt)
+-- quests: optional rows from Quests.changes for this result (display only).
+function Recap:start(key,receipt,quests)
     if self.key==key then return self.height end
     self:hide()
     self.key=key
     self.receipt=receipt
+    self.quests=quests or {}
     self.frame:ClearAllChildren()
     self.frame.Visible=true
-    self.height=166+#receipt.items*34
+    local questTop=166+#receipt.items*34
+    self.height=questTop+(#self.quests>0 and 34+#self.quests*44 or 0)
     self.frame.Size=UDim2.fromOffset(454,self.height)
     W.text(self.frame,"Heading",0,0,454,20,"XP EARNED",12,C.muted)
     self.rows={}
@@ -78,6 +81,22 @@ function Recap:start(key,receipt)
     local track=W.box(self.frame,"XPTrack",0,totalY+86,454,10,C.line)
     self.fill=W.box(track,"Fill",0,0,0,10,C.purple)
     self.progress=W.text(self.frame,"Progress",0,totalY+102,454,22,"",13,C.muted)
+    self.questRows={}
+    if #self.quests>0 then
+        W.box(self.frame,"QuestRule",0,questTop+2,454,1,C.line)
+        W.text(self.frame,"QuestHeading",0,questTop+10,454,20,"QUEST PROGRESS",12,C.muted)
+    end
+    for i,quest in self.quests do
+        local row=W.box(self.frame,"Quest"..i,0,questTop+34+(i-1)*44,454,40,C.ink)
+        row.Visible=false
+        local name=W.text(row,"Label",12,3,232,22,quest.text,14,C.white,Enum.Font.GothamBold)
+        local status=W.text(row,"Status",248,3,194,22,"",12,C.muted,Enum.Font.GothamBold)
+        status.TextXAlignment=Enum.TextXAlignment.Right
+        local track=W.box(row,"Track",12,29,430,6,C.line)
+        local fill=W.box(track,"Fill",0,0,0,6,C.purple)
+        self.questRows[i]={frame=row,label=name,status=status,fill=fill}
+        table.insert(self.events,{kind="quest",index=i,duration=.5})
+    end
     self:rank(receipt.before.level,receipt.before.xp)
     self.index=1
     self.started=os.clock()+.2
@@ -106,6 +125,18 @@ function Recap:render(event,t)
         self.levelUp.Text="LEVEL UP!  "..event.level
         self.levelUp.TextSize=15+math.floor(5*(1-t))
         self.fill.BackgroundColor3=C.mint
+    elseif event.kind=="quest" then
+        local row=self.questRows[event.index]
+        local quest=self.quests[event.index]
+        local value=quest.from+(quest.to-quest.from)*ease(t)
+        local finished=quest.complete and t>=1
+        row.frame.Visible=true
+        row.label.TextTransparency=1-ease(t)
+        row.fill.Size=UDim2.new(math.clamp(value/quest.goal,0,1),0,1,0)
+        row.fill.BackgroundColor3=finished and C.mint or C.purple
+        row.status.TextColor3=finished and C.mint or C.muted
+        row.status.Text=finished and "COMPLETE / CLAIM IN LOBBY"
+            or ("%s  %d / %d"):format(quest.kind:upper(),math.floor(value),quest.goal)
     end
 end
 

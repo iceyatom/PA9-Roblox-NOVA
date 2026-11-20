@@ -297,7 +297,7 @@ function Menu:setOpen(open)
     if not open then self.reveal:hide(false) end
     if open and (not self.gui.Enabled or Gui.MenuIsOpen) then return end
     if (self.opened==true)==open then return end
-    if open and self.beforeOpen then self.beforeOpen() end
+    if open and self.beforeOpen and self.beforeOpen()==false then return end
     if self.clear then self.clear() end
     self.opened=open; self.armed=false; self.message=nil
     self.overlay.Visible=open
