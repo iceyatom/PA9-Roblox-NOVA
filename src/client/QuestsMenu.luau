@@ -8,6 +8,7 @@ local Text=game:GetService("TextService")
 local player=Players.LocalPlayer
 local shared=game.ReplicatedStorage.NOVA
 local Quests=require(shared.Quests)
+local Catalog=require(shared.InventoryCatalog)
 local SeasonOne=require(shared.SeasonOne)
 local W=require(script.Parent.Widgets)
 local Style=require(script.Parent.InventoryStyle)
@@ -16,7 +17,7 @@ local mobile=UIS.TouchEnabled
 local Reveal=require(script.Parent.ShopReveal)
 local C=W.colors
 local Menu={};Menu.__index=Menu
-local tabs={{id="daily",name="Daily"},{id="weekly",name="Weekly"},{id="career",name="Career"}}
+local tabs={{id="daily",name="Daily"},{id="weekly",name="Weekly"},{id="career",name="Career"},{id="expert",name="Expert"}}
 local function gamepad() return UIS:GetLastInputType().Name:sub(1,7)=="Gamepad" end
 local function label(parent,name,value,size,color)
     local text=W.text(parent,name,0,0,0,0,value,size,color,Enum.Font.GothamBold)
@@ -31,9 +32,19 @@ local function duration(seconds)
     if hours>0 then return ("%dh %dm"):format(hours,minutes) end
     return ("%dm %ds"):format(minutes,seconds%60)
 end
-local function rewardText(row)
-    return ("%s XP"):format(Quests.commas(row.xp))..(row.item and "\n+ Item: Coming soon"
-        or row.finalItem and ("\nTier %d item: Coming soon"):format(row.tiers) or "")
+local function rewardLines(reward)
+    local lines={("%s XP"):format(Quests.commas(reward.xp))}
+    local boosts={}
+    for _,entry in reward.items or {} do
+        local item=Catalog.byId[entry.id]
+        if entry.id==SeasonOne.id then
+            table.insert(lines,("%s Season 1 Crates"):format(Quests.commas(entry.quantity)))
+        elseif item and item.tokenKind then
+            table.insert(boosts,("2× %s (%dm)"):format(item.tokenKind=="xp" and "XP" or "Crates",item.minutes))
+        end
+    end
+    if #boosts>0 then table.insert(lines,table.concat(boosts," · ")) end
+    return lines
 end
 function Menu.new(playerGui,clear,beforeOpen,getProfile)
     local self=setmetatable({available=true,opened=false,clear=clear,beforeOpen=beforeOpen,getProfile=getProfile,tab=1,message=""},Menu)
@@ -80,7 +91,7 @@ function Menu.new(playerGui,clear,beforeOpen,getProfile)
     self.bonusButton.Activated:Connect(function()
         local view=self:view()
         local id=tabs[self.tab].id
-        local rotation=view and id~="career" and view[id]
+        local rotation=view and Quests.SetBonusCrates[id] and view[id]
         if rotation and rotation.bonusKey then self:requestClaim("claimQuestSet",rotation.bonusKey) end
     end)
     self.note=label(self.panel,"Note","",18,C.muted)
@@ -142,7 +153,7 @@ end
 function Menu:view()
     local profile=self:profile()
     local data=profile and profile.ready and profile.data
-    return data and data.quests and Quests.view(data.quests,data.stats,os.time()) or nil
+    return data and data.quests and Quests.view(data.quests,data.stats,os.time(),data.owned) or nil
 end
 function Menu:countdown(view)
     local tab=tabs[self.tab].id
@@ -150,6 +161,8 @@ function Menu:countdown(view)
         self.reset.Text=""
     elseif tab=="career" then
         self.reset.Text="Career quests never reset. Each one has five tiers with bigger rewards."
+    elseif tab=="expert" then
+        self.reset.Text="Expert career quests track harder milestones and never reset."
     else
         self.reset.Text=("New %s quests in %s. Unclaimed rewards pay out at reset."):format(tab,duration(view[tab].resetAt-os.time()))
     end
@@ -184,8 +197,7 @@ function Menu:requestClaim(action,key)
             self.message=("Added %d Season 1 Crates to your inventory."):format(response.questSet.quantity)
             if self.opened then self:showBonus(response.questSet) end
         elseif ok and response.ok and response.quest then
-            self.message=("Claimed +%s XP from %s.%s"):format(Quests.commas(response.quest.xp),response.quest.title,
-                response.quest.item and " Its item reward is coming soon." or "")
+            self.message=("Claimed %s from %s."):format(table.concat(rewardLines(response.quest)," + "),response.quest.title)
         else self.message=ok and response.message or "Could not reach the server. Try again." end
         self:refresh()
         if gamepad() and self.opened and not self.reveal.active then Gui.SelectedObject=self.firstRow or self.close end
@@ -253,15 +265,18 @@ function Menu:refresh()
     local summaryHeight=math.max(32,Text:GetTextSize(self.summary.Text,20,self.summary.Font,Vector2.new(inner,10000)).Y+8)
     rect(self.summary,24,80,inner,summaryHeight)
     local tabY=92+summaryHeight
-    local tabWidth=(inner-24)/3
+    local tabGap=width<500 and 6 or 12
+    local tabWidth=(inner-tabGap*(#tabs-1))/#tabs
     for i,tab in self.tabs do
         local rows=view and (view[tabs[i].id].list or view[tabs[i].id]) or {}
         local ready=0
         for _,row in rows do if row.complete and not row.claimed then ready+=1 end end
         if view and view[tabs[i].id].bonusKey then ready+=1 end
         tab.Text=ready>0 and ("%s (%d)"):format(tabs[i].name,ready) or tabs[i].name
-        tab.TextSize=narrow and 18 or 22
-        rect(tab,24+(i-1)*(tabWidth+12),tabY,tabWidth,48);tab.BackgroundColor3=self.tab==i and C.purple or C.line
+        local fontSize=narrow and 18 or 22
+        local textWidth=Text:GetTextSize(tab.Text,fontSize,tab.Font,Vector2.new(1000,48)).X
+        tab.TextSize=math.min(fontSize,math.floor(fontSize*(tabWidth-6)/math.max(1,textWidth)))
+        rect(tab,24+(i-1)*(tabWidth+tabGap),tabY,tabWidth,48);tab.BackgroundColor3=self.tab==i and C.purple or C.line
     end
     self:countdown(view)
     local resetHeight=math.max(28,Text:GetTextSize(self.reset.Text,18,self.reset.Font,Vector2.new(inner,10000)).Y+8)
@@ -271,7 +286,7 @@ function Menu:refresh()
     self.firstRow=nil
     local id=tabs[self.tab].id
     local rows=view and (view[id].list or view[id]) or {}
-    local rowHeight=mobile and 82 or narrow and 176 or 112
+    local rowHeight=mobile and 82 or narrow and (Quests.SetBonusCrates[id] and 176 or 206) or 112
     local rowStep=rowHeight+(mobile and 8 or 12)
     local pageSize=3
     local first,last=1,#rows
@@ -291,7 +306,7 @@ function Menu:refresh()
             self.firstRow=self.firstRow or card
             card.Activated:Connect(function() self:requestClaim("claimQuest",row.key) end)
         end
-        local side=narrow and inner-32 or 230
+        local side=narrow and inner-32 or 250
         local main=narrow and inner-32 or inner-side-48
         local heading=row.kind=="career" and ("%s  ·  Tier %d / %d"):format(row.title,row.tier,row.tiers) or row.title
         local title=label(card,"Title",heading,narrow and 22 or 24,row.claimed and C.muted or C.white);rect(title,16,mobile and 3 or 10,main,mobile and 28 or 30)
@@ -302,15 +317,21 @@ function Menu:refresh()
         fill.Size=UDim2.new(math.clamp(row.progress/row.goal,0,1),0,1,0);fill.Visible=row.progress>0
         local amount=label(card,"Progress",("%s / %s"):format(Quests.commas(row.progress),Quests.commas(row.goal)),18,row.complete and C.mint or C.white)
         rect(amount,main-84,mobile and 52 or 68,100,28);amount.TextXAlignment=Enum.TextXAlignment.Right
-        local sideX,sideY=narrow and 16 or inner-side-16,narrow and 104 or mobile and 4 or 10
-        local reward=label(card,"Reward",rewardText(row),(row.item or row.finalItem) and 18 or 22,row.claimed and C.muted or C.mint)
-        rect(reward,sideX,sideY,narrow and main-150 or side,narrow and 60 or mobile and 34 or 48)
+        local sideX,sideY=narrow and 16 or inner-side-16,narrow and 104 or mobile and 3 or 8
+        local rewardText=row.kind=="career" and row.claimed and "" or table.concat(rewardLines(row),"\n")
+        local reward=label(card,"Reward",rewardText,row.items and 16 or 22,row.claimed and C.muted or C.mint)
+        local rewardWidth=narrow and Quests.SetBonusCrates[id] and main-150 or side
+        rect(reward,sideX,sideY,rewardWidth,narrow and 50 or mobile and 49 or 61)
         reward.TextXAlignment=narrow and Enum.TextXAlignment.Left or Enum.TextXAlignment.Right
         local state=label(card,"State",row.claimed and (row.kind=="career" and "ALL TIERS CLAIMED" or "CLAIMED")
             or claimable and (self.busy and "CLAIMING…" or "CLAIM REWARD") or "IN PROGRESS",16,claimable and C.white or C.muted)
         state.TextXAlignment=Enum.TextXAlignment.Center;state.TextWrapped=false
         state.BackgroundTransparency=0;state.BackgroundColor3=claimable and C.purple or C.panel;Style.round(state,8)
-        if narrow then rect(state,inner-16-140,116,140,40) else rect(state,inner-16-190,mobile and 42 or 62,190,mobile and 34 or 38) end
+        if narrow then
+            rect(state,inner-16-140,rowHeight-50,140,40)
+        else
+            rect(state,inner-16-190,mobile and 53 or 71,190,mobile and 26 or 31)
+        end
     end
     local visibleRows=self.pager and self.pager.root.Visible and pageSize or last-first+1
     local height=math.max(mobile and 90 or 110,visibleRows*rowStep)
@@ -319,7 +340,8 @@ function Menu:refresh()
         self.pager.root.Position=UDim2.fromOffset((width-300)/2,top+height)
         height+=50
     end
-    local noteY=top+height+12+self:layoutBonus(id,view and id~="career" and view[id] or nil,top+height,inner,narrow)
+    local rotation=view and Quests.SetBonusCrates[id] and view[id] or nil
+    local noteY=top+height+12+self:layoutBonus(id,rotation,top+height,inner,narrow)
     self.note.Text=self.message~="" and self.message
         or "Duels count when they finish. Practice does not count. Quest XP is not doubled by Double XP tokens."
     self.note.TextColor3=self.message~="" and C.white or C.muted

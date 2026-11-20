@@ -1,10 +1,11 @@
 -- Quest definitions and pure progress/claim rules. Only the server changes saved
 -- quest state; it shares the leased inventory profile with career stats.
+local Catalog=require(script.Parent.InventoryCatalog)
+local SeasonOne=require(script.Parent.SeasonOne)
 local Quests={DaySeconds=86400,DailyCount=3,WeeklyCount=3,Limit=2^52,RecapRows=4}
 
 -- metric: matches, wins, shots, hits, flawless, crates, maps (distinct maps this
 -- period) or streak (best run of consecutive wins this period).
--- Rewards always carry xp. Add item="soon" (or a future cosmetic ID) for an item.
 local function quest(id,metric,goal,xp,title,text)
     return {id=id,metric=metric,goal=goal,xp=xp,title=title,text=text}
 end
@@ -29,29 +30,51 @@ Quests.weekly={
     quest("w_crates3","crates",3,1500,"Unboxing","Open 3 crates"),
 }
 -- Career quests read lifetime career stats, so existing players keep their history.
--- single: wording for a goal of exactly one.
-local function career(id,stat,title,text,goals,single)
+local function bundle(crates,xpMinutes,crateMinutes)
+    local items={}
+    if crates then table.insert(items,{id=SeasonOne.id,quantity=crates}) end
+    if xpMinutes then table.insert(items,{id="token_xp_"..xpMinutes,quantity=1}) end
+    if crateMinutes then table.insert(items,{id="token_crate_"..crateMinutes,quantity=1}) end
+    return items
+end
+-- Bonuses are paid at tiers 2, 4 and 5. Single is the wording for a goal of one.
+local function career(id,stat,title,text,goals,early,late,final,single)
     local xp={500,1000,2500,5000,10000}
     local tiers={}
     for i,goal in goals do tiers[i]={goal=goal,xp=xp[i]} end
-    tiers[#tiers].item="soon"
+    tiers[2].items=early
+    tiers[4].items=late
+    tiers[5].items=final
     return {id=id,stat=stat,title=title,text=text,single=single,tiers=tiers}
 end
 Quests.career={
-    career("c_matches","matchesPlayed","Veteran","Play %s duels",{10,50,150,500,1000}),
-    career("c_wins","wins","Champion","Win %s duels",{5,25,100,250,500}),
-    career("c_hits","shotsHit","Sharpshooter","Land %s shots",{100,500,2500,10000,25000}),
-    career("c_streak","longestWinStreak","Unstoppable","Reach a %s-win streak",{2,3,5,8,12}),
-    career("c_flawless","flawlessWins","Untouchable","Win %s duels without taking a hit",{1,5,15,40,100},"Win a duel without taking a hit"),
-    career("c_crates","cratesOpened","Collector","Open %s crates",{5,25,100,250,500}),
+    career("c_matches","matchesPlayed","Veteran","Play %s duels",{10,50,150,500,1000},
+        bundle(nil,15),bundle(nil,30),bundle(5,60)),
+    career("c_wins","wins","Champion","Win %s duels",{5,25,100,250,500},
+        bundle(nil,nil,15),bundle(nil,nil,30),bundle(5,nil,60)),
+    career("c_hits","shotsHit","Sharpshooter","Land %s shots",{100,500,2500,10000,25000},
+        bundle(nil,15),bundle(5),bundle(5,60)),
+    career("c_streak","longestWinStreak","Unstoppable","Reach a %s-win streak",{2,3,5,8,12},
+        bundle(2),bundle(nil,30),bundle(10,60)),
+    career("c_cosmetics","cosmeticsOwned","Cosmetic Collector","Own %s unique cosmetics",{5,15,30,60,100},
+        bundle(2),bundle(5),bundle(10)),
+    career("c_crates","cratesOpened","Collector","Open %s crates",{5,25,100,250,500},
+        bundle(nil,nil,15),bundle(nil,nil,30),bundle(5,nil,60)),
 }
+Quests.expert={
+    career("c_flawless","flawlessWins","Untouchable","Win %s duels without taking a hit",{1,5,15,40,100},
+        bundle(3,30),bundle(10,nil,60),bundle(20,60,60),"Win a duel without taking a hit"),
+}
+local careerGroups={"career","expert"}
 local pools={daily=Quests.daily,weekly=Quests.weekly}
 local counts={daily=Quests.DailyCount,weekly=Quests.WeeklyCount}
 Quests.SetBonusCrates={daily=3,weekly=10}
 local kinds={"daily","weekly"}
 local byId,careerById={},{}
 for _,kind in kinds do for _,def in pools[kind] do byId[def.id]=def end end
-for _,def in Quests.career do careerById[def.id]=def end
+for _,group in careerGroups do
+    for _,def in Quests[group] do careerById[def.id]=def end
+end
 
 local function integer(n,max) return type(n)=="number" and n==n and n>=0 and n<=(max or Quests.Limit) and n%1==0 end
 local function commas(n)
@@ -214,27 +237,35 @@ function Quests.progress(state,metric,amount,now)
     for _,kind in kinds do add(state,kind,metric,amount) end
 end
 
-local function careerTier(state,stats,def)
+local function careerTier(state,stats,def,owned)
     local claimed=state.career[def.id] or 0
     local tier=def.tiers[claimed+1]
-    return claimed,tier,stats and stats[def.stat] or 0
+    if def.stat~="cosmeticsOwned" then return claimed,tier,stats and stats[def.stat] or 0 end
+    local count=0
+    for id,quantity in owned or {} do
+        local item=Catalog.byId[id]
+        if quantity>0 and item and not item.default and item.category~="crates" and item.category~="tokens" then
+            count+=1
+        end
+    end
+    return claimed,tier,count
 end
 -- Keys name the exact period or tier, so a stale or repeated click cannot claim
 -- a different reward than the one the player saw.
-function Quests.claim(state,stats,key,now)
+function Quests.claim(state,stats,key,now,owned)
     if type(key)~="string" or #key>64 then return false,"Invalid quest." end
     Quests.roll(state,now or os.time())
     local kind,a,b=key:match("^(%a+):([%w_]+):([%w_]+)$")
     if kind=="career" then
         local def=careerById[a]
         if not def then return false,"Unknown quest." end
-        local claimed,tier,value=careerTier(state,stats,def)
+        local claimed,tier,value=careerTier(state,stats,def,owned)
         if tostring(claimed+1)~=b then return false,"Reward already claimed." end
         if not tier or value<tier.goal then return false,"Quest not complete yet." end
         if state.claimedXP>Quests.Limit-tier.xp then return false,"Quest rewards unavailable." end
         state.career[def.id]=claimed+1
         state.claimedXP+=tier.xp
-        return true,{xp=tier.xp,item=tier.item,title=def.title,tier=claimed+1}
+        return true,{xp=tier.xp,items=tier.items,title=def.title,tier=claimed+1}
     elseif kind=="daily" or kind=="weekly" then
         if a~=tostring(state[kind].period) then return false,"This quest has reset." end
         for _,entry in state[kind].list do
@@ -245,7 +276,7 @@ function Quests.claim(state,stats,key,now)
                 if state.claimedXP>Quests.Limit-def.xp then return false,"Quest rewards unavailable." end
                 entry.claimed=true
                 state.claimedXP+=def.xp
-                return true,{xp=def.xp,item=def.item,title=def.title}
+                return true,{xp=def.xp,title=def.title}
             end
         end
     end
@@ -257,10 +288,10 @@ function Quests.ack(state)
 end
 
 -- Display rows for the menu and match recap. Never changes the saved state.
-function Quests.view(state,stats,now)
+function Quests.view(state,stats,now,owned)
     local copy=assert(Quests.validate(state),"Invalid quest state")
     Quests.roll(copy,now or os.time())
-    local view={autoXP=copy.autoXP,ready=0,daily={},weekly={},career={}}
+    local view={autoXP=copy.autoXP,ready=0,daily={},weekly={},career={},expert={}}
     for _,kind in kinds do
         local current=copy[kind]
         view[kind]={period=current.period,resetAt=Quests.resetAt(kind,current.period),list={},bonusAwarded=current.bonusAwarded}
@@ -269,22 +300,23 @@ function Quests.view(state,stats,now)
             local complete=entry.progress>=def.goal
             if complete and not entry.claimed then view.ready+=1 end
             table.insert(view[kind].list,{key=("%s:%d:%s"):format(kind,current.period,def.id),kind=kind,title=def.title,text=def.text,
-                progress=entry.progress,goal=def.goal,xp=def.xp,item=def.item,complete=complete,claimed=entry.claimed})
+                progress=entry.progress,goal=def.goal,xp=def.xp,complete=complete,claimed=entry.claimed})
         end
         if Quests.setBonusReady(copy,kind) then
             view[kind].bonusKey=("%s:%d"):format(kind,current.period)
             view.ready+=1
         end
     end
-    for _,def in Quests.career do
-        local claimed,tier,value=careerTier(copy,stats,def)
-        local shown=tier or def.tiers[#def.tiers]
-        local complete=tier~=nil and value>=tier.goal
-        if complete then view.ready+=1 end
-        table.insert(view.career,{key=("career:%s:%d"):format(def.id,claimed+1),kind="career",title=def.title,
-            text=shown.goal==1 and def.single or def.text:format(commas(shown.goal)),progress=math.min(value,shown.goal),goal=shown.goal,xp=shown.xp,item=shown.item,
-            complete=complete,claimed=tier==nil,tier=math.min(claimed+1,#def.tiers),tiers=#def.tiers,
-            finalItem=claimed+1<#def.tiers and def.tiers[#def.tiers].item~=nil})
+    for _,group in careerGroups do
+        for _,def in Quests[group] do
+            local claimed,tier,value=careerTier(copy,stats,def,owned)
+            local shown=tier or def.tiers[#def.tiers]
+            local complete=tier~=nil and value>=tier.goal
+            if complete then view.ready+=1 end
+            table.insert(view[group],{key=("career:%s:%d"):format(def.id,claimed+1),kind="career",title=def.title,
+                text=shown.goal==1 and def.single or def.text:format(commas(shown.goal)),progress=math.min(value,shown.goal),goal=shown.goal,xp=shown.xp,
+                items=tier and tier.items,complete=complete,claimed=tier==nil,tier=math.min(claimed+1,#def.tiers),tiers=#def.tiers})
+        end
     end
     return view
 end
@@ -292,12 +324,14 @@ end
 -- career tiers that just became claimable. Finished quests come first.
 function Quests.changes(before,after)
     local old={}
-    for _,kind in {"daily","weekly","career"} do
-        for _,row in before[kind].list or before[kind] do old[row.key]=row end
+    local groups={"daily","weekly","career","expert"}
+    for _,group in groups do
+        for _,row in before[group].list or before[group] do old[row.key]=row end
     end
     local rows={}
-    for _,kind in {"daily","weekly","career"} do
-        for _,row in after[kind].list or after[kind] do
+    for _,group in groups do
+        for _,row in after[group].list or after[group] do
+            local kind=row.kind
             local previous=old[row.key]
             local from=previous and previous.progress or 0
             local moved=kind=="career" and row.complete and not (previous and previous.complete)

@@ -30,7 +30,11 @@ function Hud.new(playerGui)
     origin.Position=UDim2.fromScale(0.5,0.5)
     local scale=Instance.new("UIScale")
     scale.Parent=origin
-    local function resize() scale.Scale=math.max(0.01,math.min(root.AbsoluteSize.X/1440,root.AbsoluteSize.Y/810)) end
+    self.stageScale=scale
+    local function resize()
+        scale.Scale=math.max(0.01,math.min(root.AbsoluteSize.X/1440,root.AbsoluteSize.Y/810))
+        if self.noticeScale and self.snap then self:update(self.snap,self.seat) end
+    end
     root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
     resize()
     local stage=W.box(origin,"Stage",-720,-405,1440,810,C.ink)
@@ -113,7 +117,16 @@ function Hud.new(playerGui)
     self.kicker=W.text(self.notice,"Status",23,12,355,22,"DUEL LOBBY",15,C.purple)
     self.title=W.text(self.notice,"Title",22,35,362,38,"Waiting for a rival",29,C.white,heavy)
     self.note=W.text(self.notice,"Detail",23,77,360,23,"The duel starts with two players.",16,C.muted)
-    self.xpRecap=require(script.Parent.XPRecap).new(self.notice)
+    if mobile then
+        local scroll=Instance.new("ScrollingFrame")
+        scroll.Name="RecapScroll";scroll.Position=UDim2.fromOffset(23,108)
+        scroll.BackgroundTransparency=1;scroll.BorderSizePixel=0;scroll.ZIndex=self.notice.ZIndex
+        scroll.ScrollingDirection=Enum.ScrollingDirection.Y;scroll.ScrollBarThickness=4
+        scroll.ScrollBarImageColor3=C.purple;scroll.Visible=false;scroll.Parent=self.notice
+        self.recapScroll=scroll
+    end
+    self.xpRecap=require(script.Parent.XPRecap).new(self.recapScroll or self.notice)
+    if self.recapScroll then self.xpRecap.frame.Position=UDim2.fromOffset(0,0) end
     gui:GetPropertyChangedSignal("Enabled"):Connect(function()
         if not gui.Enabled then self.resultBanner:hide();self.xpRecap:hide();if self.chestRoll then self.chestRoll:hide() end end
     end)
@@ -125,7 +138,9 @@ function Hud.new(playerGui)
     self.botButtons={}
     for i,level in Bots.order do
         local difficulty=Bots.levels[level]
-        local button=W.button(self.botPanel,"Bot_"..level,0,0,173,32,("%s · %d%% XP"):format(difficulty.name,difficulty.xpPercent),false)
+        local format=mobile and "%s\n%d%% XP" or "%s · %d%% XP"
+        local button=W.button(self.botPanel,"Bot_"..level,0,0,173,32,format:format(difficulty.name,difficulty.xpPercent),false)
+        button.TextWrapped=mobile
         button.TextSize=14
         button.Activated:Connect(function() if self.onBot and button.Active then self.onBot(level) end end)
         -- Hidden buttons must be inactive themselves: the fire input skips clicks over active buttons.
@@ -141,6 +156,57 @@ function Hud.new(playerGui)
     self.rematch.Visible=false
     self.leave.Visible=false
     return self
+end
+
+function Hud:layoutMobileNotice(phase,pick,complete,recapHeight)
+    local waiting=phase=="Waiting"
+    local interactive=waiting or phase=="Results"
+    local panelScale=(waiting or phase=="Countdown") and 1.18 or 1
+    self.noticeScale.Scale=panelScale
+    if not interactive then
+        self.recapScroll.Visible=false
+        self.notice.Position=UDim2.fromOffset(720-200*panelScale,389)
+        return
+    end
+
+    local screenScale=self.stageScale.Scale*panelScale
+    local buttonHeight=math.clamp(math.ceil(44/screenScale),80,150)
+    local textSize=math.clamp(math.ceil(14/screenScale),24,38)
+    local pickerHeight=pick and (48+2*buttonHeight) or 0
+    local recapSpace=740-108-pickerHeight-buttonHeight-34
+    local visibleRecap=math.min(recapHeight,recapSpace)
+    local scroll=self.recapScroll
+    scroll.Visible=recapHeight>0
+    scroll.Size=UDim2.fromOffset(454,visibleRecap)
+    scroll.CanvasSize=UDim2.fromOffset(0,recapHeight)
+    scroll.ScrollingEnabled=recapHeight>visibleRecap
+    scroll.ScrollBarThickness=scroll.ScrollingEnabled and 4 or 0
+    local pickerY=108+visibleRecap+(recapHeight>0 and 8 or 0)
+    local actionsY=pickerY+pickerHeight
+    local height=actionsY+buttonHeight+18
+    self.notice.Size=UDim2.fromOffset(500,height)
+    self.notice.Position=UDim2.fromOffset(720-250*panelScale,405-height*panelScale/2)
+    self.note.Size=UDim2.fromOffset(454,23)
+
+    self.rematch.Position=UDim2.fromOffset(23,actionsY)
+    self.rematch.Size=UDim2.fromOffset(264,buttonHeight)
+    self.rematch.TextSize=textSize
+    self.rematch.TextWrapped=true
+    local singleAction=waiting or complete
+    self.leave.Position=UDim2.fromOffset(singleAction and 23 or 299,actionsY)
+    self.leave.Size=UDim2.fromOffset(singleAction and 454 or 178,buttonHeight)
+    self.leave.TextSize=textSize
+    if pick then
+        self.botPanel.Position=UDim2.fromOffset(23,pickerY)
+        self.botPanel.Size=UDim2.fromOffset(454,pickerHeight-10)
+        self.botLabel.Size=UDim2.fromOffset(454,22)
+        self.botLabel.TextSize=16
+        for i,entry in self.botButtons do
+            entry.button.Position=UDim2.fromOffset((i-1)%2*233,26+math.floor((i-1)/2)*(buttonHeight+10))
+            entry.button.Size=UDim2.fromOffset(221,buttonHeight)
+            entry.button.TextSize=textSize
+        end
+    end
 end
 
 function Hud:update(snap,seat)
@@ -177,9 +243,7 @@ function Hud:update(snap,seat)
     local rival=snap.players[3-seat]
     -- Offered to a lone player, and after a bot duel to change difficulty.
     local pick=not blocked and not complete and (phase=="Waiting" or phase=="Results" and (rival.bot~=nil or not rival.uid))
-    local mobileQueue=self.noticeScale~=nil and phase=="Waiting"
-    local botHeight=mobileQueue and 52 or 32
-    local pickHeight=pick and (mobileQueue and 142 or 102) or 0
+    local pickHeight=pick and 102 or 0
     for i,p in snap.players do
         local side=self.seats[i]
         local background=Cosmetics.get(p.cosmetics,"backgrounds")
@@ -206,8 +270,12 @@ function Hud:update(snap,seat)
     self.note.Size=UDim2.fromOffset(360,23)
     local receipt=phase=="Results" and not blocked and snap.players[seat].xpRecap
     if receipt and receipt.total<=0 then receipt=nil end
+    local recapHeight=0
     if receipt then
-        local height=108+self.xpRecap:start(tostring(snap.lobby)..":"..snap.round,receipt,snap.players[seat].questRecap)+65+pickHeight
+        local newRecap=self.xpRecap.key~=resultKey
+        recapHeight=self.xpRecap:start(resultKey,receipt,snap.players[seat].questRecap)
+        if self.recapScroll and newRecap then self.recapScroll.CanvasPosition=Vector2.zero end
+        local height=108+recapHeight+65+pickHeight
         self.notice.Size=UDim2.fromOffset(500,height)
         self.notice.Position=UDim2.fromOffset(470,405-height/2)
         self.note.Size=UDim2.fromOffset(454,23)
@@ -219,8 +287,7 @@ function Hud:update(snap,seat)
     self.rematch.Active=not blocked and not complete;self.rematch.Selectable=not blocked and not complete
     self.leave.Active=not blocked;self.leave.Selectable=not blocked
     self.leave.Position=UDim2.fromOffset(phase=="Waiting" and 23 or 244,109+pickHeight)
-    if mobileQueue then self.notice.Size+=UDim2.fromOffset(0,13) end
-    self.leave.Size=UDim2.fromOffset(phase=="Waiting" and 160 or 130,mobileQueue and 50 or 37)
+    self.leave.Size=UDim2.fromOffset(phase=="Waiting" and 160 or 130,37)
     self.rematch.Size=UDim2.fromOffset(receipt and 280 or 209,37)
     if receipt then
         local y=self.notice.Size.Y.Offset-51
@@ -240,8 +307,8 @@ function Hud:update(snap,seat)
         self.botLabel.Text=phase=="Results" and (rival.bot and "CHANGE DIFFICULTY" or "OR DUEL A BOT")
             or snap.private and "CHOOSE A DIFFICULTY" or "PLAY A BOT WHILE YOU WAIT"
         for i,entry in self.botButtons do
-            entry.button.Position=UDim2.fromOffset((i-1)%2*(cell+8),22+math.floor((i-1)/2)*(botHeight+4))
-            entry.button.Size=UDim2.fromOffset(cell,botHeight)
+            entry.button.Position=UDim2.fromOffset((i-1)%2*(cell+8),22+math.floor((i-1)/2)*36)
+            entry.button.Size=UDim2.fromOffset(cell,32)
             entry.button.BackgroundColor3=rival.bot==entry.level and C.purple or C.line
         end
     end
@@ -249,15 +316,7 @@ function Hud:update(snap,seat)
         self.leave.Size=UDim2.fromOffset(160,37)
         self.leave.Position=UDim2.fromOffset((self.notice.Size.X.Offset-160)/2,self.leave.Position.Y.Offset)
     end
-    if self.noticeScale then
-        local preMatch=phase=="Waiting" or phase=="Countdown"
-        self.noticeScale.Scale=preMatch and 1.18 or 1
-        if preMatch then
-            local size=self.notice.Size
-            self.notice.Position=UDim2.fromOffset(720-size.X.Offset*self.noticeScale.Scale/2,
-                math.min(389,750-size.Y.Offset*self.noticeScale.Scale))
-        end
-    end
+    if self.noticeScale then self:layoutMobileNotice(phase,pick,complete,recapHeight) end
     self.noticeHome=self.notice.Position
     self.chestRoll:update(phase=="Results" and not blocked and snap.chest or nil,not blocked)
     self:layoutResults()
@@ -283,6 +342,8 @@ function Hud:layoutResults()
     if self.chestRoll.root.Visible and self.notice.Visible then
         local wheelWidth=560*self.chestRoll.fit.Scale
         local left=(1440-self.notice.Size.X.Offset-24-wheelWidth)/2
+        -- The mobile Roblox controls sit over the upper-left of the arena.
+        if self.noticeScale then left=math.max(left,300) end
         self.notice.Position=UDim2.fromOffset(left,405-self.notice.Size.Y.Offset/2)
         self.chestRoll.origin.Position=UDim2.fromOffset(left+self.notice.Size.X.Offset+24+wheelWidth/2,405)
     elseif self.noticeHome then self.notice.Position=self.noticeHome end

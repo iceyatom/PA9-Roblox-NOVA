@@ -29,8 +29,7 @@ function Chance.new(gui,onDismiss,stage)
     local fit=Instance.new("UIScale");fit.Parent=origin;self.fit=fit
     local panel=W.box(origin,"Panel",0,0,560,620,C.panel);panel.AnchorPoint=Vector2.new(.5,.5);Style.surface(panel,16);self.panel=panel
     self.pop=Instance.new("UIScale");self.pop.Parent=panel
-    local function resize() fit.Scale=stage and .72 or math.max(.01,math.min(1.1,(root.AbsoluteSize.X-24)/560,(root.AbsoluteSize.Y-24)/620)) end
-    root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize);resize()
+    local mobile=stage and UIS.TouchEnabled
     centerText(panel,"Title",20,424,38,"Season 1 Crate",29,C.white).Font=Enum.Font.GothamBlack
     self.kicker=centerText(panel,"Kicker",65,480,26,"VICTORY ROLL",17,C.mint)
     local close=Style.button(panel,"Close",500,14,44,40,"×",false);self.closeButton=close
@@ -52,6 +51,25 @@ function Chance.new(gui,onDismiss,stage)
     self.detail=centerText(panel,"Detail",497,480,43,"Waiting for your saved result…",16,C.muted)
     self.openButton=Style.button(panel,"OpenNow",36,556,238,44,"Open now",true)
     self.continueButton=Style.button(panel,"SaveLater",286,556,238,44,"Save for later",false)
+    local function resize()
+        fit.Scale=mobile and .9 or stage and .72
+            or math.max(.01,math.min(1.1,(root.AbsoluteSize.X-24)/560,(root.AbsoluteSize.Y-24)/620))
+        if mobile then
+            local scale=math.max(.01,root.AbsoluteSize.X/1440*fit.Scale)
+            local height=math.clamp(math.ceil(44/scale),80,150)
+            local textSize=math.clamp(math.ceil(14/scale),24,38)
+            for _,button in {self.openButton,self.continueButton} do
+                button.Size=UDim2.fromOffset(button.Size.X.Offset,height)
+                button.TextSize=textSize
+                button.TextWrapped=true
+            end
+            close.Size=UDim2.fromOffset(height,height)
+            close.Position=UDim2.fromOffset(548-height,12)
+            close.TextSize=textSize
+            panel.Size=UDim2.fromOffset(560,556+height+20)
+        end
+    end
+    root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize);resize()
     self.continueButton.Activated:Connect(function() self:dismiss() end)
     self.fill=Instance.new("NumberValue");self.fill.Name="DisplayedChance";self.fill.Parent=root
     self.fill.Changed:Connect(function(value)
@@ -128,7 +146,7 @@ function Chance:finish(receipt,generation)
     self.openButton.Visible=won;self.openButton.Active=won;self.openButton.Selectable=won
     self.continueButton.Visible=true;self.continueButton.Text=won and "Save for later" or "Continue"
     self.continueButton.Position=UDim2.fromOffset(won and 286 or 36,556)
-    self.continueButton.Size=UDim2.fromOffset(won and 238 or 488,44)
+    self.continueButton.Size=UDim2.fromOffset(won and 238 or 488,self.openButton.Size.Y.Offset)
     if gamepad() and not self.docked then Gui.SelectedObject=self.continueButton end
 end
 function Chance:update(result,ready)

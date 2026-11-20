@@ -62,11 +62,14 @@ Run the local suite normally for the pure stats cases. In Studio Play, `require(
 
 ## Quests
 
-Open **Quests** in the 3D lobby (below Career stats). The launcher shows a mint badge with the number of rewards ready to claim. The menu has **Daily**, **Weekly** and **Career** tabs. Each row shows the objective, a progress bar and the reward. Click a finished quest to claim it; the server checks the claim and grants the XP.
+Open **Quests** in the 3D lobby (below Career stats). The launcher shows a mint badge with the number of rewards ready to claim. The menu has **Daily**, **Weekly**, **Career** and **Expert** tabs. Each row shows the objective, a progress bar and the reward. Click a finished quest to claim it; the server checks the claim and grants the XP.
 
 - **Daily**: three quests from a pool of eight, 250–500 XP each. They reset at 00:00 UTC.
 - **Weekly**: three quests from a pool of eight, 1,500–3,000 XP each. They reset on Monday 00:00 UTC.
-- **Career**: six quests with five tiers each, paying 500, 1,000, 2,500, 5,000 and 10,000 XP. They read lifetime career stats, so existing players keep their history. The final tier also lists an item reward as **Coming soon**; no item is granted yet.
+- **Career** has six quests, including **Cosmetic Collector**, which tracks 5, 15, 30, 60 and 100 unique non-default cosmetics already owned or acquired later.
+- **Expert** holds harder career quests, starting with **Untouchable**. Its lifetime flawless wins and claimed tiers carry over.
+
+Both career groups use five tiers paying 500, 1,000, 2,500, 5,000 and 10,000 XP. Tiers 2, 4 and 5 also grant bundles of Season 1 Crates, Double XP tokens or Double Crates tokens, as shown on each quest. Tokens are stored until activated in Class setup. A tier claim saves its inventory bundle and claimed status together.
 
 Every player gets the same daily and weekly quests, derived from the day or week number, with no two quests of the same type in one set. A finished quest that is not claimed before its reset pays out automatically, and the menu says so the next time it opens. Double XP tokens do not double quest XP. Practice does not count.
 
@@ -76,7 +79,7 @@ After a duel, the XP recap adds a **Quest progress** section with up to four que
 
 Quest progress uses the same server match event as career stats and commits in the same inventory save, so a replayed result cannot count twice. Crate openings count in the crate's own transaction. Duels now also record shots landed and wins without taking a hit (`shotsHit`, `flawlessWins`); older profiles start both at zero. Quest state is stored under `quests` in the `NOVA_Inventory_v1` profile. XP goes to the separate progression profile only after the inventory save that records the claim, so a failed save cannot pay twice; a server crash between the two saves can lose that XP.
 
-`src/shared/Quests.luau` holds the pools, goals and XP values. To give a quest an item later, set `item` on the quest or tier and grant it in `Quests.claim`'s caller. Removing a quest from a pool drops it from saved lists on the next load.
+`src/shared/Quests.luau` holds the pools, goals, XP and inventory bundles. Removing a quest from a pool drops it from saved lists on the next load.
 
 ## AI opponents
 

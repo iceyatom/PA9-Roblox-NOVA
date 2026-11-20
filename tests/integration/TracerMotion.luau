@@ -38,6 +38,25 @@ return function(playerGui)
             assert(pose(effect.root)~=effect.before,"Compact trail froze: "..effect.id)
             Batch.clear(effect.root);effect.root:Destroy();count+=1
         end
+        local cipher=Catalog.byId.tracer_cipher_green
+        local trail=root()
+        trail:SetAttribute("CompactPrism",true)
+        assert(Batch.apply(trail,cipher,"wakes"))
+        local function visibleCount(name)
+            local total=0
+            for _,node in trail.CipherEffects:GetChildren() do
+                if node.Name==name and node.Visible then total+=1 end
+            end
+            return total
+        end
+        task.wait()
+        assert(visibleCount("DataRail")==3 and visibleCount("SignalPacket")==6 and visibleCount("BinaryBit")==8)
+        player:SetAttribute("ReducedEffects",true);task.wait(.08)
+        local stationary=pose(trail);task.wait(.08)
+        assert(visibleCount("DataRail")==1 and pose(trail)==stationary)
+        player:SetAttribute("ReducedEffects",false);task.wait(.08)
+        assert(visibleCount("DataRail")==3 and pose(trail)~=stationary)
+        trail:Destroy()
         local sprite=Catalog.byId.b1_tracers_mint_circuit
         assert(Batch.tracerMode(sprite)=="sprite")
         local parent=Instance.new("Frame");parent.Size=UDim2.fromOffset(240,12);parent.Parent=host

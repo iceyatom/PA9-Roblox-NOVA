@@ -102,7 +102,7 @@ return function(t)
         local view=Q.view(state,stats,now)
         local champion=row(view.career,"Champion")
         assert(champion.tier==1 and champion.tiers==5 and champion.goal==5 and champion.complete and champion.xp==500)
-        assert(row(view.career,"Untouchable").complete and row(view.career,"Sharpshooter").progress==25)
+        assert(row(view.expert,"Untouchable").complete and row(view.career,"Sharpshooter").progress==25)
         assert(not Q.claim(state,stats,"career:c_wins:2",now))
         assert(Q.claim(state,stats,"career:c_wins:1",now) and state.claimedXP==500)
         assert(not Q.claim(state,stats,"career:c_wins:1",now) and not Q.claim(state,stats,"career:c_wins:2",now))
@@ -112,12 +112,81 @@ return function(t)
         for _,def in Q.career do
             assert(#def.tiers==5)
             for i=2,5 do assert(def.tiers[i].goal>def.tiers[i-1].goal and def.tiers[i].xp>def.tiers[i-1].xp) end
-            assert(def.tiers[5].item=="soon" and not def.tiers[4].item)
+            assert(def.tiers[2].items and def.tiers[4].items and def.tiers[5].items)
+            assert(not def.tiers[1].items and not def.tiers[3].items)
             last=def
         end
         state.career[last.id]=5
         local done=row(Q.view(state,stats,now).career,last.title)
         assert(done.claimed and not done.complete and not Q.claim(state,stats,("career:%s:6"):format(last.id),now))
+    end)
+    t.test("expert quest bundles commit once with claim state and remain stored while boosts are active",function()
+        local data=I.new()
+        for i=1,100 do assert(S.record(data.stats,event(tostring(i),"win",{flawless=true}))) end
+        data.quests.career.c_flawless=4
+        data.quests.claimedXP=9000
+        data.boosts.xp=now+600
+        data.boosts.crate=now+600
+        data.owned.token_crate_60=1000000
+        local tier=row(Q.view(data.quests,data.stats,now,data.owned).expert,"Untouchable")
+        assert(tier.complete and #tier.items==3)
+        assert(not I.claimQuest(data,tier.key,now))
+        assert(data.quests.career.c_flawless==4 and data.quests.claimedXP==9000)
+        assert(not data.owned.crate_season1 and not data.owned.token_xp_60)
+        data.owned.token_crate_60=0
+        local ok,reward=I.claimQuest(data,tier.key,now)
+        assert(ok and reward.xp==10000 and #reward.items==3)
+        assert(data.owned.crate_season1==20 and data.owned.token_xp_60==1 and data.owned.token_crate_60==1)
+        assert(data.boosts.xp==now+600 and data.boosts.crate==now+600)
+        data=assert(I.validate(data))
+        assert(not I.claimQuest(data,tier.key,now) and data.quests.claimedXP==19000 and data.owned.crate_season1==20)
+    end)
+    t.test("Untouchable keeps its career claim history and appears in the expert group and recap",function()
+        local state=hand()
+        state.career.c_flawless=1
+        state.claimedXP=500
+        state=assert(Q.validate(state))
+        local stats=S.new()
+        stats.flawlessWins=4
+        local before=Q.view(state,stats,now)
+        assert(not row(before.career,"Untouchable") and before.ready==0)
+        local expert=row(before.expert,"Untouchable")
+        assert(expert.tier==2 and expert.progress==4 and expert.goal==5 and not expert.complete)
+        stats.flawlessWins=5
+        local after=Q.view(state,stats,now)
+        local recap=Q.changes(before,after)
+        assert(after.ready==1 and #recap==1 and recap[1].kind=="career" and recap[1].title=="Untouchable")
+        assert(not Q.claim(state,stats,"career:c_flawless:1",now))
+        local ok,reward=Q.claim(state,stats,expert.key,now)
+        assert(ok and reward.xp==1000 and state.claimedXP==1500 and state.career.c_flawless==2)
+    end)
+    t.test("Cosmetic Collector uses existing unique cosmetic ownership for display and claims",function()
+        local data=I.new()
+        local ids={}
+        for _,item in require(shared.InventoryCatalog).items do
+            if not item.default and item.category~="crates" and item.category~="tokens" then
+                table.insert(ids,item.id)
+                if #ids==5 then break end
+            end
+        end
+        for i=1,4 do assert(I.grant(data,ids[i],1)) end
+        data.owned[ids[1]]=3
+        data.owned.skin_default=1
+        data.owned.crate_season1=20
+        data.owned.token_xp_30=2
+        data.owned.unknown_cosmetic=1
+        local view=Q.view(data.quests,data.stats,now,data.owned)
+        local collector=row(view.career,"Cosmetic Collector")
+        assert(collector.progress==4 and collector.goal==5 and not collector.complete)
+        assert(not Q.claim(data.quests,data.stats,collector.key,now,data.owned))
+        assert(I.grant(data,ids[5],1))
+        data=assert(I.validate(data))
+        view=Q.view(data.quests,data.stats,now,data.owned)
+        assert(row(view.career,"Cosmetic Collector").complete and view.ready==1)
+        local ok,reward=Q.claim(data.quests,data.stats,collector.key,now,data.owned)
+        assert(ok and reward.xp==500 and not Q.claim(data.quests,data.stats,collector.key,now,data.owned))
+        collector=row(Q.view(data.quests,data.stats,now,data.owned).career,"Cosmetic Collector")
+        assert(collector.tier==2 and collector.progress==5 and collector.goal==15)
     end)
     t.test("match recap lists moved quests with finished ones first",function()
         local state=hand({"d_play3","d_win1","d_shots60"},{"w_play20"})

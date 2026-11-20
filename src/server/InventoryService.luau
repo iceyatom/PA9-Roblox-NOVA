@@ -184,9 +184,9 @@ function Service:questRecap(r,event)
         if ok and not replay then Quests.record(quests,e) end
     end
     for _,queued in r.statsQueue or {} do apply(queued) end
-    local before=Quests.view(quests,stats,event.time)
+    local before=Quests.view(quests,stats,event.time,base.owned)
     apply(event)
-    return Quests.changes(before,Quests.view(quests,stats,event.time))
+    return Quests.changes(before,Quests.view(quests,stats,event.time,base.owned))
 end
 function Service:ackStats(r)
     while r.statsQueue and r.statsQueue[1] and r.data.stats.receipts[r.statsQueue[1].key] do table.remove(r.statsQueue,1) end
@@ -268,7 +268,7 @@ function Service:request(player,action,id,key)
     local ok,result=self:mutate(player,function(data)
         if action=="ackRetirements" then return Model.ackRetirements(data,id) end
         if self.canUse and not self.canUse(player) then return false,"Return to the lobby to manage your inventory." end
-        if action=="claimQuest" then return Quests.claim(data.quests,data.stats,id,os.time())
+        if action=="claimQuest" then return Model.claimQuest(data,id,os.time())
         elseif action=="claimQuestSet" then return Model.claimQuestSet(data,id,os.time())
         elseif action=="ackQuests" and id=="auto" then return Quests.ack(data.quests)
         elseif action=="checkIn" then return Model.checkIn(data,id,os.time())

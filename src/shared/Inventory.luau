@@ -7,6 +7,7 @@ local Stats=require(script.Parent.Stats)
 local Quests=require(script.Parent.Quests)
 local SeasonOne=require(script.Parent.SeasonOne)
 local Inventory={}
+local GrantStackLimit=1000000
 local function integer(n,max) return type(n)=="number" and n==n and n>=0 and n<=max and n%1==0 end
 function Inventory.new()
     return {owned={},equipped=table.clone(Catalog.defaults),favorites={},shards=0,receipts={},receiptOrder={},wins={},openSequence=0,reducedEffects=false,retirementSequence=0,
@@ -213,9 +214,28 @@ end
 function Inventory.grant(data,id,amount)
     local item=Catalog.byId[id]
     if not item or not integer(amount,1000) or amount<1 then return false,"Invalid grant." end
-    if item.category=="crates" or item.category=="tokens" then data.owned[id]=math.max(data.owned[id] or 0,math.min(1000000,(data.owned[id] or 0)+amount))
+    if item.category=="crates" or item.category=="tokens" then data.owned[id]=math.max(data.owned[id] or 0,math.min(GrantStackLimit,(data.owned[id] or 0)+amount))
     elseif not item.default then data.owned[id]=1 end
     return true
+end
+function Inventory.claimQuest(data,key,now)
+    local quests=assert(Quests.validate(data.quests))
+    local ok,reward=Quests.claim(quests,data.stats,key,now,data.owned)
+    if not ok then return false,reward end
+    if reward.items then
+        local owned=table.clone(data.owned)
+        local candidate={owned=owned}
+        for _,item in reward.items do
+            if (owned[item.id] or 0)+item.quantity>GrantStackLimit then
+                return false,"Inventory full. Use some rewards before claiming."
+            end
+            local granted,message=Inventory.grant(candidate,item.id,item.quantity)
+            if not granted then return false,message end
+        end
+        data.owned=owned
+    end
+    data.quests=quests
+    return true,reward
 end
 local function awardQuestSet(data,kind)
     local quantity=Quests.SetBonusCrates[kind]
